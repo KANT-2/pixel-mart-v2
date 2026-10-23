@@ -1,0 +1,45 @@
+﻿from fastapi import Request, status
+from fastapi.responses import JSONResponse
+
+
+class DomainError(Exception):
+    """비즈니스 규칙에서 발생하는 기본 예외."""
+
+
+class NotFoundError(DomainError):
+    """대상이 존재하지 않음."""
+
+
+class ForbiddenError(DomainError):
+    """접근 권한이 없음."""
+
+
+class InvalidStateError(DomainError):
+    """현재 상태에서 처리할 수 없음."""
+
+
+class InvalidInputError(DomainError):
+    """입력값이 비즈니스 규칙에 맞지 않음."""
+
+
+ERROR_STATUS_MAP: dict[type[DomainError], int] = {
+    NotFoundError: status.HTTP_404_NOT_FOUND,
+    ForbiddenError: status.HTTP_403_FORBIDDEN,
+    InvalidStateError: status.HTTP_400_BAD_REQUEST,
+    InvalidInputError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+}
+
+
+async def domain_error_handler(
+    _request: Request,
+    exc: DomainError,
+) -> JSONResponse:
+    """도메인 예외를 기존 API와 같은 HTTP 오류 형태로 변환."""
+    status_code = ERROR_STATUS_MAP.get(
+        type(exc),
+        status.HTTP_400_BAD_REQUEST,
+    )
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": str(exc)},
+    )
