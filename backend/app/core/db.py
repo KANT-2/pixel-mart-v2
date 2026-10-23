@@ -1,29 +1,5 @@
-from collections.abc import AsyncIterator
+﻿"""기존 app 경로와 신규 src DB 모듈의 호환성을 유지합니다."""
 
-from sqlalchemy import MetaData
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from src.database import NAMING_CONVENTION, Base, SessionLocal, engine, get_db
 
-from app.core.config import settings
-
-# 제약조건 이름 규칙 — Alembic 마이그레이션에서 이름이 매번 같게 나오도록 고정
-NAMING_CONVENTION = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-
-
-class Base(DeclarativeBase):
-    metadata = MetaData(naming_convention=NAMING_CONVENTION)
-
-
-engine = create_async_engine(settings.database_url, pool_pre_ping=True)
-SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
-
-async def get_db() -> AsyncIterator[AsyncSession]:
-    async with SessionLocal() as session:
-        yield session
+__all__ = ["Base", "NAMING_CONVENTION", "SessionLocal", "engine", "get_db"]
