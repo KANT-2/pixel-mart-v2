@@ -25,6 +25,8 @@ export interface ApiUser {
   nickname: string;
   avatarUrl: string | null;
   createdAt: string;
+  // 관리자 화면 문지기용 — 인증 API(#14) 머지 전엔 서버가 안 보낼 수 있어요
+  role?: "user" | "admin";
 }
 
 export interface ApiCartItem {
