@@ -1,5 +1,9 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
@@ -24,20 +28,46 @@ from app.routers import (
     wishlist,
 )
 from src.common.errors import DomainError, domain_error_handler
+from src.common.logging import log_requests
+from src.database import engine
 
+
+# FastAPI 서버의 시작 및 종료 과정 관리
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Uvicorn 기본 접근 로그 비활성화
+    # 쿼리스트링 노출 및 중복 로그 방지
+    logging.getLogger("uvicorn.access").disabled = True
+
+    try:
+        # 서버 시작 시 DB 연결 확인 (데이터 변경 없음)
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+
+        yield
+
+    finally:
+        # 서버 종료 시 DB 연결 자원 정리
+        await engine.dispose()
+
+
+# FastAPI 애플리케이션 생성
 app = FastAPI(
     title="PIXEL MART API",
     version="0.1.0",
-    # 프론트(3000)의 /api 프록시로도 문서를 볼 수 있게 /api 아래에 둠
+    lifespan=lifespan,
+    # 프론트(3000)의 /api 프록시에서도 문서를 볼 수 있도록 설정
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
 
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
 
 
-# 평소에는 Next.js rewrites로 같은 주소처럼 호출하지만, 8000번을 직접 부르는 경우를 위해 허용
+# 프론트엔드의 직접 API 호출을 위한 CORS 설정
+# 허용 출처는 환경변수 FRONTEND_URL에서 가져옴
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
@@ -46,7 +76,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 구글 로그인(Authlib)이 state 값을 잠깐 보관하는 용도 — 로그인 세션 자체는 pm_session 쿠키(JWT)
+
+# Google OAuth 인증 과정의 임시 세션 관리
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.jwt_secret,
@@ -55,7 +86,15 @@ app.add_middleware(
     https_only=not settings.is_local,
 )
 
-# 새 라우터는 여기에 한 줄씩 추가 (모든 API는 /api 로 시작)
+
+# HTTP 요청 로깅 미들웨어
+# 마지막에 등록하여 CORS 사전 요청을 포함한 요청을 기록
+# 메서드, 경로, 상태 코드, 처리 시간만 기록
+app.middleware("http")(log_requests)
+
+
+# 기존 API 라우터 등록
+# 모든 API 경로는 /api로 시작
 for router in (
     health.router,
     auth.router,
