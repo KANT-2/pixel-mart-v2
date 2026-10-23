@@ -1,6 +1,30 @@
+[project]
+name = "pixel-mart-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.140",
+    "uvicorn[standard]>=0.50",
+    "sqlalchemy[asyncio]>=2.0.40",
+    "asyncpg>=0.31",
+    "alembic>=1.16",
+    "pydantic-settings>=2.10",
+    "pyjwt>=2.10",
+    "authlib>=1.6",
+    "httpx>=0.28",
+    "itsdangerous>=2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.1",
+    "ruff>=0.12",
+]
+
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
