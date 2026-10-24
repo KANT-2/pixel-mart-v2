@@ -1,6 +1,8 @@
 ﻿from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
+from src.orders.domain.exceptions import OutOfStock
+
 
 class DomainError(Exception):
     """비즈니스 규칙에서 발생하는 기본 예외."""
@@ -22,7 +24,8 @@ class InvalidInputError(DomainError):
     """입력값이 비즈니스 규칙에 맞지 않음."""
 
 
-ERROR_STATUS_MAP: dict[type[DomainError], int] = {
+ERROR_STATUS_MAP: dict[type[Exception], int] = {
+    OutOfStock: status.HTTP_409_CONFLICT,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ForbiddenError: status.HTTP_403_FORBIDDEN,
     InvalidStateError: status.HTTP_400_BAD_REQUEST,
@@ -32,7 +35,7 @@ ERROR_STATUS_MAP: dict[type[DomainError], int] = {
 
 async def domain_error_handler(
     _request: Request,
-    exc: DomainError,
+    exc: Exception,
 ) -> JSONResponse:
     """도메인 예외를 기존 API와 같은 HTTP 오류 형태로 변환."""
     status_code = ERROR_STATUS_MAP.get(
