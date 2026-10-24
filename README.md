@@ -150,6 +150,21 @@ npm run dev
 
 **CI**: `main`으로 가는 PR과 `main` push마다 GitHub Actions가 위 검사를 자동으로 돌려요 (`.github/workflows/ci.yml`, PostgreSQL 16 서비스 + `alembic upgrade head` + `seed`). `tsc`가 경로 타입(`PageProps`) 오류를 내면 `npx next typegen`을 먼저 실행해요.
 
+### 배포할 때 (production) — #58
+배포 환경에서는 `backend/.env` 대신 **배포 서비스의 환경 변수 화면**에 값을 넣어요. 실제 값은 저장소 · 이슈 · Notion 어디에도 쓰지 않아요.
+
+| 이름 | 배포 값 | 안 지키면 |
+| --- | --- | --- |
+| `ENV` | `production` | 개발용 로그인(`/api/auth/dev-login`) · 개발자 API(`/api/dev/...`)가 열려 있게 돼요. production이면 둘 다 **404** |
+| `JWT_SECRET` | 32자 이상 새 비밀값 | 기본값이거나 짧으면 **서버가 시작을 거부**해요 (기본값은 공개돼 있어 토큰 위조 가능) |
+| `FRONTEND_URL` | 배포한 프론트 주소 (`https://…`) | CORS가 막히고 구글 콜백(`<FRONTEND_URL>/api/auth/google/callback`)이 틀어져요 |
+| `DATABASE_URL` | 클라우드 PostgreSQL 주소 | 비밀번호 포함 — 배포 화면에만 |
+| (프론트) `BACKEND_URL` | 배포한 백엔드 주소 | `/api/*` 전달이 안 돼요 |
+
+- production에서는 로그인 쿠키가 `secure`(https 전용)로 바뀌어요. 로그인 화면의 개발용 로그인 칸도 production 빌드에서는 안 보여요.
+- 배포 DB 준비: `uv run alembic upgrade head` → `uv run python -m scripts.seed` → `/api/health/db` 200 확인 → 관리자는 `scripts.make_admin`
+- 실제 배포(어느 서비스에 · 비용)는 팀이 정한 뒤 진행해요. 확인할 장면: 배포 주소에서 로그인 → `/me` 200 → 로그아웃 → **같은 토큰 401**
+
 ## 8. DB 준비
 ```powershell
 # Docker를 쓸 때 (저장소 루트). 설치형 PostgreSQL이면 건너뛰기
