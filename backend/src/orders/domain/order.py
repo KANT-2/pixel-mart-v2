@@ -3,6 +3,15 @@ from dataclasses import dataclass
 FREE_SHIPPING_MINIMUM = 30_000
 SHIPPING_FEE = 3_000
 
+STATUS_LABELS = {
+    "paid": "주문 완료",
+    "preparing": "상품 준비중",
+    "shipping": "배송중",
+    "delivered": "배송 완료",
+    "cancel_requested": "취소 요청",
+    "cancelled": "취소 완료",
+}
+
 
 @dataclass(frozen=True)
 class OrderItem:

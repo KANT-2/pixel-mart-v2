@@ -9,10 +9,14 @@ from app.core.db import engine
 from app.services.orders import CannotAdvanceError, next_status
 
 BODY = {"recipientName": "홍길동", "address": "서울시 마포구 픽셀로 8"}
+PRODUCT_A = 0
+PRODUCT_B = 0
 
 
 @pytest.fixture(autouse=True)
-async def require_db():
+async def require_db(test_products):
+    global PRODUCT_A, PRODUCT_B
+    PRODUCT_A, PRODUCT_B = test_products
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1 FROM orders LIMIT 1"))
@@ -37,11 +41,11 @@ async def test_create_order_requires_login(client):
     assert res.status_code == 401
 
 
-async def test_empty_cart_is_400(client):
+async def test_empty_cart_is_409(client):
     await login(client, "orders1@pixelmart.test")
     res = await client.post("/api/orders", json=BODY)
-    assert res.status_code == 400
-    assert res.json()["detail"] == "장바구니가 비어 있습니다."
+    assert res.status_code == 409
+    assert res.json()["detail"] == "장바구니가 비어 있어요."
 
 
 @pytest.mark.parametrize(
@@ -55,7 +59,7 @@ async def test_empty_cart_is_400(client):
 )
 async def test_invalid_recipient_is_422(client, body):
     await login(client, "orders2@pixelmart.test")
-    await client.post("/api/cart/items", json={"productId": 1, "quantity": 1})
+    await client.post("/api/cart/items", json={"productId": PRODUCT_A, "quantity": 1})
     res = await client.post("/api/orders", json=body)
     assert res.status_code == 422
     # 실패한 주문은 장바구니를 건드리지 않는다
@@ -64,46 +68,51 @@ async def test_invalid_recipient_is_422(client, body):
 
 async def test_create_order_from_cart_and_empty_it(client):
     await login(client, "orders3@pixelmart.test")
-    await client.post("/api/cart/items", json={"productId": 1, "quantity": 2})
-    await client.post("/api/cart/items", json={"productId": 2, "quantity": 1})
-    price1 = (await client.get("/api/products/1")).json()["price"]
-    price2 = (await client.get("/api/products/2")).json()["price"]
+    await client.post("/api/cart/items", json={"productId": PRODUCT_A, "quantity": 2})
+    await client.post("/api/cart/items", json={"productId": PRODUCT_B, "quantity": 1})
+    price1 = (await client.get(f"/api/products/{PRODUCT_A}")).json()["price"]
+    price2 = (await client.get(f"/api/products/{PRODUCT_B}")).json()["price"]
 
     res = await client.post("/api/orders", json=BODY)
     order = res.json()
     assert res.status_code == 201
     assert order["status"] == "paid"
-    assert order["totalPrice"] == price1 * 2 + price2
+    items_price = price1 * 2 + price2
+    shipping_fee = 0 if items_price >= 30_000 else 3_000
+    assert order["itemsPrice"] == items_price
+    assert order["shippingFee"] == shipping_fee
+    assert order["totalPrice"] == items_price + shipping_fee
+    assert order["statusLabel"] == "주문 완료"
     assert order["recipientName"] == "홍길동"
     assert [(i["product"]["id"], i["quantity"], i["unitPrice"]) for i in order["items"]] == [
-        (1, 2, price1),
-        (2, 1, price2),
+        (PRODUCT_A, 2, price1),
+        (PRODUCT_B, 1, price2),
     ]
     assert (await client.get("/api/cart")).json()["totalQuantity"] == 0
 
 
 async def test_order_keeps_price_when_product_price_changes(client):
     await login(client, "orders4@pixelmart.test")
-    await client.post("/api/cart/items", json={"productId": 1, "quantity": 1})
-    price = (await client.get("/api/products/1")).json()["price"]
+    await client.post("/api/cart/items", json={"productId": PRODUCT_A, "quantity": 1})
+    price = (await client.get(f"/api/products/{PRODUCT_A}")).json()["price"]
     order_id = (await client.post("/api/orders", json=BODY)).json()["id"]
 
     try:
         async with engine.begin() as conn:
-            await conn.execute(text("UPDATE products SET price = price + 1000 WHERE id = 1"))
+            await conn.execute(text("UPDATE products SET price = price + 1000 WHERE id = :id"), {"id": PRODUCT_A})
         async with engine.connect() as conn:
             saved = await conn.scalar(text("SELECT unit_price FROM order_items WHERE order_id = :id"), {"id": order_id})
     finally:
         async with engine.begin() as conn:  # 다른 테스트에 영향이 없게 원래 가격으로 복구
-            await conn.execute(text("UPDATE products SET price = :p WHERE id = 1"), {"p": price})
+            await conn.execute(text("UPDATE products SET price = :p WHERE id = :id"), {"p": price, "id": PRODUCT_A})
 
     assert saved == price
 
 
-async def place_order(client: AsyncClient, email: str, product_ids: tuple[int, ...] = (1,)) -> dict:
+async def place_order(client: AsyncClient, email: str, product_ids: tuple[int, ...] | None = None) -> dict:
     """로그인 → 장바구니에 담기 → 주문하고, 주문 응답을 돌려준다"""
     await login(client, email)
-    for product_id in product_ids:
+    for product_id in product_ids or (PRODUCT_A,):
         await client.post("/api/cart/items", json={"productId": product_id, "quantity": 1})
     res = await client.post("/api/orders", json=BODY)
     assert res.status_code == 201
@@ -127,8 +136,8 @@ async def test_list_orders_requires_login(client):
 
 
 async def test_list_orders_newest_first_with_summary(client):
-    first = await place_order(client, "orders5@pixelmart.test", (1, 2))
-    second = await place_order(client, "orders5@pixelmart.test", (3,))
+    first = await place_order(client, "orders5@pixelmart.test", (PRODUCT_A, PRODUCT_B))
+    second = await place_order(client, "orders5@pixelmart.test", (PRODUCT_B,))
 
     res = await client.get("/api/orders")
     body = res.json()

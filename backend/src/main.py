@@ -40,7 +40,8 @@ from src.auth.presentation import router as auth_api
 from src.common.errors import DomainError, domain_error_handler
 from src.common.logging import log_requests
 from src.database import engine
-from src.orders.domain.exceptions import OutOfStock
+from src.orders.domain.exceptions import EmptyCart, OutOfStock
+from src.orders.presentation import router as orders_api
 
 
 # FastAPI 서버의 시작 및 종료 과정 관리
@@ -75,7 +76,8 @@ app = FastAPI(
 
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
-app.add_exception_handler(OutOfStock, domain_error_handler)
+for order_error in (EmptyCart, OutOfStock):
+    app.add_exception_handler(order_error, domain_error_handler)
 for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken, LoginFailed, EmailTaken, NicknameTaken):
     app.add_exception_handler(auth_error, domain_error_handler)
 
@@ -115,7 +117,6 @@ for router in (
     products.router,
     faqs.router,
     cart.router,
-    orders.router,
     orders.dev_router,
     cancel_requests.router,
     cancel_requests.dev_router,
@@ -138,3 +139,4 @@ for router in (
 # 새 4계층 라우터 등록
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
+app.include_router(orders_api.router, prefix="/api")
