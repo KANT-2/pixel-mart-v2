@@ -10,12 +10,15 @@ from app.core.db import engine
 from app.services.reviews import round_average
 
 BODY = {"recipientName": "홍길동", "address": "서울시 마포구 픽셀로 8"}
-PRODUCT = 2  # 이 파일의 테스트는 모두 이 상품(과 아래 OTHER)만 쓴다
-OTHER = 3
+# 이 파일의 테스트는 모두 테스트 전용 상품 두 개만 써요 (conftest의 test_products — 시연용 리뷰와 섞이지 않게)
+PRODUCT = 0
+OTHER = 0
 
 
 @pytest.fixture(autouse=True)
-async def require_db():
+async def require_db(test_products):
+    global PRODUCT, OTHER
+    PRODUCT, OTHER = test_products
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1 FROM reviews LIMIT 1"))
@@ -35,8 +38,9 @@ async def login(client: AsyncClient, email: str) -> None:
         await client.delete(f"/api/cart/items/{item['product']['id']}")
 
 
-async def buy(client: AsyncClient, email: str, product_id: int = PRODUCT, advance: int = 3) -> int:
+async def buy(client: AsyncClient, email: str, product_id: int | None = None, advance: int = 3) -> int:
     """로그인 → 상품 주문 → 배송을 advance번 진행(3이면 배송 완료)하고 주문 번호를 돌려준다"""
+    product_id = product_id or PRODUCT
     await login(client, email)
     await client.post("/api/cart/items", json={"productId": product_id, "quantity": 1})
     order_id = (await client.post("/api/orders", json=BODY)).json()["id"]
@@ -45,8 +49,8 @@ async def buy(client: AsyncClient, email: str, product_id: int = PRODUCT, advanc
     return order_id
 
 
-def url(product_id: int = PRODUCT) -> str:
-    return f"/api/products/{product_id}/reviews"
+def url(product_id: int | None = None) -> str:
+    return f"/api/products/{product_id or PRODUCT}/reviews"
 
 
 def review(rating: int = 5, content: str = "키감이 좋아요") -> dict:
