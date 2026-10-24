@@ -30,7 +30,10 @@ async def require_db():
         )
         # 취소 알림(cancel_approved/cancel_rejected)의 ref_key는 신청 번호가 달라져 중복 방지에 안 걸리므로 직접 지운다
         await conn.execute(
-            text("DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'cancel%@pixelmart.test')")
+            text(
+                "DELETE FROM notifications WHERE user_id IN "
+                "(SELECT id FROM users WHERE email LIKE 'cancel%@pixelmart.test')"
+            )
         )
 
 
