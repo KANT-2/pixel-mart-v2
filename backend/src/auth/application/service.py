@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
 from src.auth.domain.account import Account, check_password, normalize_email
@@ -19,6 +19,7 @@ class Users(Protocol):
 class Blacklist(Protocol):
     async def add(self, jti: str, expires_at: datetime) -> None: ...
     async def contains(self, jti: str) -> bool: ...
+    async def delete_expired(self, now: datetime) -> int: ...
 
 
 class Transaction(Protocol):
@@ -70,3 +71,13 @@ class AuthService:
 
     async def is_revoked(self, jti: str) -> bool:
         return await self.blacklist.contains(jti)
+
+    async def purge_expired_blacklist(self, now: datetime | None = None) -> int:
+        """이미 만료된 토큰의 블랙리스트 줄을 지우고 지운 개수를 돌려준다 (만료 전 줄은 그대로)"""
+        try:
+            removed = await self.blacklist.delete_expired(now or datetime.now(UTC))
+            await self.tx.commit()
+        except Exception:
+            await self.tx.rollback()
+            raise
+        return removed

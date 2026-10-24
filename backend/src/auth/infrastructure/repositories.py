@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,3 +100,8 @@ class TokenBlacklistRepository:
     async def contains(self, jti: str) -> bool:
         query = select(TokenBlacklist.id).where(TokenBlacklist.jti == jti).limit(1)
         return await self.session.scalar(query) is not None
+
+    async def delete_expired(self, now: datetime) -> int:
+        # 도메인 규칙(can_forget_blacklisted)과 같은 기준: 만료 시각이 now보다 "이전"인 줄만
+        result = await self.session.execute(delete(TokenBlacklist).where(TokenBlacklist.expires_at < now))
+        return result.rowcount or 0

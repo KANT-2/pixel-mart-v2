@@ -54,6 +54,12 @@ class FakeBlacklist:
     async def contains(self, jti):
         return jti in self.jtis
 
+    async def delete_expired(self, now):
+        old = [j for j, exp in self.jtis.items() if exp < now]
+        for j in old:
+            del self.jtis[j]
+        return len(old)
+
 
 class FakeTx:
     def __init__(self) -> None:
@@ -234,3 +240,34 @@ async def test_db_repository_maps_role(db):
         account = await UserRepository(session).get_by_email(f"AUTH-{tag}-admin@pixelmart.test")
     assert account is not None
     assert account.is_admin
+
+
+async def test_purge_removes_only_expired_and_commits(fake):
+    service, _, tx = fake
+    now = datetime(2026, 10, 24, tzinfo=UTC)
+    await service.blacklist.add("old1", now - timedelta(days=1))
+    await service.blacklist.add("old2", now - timedelta(seconds=1))
+    await service.blacklist.add("live", now + timedelta(days=7))
+    assert await service.purge_expired_blacklist(now) == 2
+    assert await service.is_revoked("live")
+    assert not await service.is_revoked("old1")
+    assert tx.commits == 1
+    assert await service.purge_expired_blacklist(now) == 0  # 지울 게 없어도 오류 없음
+
+
+async def test_db_purge_keeps_unexpired_rows(db):
+    sessions, tag = db
+    # 아주 옛날 시각을 기준으로 써서 이 테스트가 넣은 줄만 대상이 되게
+    now = datetime(2000, 1, 1, tzinfo=UTC)
+    rows = {
+        f"{tag}-old1": now - timedelta(days=2),
+        f"{tag}-old2": now - timedelta(hours=1),
+        f"{tag}-live": now + timedelta(days=1),
+    }
+    async with sessions() as session:
+        service = service_for(session)
+        for jti, exp in rows.items():
+            await service.logout(IssuedToken(user_id=1, jti=jti, expires_at=exp))
+        assert await service.purge_expired_blacklist(now) == 2
+        assert await service.is_revoked(f"{tag}-live")
+        assert not await service.is_revoked(f"{tag}-old1")
