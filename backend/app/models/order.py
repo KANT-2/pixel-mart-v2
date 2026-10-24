@@ -16,6 +16,7 @@ class Order(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(20), default="paid")
+    shipping_fee: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     total_price: Mapped[int] = mapped_column(Integer)  # 원 단위
     recipient_name: Mapped[str] = mapped_column(String(50))
     address: Mapped[str] = mapped_column(String(200))

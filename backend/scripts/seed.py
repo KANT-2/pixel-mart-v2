@@ -46,7 +46,8 @@ async def main() -> None:
                 "description": p["description"],
                 "is_new": p.get("isNew", False),
             }
-            stmt = insert(Product).values(**values)
+            # 재실행해도 주문으로 줄어든 기존 재고는 보존한다.
+            stmt = insert(Product).values(**values, stock=30)
             await db.execute(stmt.on_conflict_do_update(index_elements=[Product.id], set_=values))
 
         # id를 직접 넣었으므로 다음 자동 번호를 최대값 뒤로 맞춤

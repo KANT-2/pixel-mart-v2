@@ -20,6 +20,7 @@ class Product(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
+    stock: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
     price: Mapped[int] = mapped_column(Integer)
     category_slug: Mapped[str] = mapped_column(ForeignKey("categories.slug"), index=True)
     image_url: Mapped[str] = mapped_column(String(300))

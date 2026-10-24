@@ -11,6 +11,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
+    role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")
+    password_hash: Mapped[str | None] = mapped_column(Text)
     google_sub: Mapped[str | None] = mapped_column(String(255), unique=True)  # 구글 계정 고유 ID
     nickname: Mapped[str] = mapped_column(String(30))
     avatar_url: Mapped[str | None] = mapped_column(Text)  # 픽셀 아바타 (브라우저에서 변환한 작은 PNG data URL)
