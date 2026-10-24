@@ -58,9 +58,7 @@ class TokenBlacklistRepository:
     async def add(self, jti: str, expires_at: datetime) -> None:
         # 같은 토큰으로 두 번 로그아웃해도 오류 없이 그대로 둔다
         query = (
-            insert(TokenBlacklist)
-            .values(jti=jti, expires_at=expires_at)
-            .on_conflict_do_nothing(index_elements=["jti"])
+            insert(TokenBlacklist).values(jti=jti, expires_at=expires_at).on_conflict_do_nothing(index_elements=["jti"])
         )
         await self.session.execute(query)
 

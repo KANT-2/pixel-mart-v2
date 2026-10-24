@@ -71,7 +71,7 @@ async def signup_via_google(client, monkeypatch, info: dict, nickname: str | Non
     res = await client.get("/api/auth/google/callback", params={"code": "x", "state": "y"})
     assert res.status_code == 302 and res.headers["location"] == f"{settings.frontend_url}/signup"
     assert "pm_session" not in res.cookies and "pm_signup" in res.cookies
-    return await client.post("/api/auth/signup", json={"nickname": nickname or info["name"]})
+    return await client.post("/api/auth/google/signup", json={"nickname": nickname or info["name"]})
 
 
 async def test_new_google_user_picks_nickname_before_account_exists(client, google_configured, monkeypatch):
@@ -82,14 +82,14 @@ async def test_new_google_user_picks_nickname_before_account_exists(client, goog
     assert (await client.get("/api/auth/me")).status_code == 401
     async with engine.connect() as conn:
         assert await conn.scalar(text("SELECT count(*) FROM users WHERE google_sub = :s"), {"s": info["sub"]}) == 0
-    pending = (await client.get("/api/auth/signup")).json()
+    pending = (await client.get("/api/auth/google/signup")).json()
     assert pending == {"email": info["email"], "googleName": info["name"]}
 
-    res = await client.post("/api/auth/signup", json={"nickname": "  " + info["name"] + " "})
+    res = await client.post("/api/auth/google/signup", json={"nickname": "  " + info["name"] + " "})
     assert res.status_code == 201
     me = (await client.get("/api/auth/me")).json()
     assert (me["email"], me["nickname"]) == (info["email"], info["name"])
-    assert (await client.get("/api/auth/signup")).status_code == 404  # 대기 쿠키는 지워짐
+    assert (await client.get("/api/auth/google/signup")).status_code == 404  # 대기 쿠키는 지워짐
 
 
 async def test_signup_with_taken_nickname_is_409_and_can_retry(client, google_configured, monkeypatch):
@@ -102,13 +102,13 @@ async def test_signup_with_taken_nickname_is_409_and_can_retry(client, google_co
     assert res.status_code == 409 and res.json()["detail"] == "이미 사용 중인 닉네임입니다."
     assert (await client.get("/api/auth/me")).status_code == 401
     suggestion = (await client.get("/api/users/nickname-check", params={"nickname": taken["name"]})).json()
-    res = await client.post("/api/auth/signup", json={"nickname": suggestion["suggestions"][0]})
+    res = await client.post("/api/auth/google/signup", json={"nickname": suggestion["suggestions"][0]})
     assert res.status_code == 201 and res.json()["nickname"] == suggestion["suggestions"][0]
 
 
 async def test_signup_without_google_step_is_404(client):
-    assert (await client.get("/api/auth/signup")).status_code == 404
-    assert (await client.post("/api/auth/signup", json={"nickname": "아무나"})).status_code == 404
+    assert (await client.get("/api/auth/google/signup")).status_code == 404
+    assert (await client.post("/api/auth/google/signup", json={"nickname": "아무나"})).status_code == 404
 
 
 async def test_callback_existing_user_logs_in_without_duplicate(client, google_configured, monkeypatch):

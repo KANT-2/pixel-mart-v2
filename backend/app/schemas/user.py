@@ -13,6 +13,7 @@ class UserOut(CamelModel):
     nickname: str
     avatar_url: str | None
     created_at: datetime
+    role: str = "user"  # 관리자 화면 문지기용 (user | admin)
 
 
 class DevLoginIn(CamelModel):

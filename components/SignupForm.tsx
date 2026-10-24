@@ -23,7 +23,7 @@ export default function SignupForm() {
 
   useEffect(() => {
     const controller = new AbortController();
-    api.get<ApiSignupPending>("/auth/signup", { cache: "no-store", signal: controller.signal })
+    api.get<ApiSignupPending>("/auth/google/signup", { cache: "no-store", signal: controller.signal })
       .then((data) => { setPending(data); setText(data.googleName); })
       .catch(() => { if (!controller.signal.aborted) setMissing(true); });
     return () => controller.abort();
@@ -35,7 +35,7 @@ export default function SignupForm() {
     if (lock.current || busy || status !== "available") return;
     lock.current = true; setBusy(true); setError(null);
     try {
-      const user = await api.post<ApiUser>("/auth/signup", { nickname });
+      const user = await api.post<ApiUser>("/auth/google/signup", { nickname });
       updateUser(user);
       await refresh();
       router.replace("/");

@@ -8,15 +8,13 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import (
     SIGNUP_COOKIE,
-    clear_session_cookie,
     create_signup_token,
     decode_signup_token,
     set_session_cookie,
     set_signup_cookie,
 )
-from app.deps import CurrentUser, DbSession
+from app.deps import DbSession
 from app.models import User
-from app.schemas.common import Message
 from app.schemas.user import AuthProvidersOut, DevLoginIn, SignupIn, SignupPendingOut, UserOut
 from app.services.google_auth import find_google_user, google_callback_url, oauth, verified_google_info
 from app.services.nickname import TAKEN_MESSAGE, is_taken
@@ -40,7 +38,7 @@ async def google_login(request: Request):
     return await oauth.google.authorize_redirect(request, google_callback_url())
 
 
-@router.get("/google/callback", summary="구글 로그인 완료 → 기존 회원은 메인, 새 사용자는 닉네임 고르기(/signup)")
+@router.get("/google/callback", summary="구글 로그인 완료 → 기존 회원은 메인, 새 사용자는 닉네임 고르기(/signup 화면)")
 async def google_callback(request: Request, db: DbSession):
     """실패하면 쿠키 없이 메인으로 보내고 `?loginError=google`로 알린다.
     새 사용자는 계정을 바로 만들지 않고, 닉네임을 직접 고를 때까지 15분짜리 가입 대기 쿠키만 준다."""
@@ -68,14 +66,21 @@ def _pending(token: str | None) -> dict:
 
 
 @router.get(
-    "/signup", response_model=SignupPendingOut, summary="가입 대기 정보 (구글 이메일·구글 이름) — 닉네임 고르기 화면용"
+    "/google/signup",
+    response_model=SignupPendingOut,
+    summary="가입 대기 정보 (구글 이메일·구글 이름) — 닉네임 고르기 화면용",
 )
 async def signup_pending(signup: Annotated[str | None, Cookie(alias=SIGNUP_COOKIE)] = None):
     payload = _pending(signup)
     return SignupPendingOut(email=payload["email"], google_name=payload["name"])
 
 
-@router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED, summary="닉네임을 골라 가입 완료")
+@router.post(
+    "/google/signup",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="구글 가입: 닉네임을 골라 가입 완료",
+)
 async def signup(
     body: SignupIn,
     response: Response,
@@ -116,15 +121,4 @@ async def dev_login(body: DevLoginIn, response: Response, db: DbSession):
         await db.refresh(user)
 
     set_session_cookie(response, user.id)
-    return user
-
-
-@router.post("/logout", response_model=Message)
-async def logout(response: Response):
-    clear_session_cookie(response)
-    return Message(message="로그아웃되었습니다.")
-
-
-@router.get("/me", response_model=UserOut)
-async def me(user: CurrentUser):
     return user
