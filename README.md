@@ -1,5 +1,7 @@
 # 👾 PIXEL MART
 
+[![CI](https://github.com/KANT-2/pixel-mart-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/KANT-2/pixel-mart-v2/actions/workflows/ci.yml)
+
 > **일상에 아이템을 장착하세요.**
 > 게임을 좋아하는 사람을 위한 픽셀아트 게이밍 데스크 소품 쇼핑몰 + 같은 취향의 동네 이웃과 아이템을 주고받는 **PIXEL LOCAL**
 
@@ -145,6 +147,8 @@ npm run dev
 | --- | --- |
 | `uv run ruff check .` · `uv run pytest --ignore=tests/test_seed_demo.py` · `uv run alembic heads` | `backend/` |
 | `npm run lint` · `npx tsc --noEmit` · `npm test` · `npm run build` | 저장소 루트 |
+
+**CI**: `main`으로 가는 PR과 `main` push마다 GitHub Actions가 위 검사를 자동으로 돌려요 (`.github/workflows/ci.yml`, PostgreSQL 16 서비스 + `alembic upgrade head` + `seed`). `tsc`가 경로 타입(`PageProps`) 오류를 내면 `npx next typegen`을 먼저 실행해요.
 
 ## 8. DB 준비
 ```powershell

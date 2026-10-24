@@ -1,0 +1,73 @@
+# PR마다 프론트·백엔드 검사를 자동으로 돌려요 (#56)
+# 비밀값은 쓰지 않아요 — 구글·Cloudflare 키가 없으면 그 기능만 꺼지고, DB는 아래 서비스 컨테이너를 써요.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 같은 브랜치에 새로 push하면 이전 실행은 취소
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend (lint · tsc · test · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # PageProps 같은 경로 타입은 Next가 만들어 줘야 tsc가 알아요
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    name: backend (ruff · alembic · pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pixelmart
+          POSTGRES_PASSWORD: pixelmart
+          POSTGRES_DB: pixelmart
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pixelmart"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ENV: local
+      # CI 전용 테스트 DB (실제 서버 값 아님)
+      DATABASE_URL: postgresql+asyncpg://pixelmart:pixelmart@localhost:5432/pixelmart
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else-32chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv python install 3.13
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run alembic upgrade head
+      - run: uv run python -m scripts.seed
+      - run: uv run pytest --ignore=tests/test_seed_demo.py
