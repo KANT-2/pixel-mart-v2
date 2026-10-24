@@ -11,14 +11,17 @@ from app.core.db import engine
 from app.main import app
 from app.schemas.question import is_hidden
 
-PRODUCT = 2
-OTHER = 3
+# 테스트 전용 상품 두 개 (conftest의 test_products — 시연용 문의와 섞이지 않게)
+PRODUCT = 0
+OTHER = 0
 AUTHOR = "question1@pixelmart.test"
 VISITOR = "question2@pixelmart.test"
 
 
 @pytest.fixture(autouse=True)
-async def require_db():
+async def require_db(test_products):
+    global PRODUCT, OTHER
+    PRODUCT, OTHER = test_products
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1 FROM product_questions LIMIT 1"))
@@ -46,8 +49,8 @@ async def login(client: AsyncClient, email: str) -> None:
     assert res.status_code == 200
 
 
-def url(product_id: int = PRODUCT) -> str:
-    return f"/api/products/{product_id}/questions"
+def url(product_id: int | None = None) -> str:
+    return f"/api/products/{product_id or PRODUCT}/questions"
 
 
 async def ask(client: AsyncClient, title: str = "구성이 궁금해요", content: str = "구성품 알려 주세요", secret=False):

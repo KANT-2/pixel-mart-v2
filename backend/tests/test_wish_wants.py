@@ -4,6 +4,7 @@
 """
 
 import json
+import uuid
 from contextlib import AsyncExitStack
 
 import pytest
@@ -20,6 +21,8 @@ TEST_REGIONS = [
     ("WSW1-02", "zone", "WSW1", "나동"),
 ]
 PRODUCT = 3
+# 닉네임 검색 테스트용 — 시연용 이웃(예: 데모 '픽셀곰')과 닉네임이 겹치지 않게 실행마다 다른 꼬리표
+TAG = uuid.uuid4().hex[:4]
 
 
 @pytest.fixture
@@ -87,16 +90,17 @@ async def test_author_only_for_opted_in_authors(users):
 
 
 async def test_nickname_search_matches_only_opted_in_authors(users):
-    await post(await users("픽셀곰", public=True))
-    await post(await users("픽셀곰비밀"))  # 동의 안 함 → 검색에 안 나옴
-    viewer = await users("구경꾼")
+    bear, secret, merchant = f"픽셀곰{TAG}", f"픽셀곰{TAG}비밀", f"픽셀상인{TAG}"
+    await post(await users(bear, public=True))
+    await post(await users(secret))  # 동의 안 함 → 검색에 안 나옴
+    viewer = await users(f"구경꾼{TAG}")
 
-    assert [r["author"]["nickname"] for r in await wants(viewer, nickname="픽셀곰")] == ["픽셀곰"]
+    assert [r["author"]["nickname"] for r in await wants(viewer, nickname=bear)] == [bear]
     assert await wants(viewer, nickname="%") == []  # LIKE 와일드카드는 글자 그대로
     # 거래·교환 탭: 동의한 이웃의 HAVE·SELL도 닉네임으로 찾는다
-    seller = await users("픽셀상인", public=True)
+    seller = await users(merchant, public=True)
     have = await post(seller, kind="have", name="교환할 키캡", product=None)
-    res = await viewer.get("/api/local/trades", params=[("nickname", "픽셀상인"), ("kind", "have"), ("kind", "sell")])
+    res = await viewer.get("/api/local/trades", params=[("nickname", merchant), ("kind", "have"), ("kind", "sell")])
     assert [r["id"] for r in res.json()["items"]] == [have]
     res = await viewer.get("/api/local/trades", params={"nickname": "x" * 31})
     assert res.status_code == 422

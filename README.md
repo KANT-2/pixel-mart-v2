@@ -215,7 +215,7 @@ uv run python -m scripts.make_admin 이메일        # 관리자 만들기 (먼�
 | 결제 | 가상 주문 (실제 결제 없음) | |
 | 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
 | 배포 · CI | 로컬 개발 전용, CI 없음 (추가 퀘스트) | 🧭 |
-| 알려진 문제 | `npx tsc --noEmit`에서 `app/admin/layout.tsx` 경로 타입 오류 1건 · 공유 DB에 발표용 데이터가 있으면 리뷰 · 문의 테스트 일부 실패 | |
+| 알려진 문제 | 처음 clone한 뒤 `npx tsc --noEmit`이 `PageProps` 오류를 내면 `npx next typegen`을 먼저 (경로 타입 생성) | |
 
 ---
 
