@@ -4,6 +4,7 @@ import Link from "next/link";
 import AvatarShortcut from "@/components/avatar/AvatarShortcut";
 import NicknameEditor from "@/components/profile/NicknameEditor";
 import BadgeBook from "@/components/profile/BadgeBook";
+import LoginRequiredNotice from "@/components/LoginRequiredNotice";
 
 export const metadata: Metadata = { title: "마이페이지 | PIXEL MART" };
 
@@ -12,6 +13,7 @@ export default function MyPage() {
     <p className="stage-kicker mb-3 font-pixel text-mint">MY PLAYER</p>
     <h1 className="mb-4 text-3xl font-extrabold">마이페이지</h1>
     <p className="mb-8 text-sub">내 프로필과 활동 뱃지를 모아 보세요.</p>
+    <LoginRequiredNotice next="/mypage" message="로그인하면 내 프로필·주문·선물·찜을 볼 수 있어요." />
     <NicknameEditor />
     <AvatarShortcut />
     <BadgeBook />

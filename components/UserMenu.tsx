@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ApiError } from "@/lib/api";
@@ -9,7 +10,9 @@ import PixelAvatar from "@/components/avatar/PixelAvatar";
 interface UserMenuProps { compact?: boolean; }
 
 export default function UserMenu({ compact = false }: UserMenuProps) {
-  const { user, loading, pending, error, refresh, logout } = useAuth();
+  const { user, loading, pending, error, notice, refresh, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
@@ -28,7 +31,7 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
 
   async function handleLogout() {
     setLogoutError(null);
-    try { await logout(); setOpen(false); }
+    try { await logout(); setOpen(false); router.push("/"); }
     catch (cause) { setLogoutError(cause instanceof ApiError ? cause.message : "로그아웃하지 못했어요. 다시 시도해 주세요."); }
   }
 
@@ -64,6 +67,10 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
           {logoutError && <p role="alert" className="px-3 py-2 text-sm text-pink">{logoutError}</p>}
         </div>
       )}
+      {notice && !loading && !user && pathname !== "/login" && <div role="alert" className="absolute right-0 top-12 z-50 w-60 pixel-panel p-3 text-sm">
+        <p className="font-semibold text-pink">{notice}</p>
+        <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="mt-2 inline-block underline">로그인하러 가기</Link>
+      </div>}
       {error && !loading && <div className="absolute right-0 top-12 w-60 pixel-panel p-3 text-sm text-sub">
         <p role="status">{error}</p><button type="button" onClick={() => void refresh()} className="mt-2 underline">다시 확인</button>
       </div>}
