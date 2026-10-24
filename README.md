@@ -5,102 +5,237 @@
 
 ![PIXEL MART 메인 화면](docs/screenshots/v2/main.png)
 
-## 프로젝트 소개
+**2차 프로젝트 (2026.10.23 ~ 10.28)**: 1차에서 인수한 PIXEL MART를 **FastAPI 4계층 백엔드**로 다시 세우고, 네 명이 각자 Use Case 하나를 화면부터 DB까지 끝까지 만들었어요.
+
+## 목차
+1. [서비스 소개](#1-서비스-소개)
+2. [팀 · 역할](#2-팀--역할)
+3. [인수 기준](#3-인수-기준)
+4. [개발 방향과 변경 전·후](#4-개발-방향과-변경-전후)
+5. [기존 app/ vs 이번 src/](#5-기존-app-vs-이번-src)
+6. [4계층 구조도 · 요청 흐름](#6-4계층-구조도--요청-흐름)
+7. [실행 (uv) · 환경 변수](#7-실행-uv--환경-변수)
+8. [DB 준비](#8-db-준비)
+9. [개인별 Use Case](#9-개인별-use-case)
+10. [미완료 · Mock 목록](#10-미완료--mock-목록)
+11. [부록: 1차 결과물](#부록-1차-결과물)
+
+## 1. 서비스 소개
 | 항목 | 내용 |
 | --- | --- |
-| 팀명 | 더쿠하시조 (4인) |
-| 기간 | 2026.10.07 ~ 2026.10.13 (10/13 발표) · 1차 화면(UI) → 2차 백엔드·PIXEL LOCAL |
-| Use Case | **디지털/IT 기기 샵** → 키캡 · 장패드 · 무드등 같은 게이밍 데스크 소품으로 변형 |
+| 한 줄 | **취향 기반 커뮤니티 커머스**: 쇼핑으로 아이템을 "장착"하고, PIXEL LOCAL에서 같은 동네 덕후를 발견해 주고받고, 그 활동이 하트·뱃지로 쌓여 신뢰가 돼요 |
 | 대상 | 게임·서브컬처를 좋아하는 20~30대, 책상을 꾸미고 굿즈를 모으는 사람 |
 | 콘셉트 | 다크 아케이드 · 8비트 픽셀아트 · 연두 네온 포인트 · 게임 HUD(하트·코인·퀘스트) |
-| 서비스 한 줄 | **취향 기반 커뮤니티 커머스** — 쇼핑으로 아이템을 "장착"하고, PIXEL LOCAL에서 우리 동네의 같은 덕후를 **발견**하고, 안전하게 주고받아 **연결**되고, 그 활동이 하트·뱃지로 쌓여 **신뢰**가 됩니다 |
+| 쇼핑 | 상품 검색·정렬·필터, 상품 상세(리뷰·문의), 찜, 장바구니, **가상 주문(재고·배송비)**, 배송 단계·취소 |
+| 플레이어 | **이메일 가입·로그인**, 구글 로그인, 픽셀 아바타, 뱃지 도감 |
+| PIXEL LOCAL | 덕력지도 · 위시맵 · 거래·교환 · 이웃 선물 |
+| 관리자 | **주문 배송 단계·취소 처리**, **상품 문의 답변**, 회원 목록 |
+| 범위 밖 | 실제 결제, 배포(로컬 개발 전용), 데스크 꾸미기·토너먼트 |
 
-## 핵심 기능
-| 영역 | 기능 |
+## 2. 팀 · 역할
+네 명 모두 풀스택으로, 각자 Use Case 하나를 **화면 → API → 도메인 규칙 → DB**까지 직접 만들었어요.
+
+| 역할 | 이름 | Use Case | 폴더 | 함께 맡은 일 |
+| --- | --- | --- | --- | --- |
+| 🛡️ 기사 | 양성용 ([@dydtlsrl](https://github.com/dydtlsrl)) | 장바구니에서 주문하기 (재고 · 배송비) | `backend/src/orders/` | 공통 기반(uv · `src/` 뼈대 · DB · 마이그레이션) · ERD |
+| 🧭 탐험가 | 채희주 ([@kixxuya](https://github.com/kixxuya)) | 가입 · 로그인 · 로그아웃 (JWT 블랙리스트) | `backend/src/auth/` | 모두가 쓰는 `CurrentUser` · `AdminUser`, README · Notion 틀 |
+| 🏹 궁수 | 우동현 ([@donghyunwoo1222](https://github.com/donghyunwoo1222)) | 관리자 주문 관리 (배송 단계 · 취소 승인/거절) | `backend/src/admin_orders/` | `/admin` 화면 틀 (메뉴 · 문지기) |
+| 🔮 마법사 | 김예주 ([@kyeju](https://github.com/kyeju)) | 상품 문의 → 관리자 답변 (비밀글) | `backend/src/questions/` | 손님 화면 진짜 데이터 연결 |
+
+협업 규칙: `main` 직접 push 금지 → `feat/*` · `docs/*` 브랜치 → PR(`Closes #이슈`) → 머지. **마이그레이션은 기사만** 만들어요 (`uv run alembic heads`가 항상 한 줄).
+
+## 3. 인수 기준
+- **인수 커밋: [`38720a6`](https://github.com/KANT-2/pixel-mart-v2/commit/38720a6)** (1차 저장소 `KANT-2/pixel-mart`의 main을 그대로 옮겨 온 시점)
+- 인수 당시 상태: Next.js 16 화면 전체 + FastAPI 단일 계층(`backend/app/`: routers · services · models), pip + `requirements.txt`, 구글 로그인과 개발용 로그인(쿠키 JWT, 로그아웃은 쿠키 삭제만), 관리자 기능은 개발자 API(`/api/dev/...`)로만
+- 인수 상태의 화면·흐름 재현 기록: [docs/backend/BASELINE_DAY1.md](docs/backend/BASELINE_DAY1.md)
+
+## 4. 개발 방향과 변경 전·후
+> 상태: ✅ 완료 · 🚧 진행 중 (머지되면 담당자가 ✅로 바꿔요)
+
+| 영역 | 인수 전 (`38720a6`) | 2차 이후 | 담당 | 상태 |
+| --- | --- | --- | --- | --- |
+| 구조 | `app/` 한 층에 라우터·서비스·모델 | 새 기능은 `src/<기능>/` **4계층**, 도메인은 순수 파이썬 | 모두 | ✅ |
+| 패키지 · 실행 | pip · `requirements.txt` · Python 3.12 | **uv** · `pyproject.toml` · `uv.lock` · Python 3.13+ | 🛡️ | ✅ |
+| 서버 기반 | 앱 생성만 | lifespan(DB 확인·정리) · 요청 로깅 미들웨어 · 공통 예외 → HTTP | 🛡️ | ✅ |
+| DB | 재고·배송비·역할·비밀번호 칸 없음 | `products.stock` · `orders.shipping_fee` · `users.role` · `users.password_hash` · `token_blacklist` (마이그레이션 ①) | 🛡️ | ✅ |
+| 가입 · 로그인 | 구글 · 개발용 로그인만 | **이메일 가입(bcrypt 해싱)** · **OAuth2 로그인(`/api/auth/token`, Swagger Authorize)** | 🧭 | ✅ |
+| 로그아웃 | 쿠키만 삭제 (복사한 토큰은 7일간 유효) | 토큰 `jti`를 **블랙리스트**에 → 같은 토큰은 **401** (구글·개발용 로그인 포함) | 🧭 | ✅ |
+| 권한 | 로그인 확인만 | `CurrentUser`(Bearer · 쿠키) · `AdminUser`(관리자 아니면 **404**). 기존 API도 같은 검사 | 🧭 | ✅ |
+| 관리자 회원 | 없음 | 회원 목록 (검색 · 역할 필터 · 페이지) | 🧭 | 🚧 |
+| 주문 | 재고 · 배송비 없음 | 재고 차감(품절·부족 **409**) · 3만 원 이상 무료 배송 · 한 트랜잭션 | 🛡️ | 🚧 |
+| 관리자 주문 | 개발자 API(`/api/dev/...`) | `/api/admin/orders` · 배송 단계 한 칸씩 · 취소 승인(재고 복구)/거절 + `/admin` 화면 | 🏹 | 🚧 |
+| 상품 문의 | 화면은 **새로고침하면 사라지는 메모리 데이터** | DB 저장 · 비밀글은 서버에서 가림 · 관리자 답변 1회 · 답변 알림 | 🔮 | 🚧 |
+
+## 5. 기존 app/ vs 이번 src/
+| | `backend/app/` (인수한 코드) | `backend/src/` (2차에서 새로) |
+| --- | --- | --- |
+| 무엇 | 쇼핑 · PIXEL LOCAL · 아바타 등 1차 기능 전부 | 4개 Use Case + 공통 기반 |
+| 구조 | routers · services · models · schemas | `<기능>/presentation · application · domain · infrastructure` |
+| 앱 | `app/main.py`는 `src.main`을 다시 내보내기만 해요 | **`src/main.py`가 앱을 조립** (기존 라우터 + 새 라우터) |
+| 로그인 확인 | `app/deps.py` → **`src/common/auth.py`를 다시 내보냄** | `src/common/auth.py` (`CurrentUser` · `OptionalUser` · `AdminUser`) |
+| DB | `app/core/db.py` → `src/database.py`를 다시 내보냄 | `src/database.py` (비동기 엔진 · 세션 · `Base`) |
+
+새 기능은 `src/`에만 만들고, `app/`은 연결 한 줄씩만 고쳐요. 그래서 기존 API(장바구니 · 주문 등)도 새 인증(블랙리스트)을 그대로 받아요.
+
+## 6. 4계층 구조도 · 요청 흐름
+```
+backend/src/
+├─ main.py            앱 조립: lifespan · CORS · 로깅 · 예외 처리기 · 라우터
+├─ database.py        비동기 엔진 · AsyncSession · Base
+├─ common/            errors.py(예외 → HTTP) · auth.py(CurrentUser·AdminUser) · pagination.py · logging.py
+└─ <기능>/            auth · orders · admin_orders · questions
+   ├─ presentation/   라우터 · 요청/응답 스키마 (검증 · 호출 · 변환만)
+   ├─ application/    서비스: 조회 → 도메인 → 저장 → commit (실패하면 rollback)
+   ├─ domain/         규칙 · 상태 변경 (FastAPI · SQLAlchemy · Pydantic import 0개)
+   └─ infrastructure/ Repository(ORM ↔ 도메인) · bcrypt · JWT
+```
+
+```mermaid
+flowchart LR
+  B["브라우저 :3000"] -->|"/api/* (Next rewrites)"| R["presentation<br/>라우터 · 스키마"]
+  R -->|"CurrentUser · AdminUser"| A["common/auth.py<br/>서명 · 만료 · 블랙리스트"]
+  R --> S["application<br/>서비스 · 트랜잭션"]
+  S --> D["domain<br/>규칙 (순수 파이썬)"]
+  S --> I["infrastructure<br/>Repository"]
+  I --> DB[("PostgreSQL")]
+  D -. "도메인 예외" .-> E["common/errors.py<br/>401 · 404 · 409 · 422"]
+```
+
+| 실패 | 상태 코드 | 예 |
+| --- | --- | --- |
+| 입력 형식 · 규칙 | 422 | 비밀번호 7자, 빈 제목 |
+| 인증 | 401 | 로그인 안 함, 틀린 비밀번호, **로그아웃한 토큰** |
+| 권한 · 남의 것 | 404 | 일반 사용자의 관리자 API, 남의 주문 |
+| 규칙 충돌 | 409 | 이미 가입한 이메일, 재고 부족, 두 번 답변 |
+
+## 7. 실행 (uv) · 환경 변수
+**준비물**: Node.js 22+ · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · PostgreSQL(Docker Desktop 또는 설치형)
+
+```powershell
+git clone https://github.com/KANT-2/pixel-mart-v2.git
+cd pixel-mart-v2
+
+# 1) 백엔드 (backend/)
+cd backend
+uv sync                                                   # 가상환경 + 의존성 (uv.lock 그대로)
+if (!(Test-Path .env)) { Copy-Item .env.example .env }    # 처음 한 번만
+# → 8장 DB 준비 후
+uv run uvicorn src.main:app --reload --port 8000
+
+# 2) 프론트 (새 터미널, 저장소 루트)
+npm ci
+npm run dev
+```
+- 브라우저 http://localhost:3000 · API 문서(Swagger) http://127.0.0.1:8000/api/docs (오른쪽 위 **Authorize**로 로그인)
+- DB 연결 확인: http://localhost:3000/api/health/db
+- 로그인: `/signup`에서 이메일 가입, 또는 개발 환경의 **개발용 로그인**(이메일만). 테스트 계정은 `*@pixelmart.test`
+
+**환경 변수 (`backend/.env`)**: 실제 값은 저장소에 올리지 않아요 (`.env.example`에 이름만)
+
+| 이름 | 설명 |
 | --- | --- |
-| 쇼핑 | 상품 검색·정렬·필터(카테고리·가격·NEW·등급 COMMON~UNIQUE), 무한 스크롤, 상품 상세(리뷰·문의 탭), 최근 본 아이템, 찜, 장바구니, 가상 주문·배송 단계·취소 신청 |
-| 키캡 | **키캡 피팅룸** — 내 키보드 모델에 키캡을 끼워 보고 조합 그대로 장바구니 담기 · 키보드 검색·키캡 호환성 판정 API |
-| 룩북 | 데스크 테마 룩북(픽셀 고양이·구름·레벨업·산호 버섯) → 테마 상품 |
-| 플레이어 | 구글 로그인 + 닉네임, **픽셀 아바타**(AI 생성·픽셀 캔버스), 마이페이지 뱃지 도감, 내 퀘스트 |
-| PIXEL LOCAL | **덕력지도**(동네별 취향 이웃 수·지도 캐릭터·이웃 카드) · **위시맵**(이웃이 구하는 아이템) · **거래·교환**(HAVE/WISH/SELL — 화면의 WISH는 API에서 `want`, 매칭, 교환 신청 → 수락 → 받았어요 → 완료) · **이웃 선물**(선물 → 받는 사람 주소 입력 → 주문) |
-| 신뢰 | 활동 점수 → 하트(×N)·레벨(LV.1~10)·코인, 뱃지 19종, 헤더 알림 |
-| 개인정보 | 동네는 직접 선택(GPS 좌표 저장 안 함), 공개 설정 5종 모두 기본 OFF, 거래글 연락처 입력 차단 |
+| `ENV` | `local`이면 개발용 로그인 · 개발자 API 켜짐 |
+| `DATABASE_URL` | `postgresql+asyncpg://…` (Docker는 **5433**, 설치형은 **5432**) |
+| `JWT_SECRET` | 토큰 서명 비밀값 (아무 긴 문자열) |
+| `FRONTEND_URL` | CORS 허용 주소 (`http://localhost:3000`) |
+| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 로그인 (비우면 구글 버튼만 꺼짐, 팀 채널로만 공유) |
+| `CLOUDFLARE_ACCOUNT_ID` · `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_IMAGE_MODEL` · `AI_AVATAR_PER_HOUR` | AI 픽셀 아바타 (비우면 AI 만들기만 꺼짐) |
 
-> 범위: 실제 결제와 데스크 꾸미기·출품·토너먼트는 이번 구현·평가에서 제외합니다. 데스크 테마 룩북과 키캡 피팅룸은 포함합니다. 피팅룸 배치 규칙과 백엔드 호환성 판정은 별도이며, 실제 장착 치수 검증을 대신하지 않습니다.
+| 검사 명령 | 위치 |
+| --- | --- |
+| `uv run ruff check .` · `uv run pytest --ignore=tests/test_seed_demo.py` · `uv run alembic heads` | `backend/` |
+| `npm run lint` · `npx tsc --noEmit` · `npm test` · `npm run build` | 저장소 루트 |
 
-## 2차 프로젝트 ERD
+## 8. DB 준비
+```powershell
+# Docker를 쓸 때 (저장소 루트). 설치형 PostgreSQL이면 건너뛰기
+docker compose up -d db
 
-[4개 Use Case ERD — 기존 테이블과 마이그레이션 ① 변경 표시](docs/backend/ERD_DAY1.md) · [기사 인수 상태와 변경 전 캡처](docs/backend/BASELINE_DAY1.md)
+# backend/에서
+uv run alembic upgrade head                      # 테이블 만들기 · 최신 마이그레이션
+uv run python -m scripts.seed                    # 상품 · 지역 · 취향 · 키보드 (재실행 안전)
+uv run python -m scripts.seed_demo               # 선택: 시연용 데모 이웃
+uv run python -m scripts.make_admin 이메일        # 관리자 만들기 (먼저 한 번 가입·로그인한 계정)
+```
+- pytest는 **지금 연결된 DB를 그대로** 써요. 데모 이웃을 지우는 `tests/test_seed_demo.py`는 빼고 돌리고, 테스트 뒤 `seed_demo`를 다시 실행해 주세요.
+- 스키마 · ERD: [docs/backend/ERD_DAY1.md](docs/backend/ERD_DAY1.md) · [docs/backend/SCHEMA.md](docs/backend/SCHEMA.md)
 
-## 기술 스택
+## 9. 개인별 Use Case
+> 각자 자기 칸을 채워요: **흐름 · 관련 파일 · API · 정상/실패 결과 · 캡처 · 인수 전후 비교**. 모두 **로그인 → 내 API 200 → 로그아웃 → 같은 토큰 401**을 보여 줘요.
+
+### 🛡️ 주문하기 (재고 · 배송비): 양성용
+- **흐름**: 장바구니 → `POST /api/orders` → `Order`(합계 · 배송비) · `StockItem.take()` → 주문 저장 · 재고 차감 · 장바구니 비우기 (한 트랜잭션) → 주문 완료
+- **관련 파일**: `backend/src/orders/` · (화면) `components/cart/` · `app/checkout/`
+- **API**: (작성 예정)
+- **정상 / 실패**: (작성 예정: 재고 부족 409 · 받는 사람 빈칸 422 · 남의 주문 404 · 로그아웃 토큰 401)
+- **캡처**: (작성 예정)
+- **인수 전후**: 재고 · 배송비 없음 → 재고 차감 · 3만 원 무료 배송 · 실패 시 재고 그대로
+
+### 🧭 가입 · 로그인 · 로그아웃: 채희주
+- **흐름**: `/signup` 이메일 가입 → `POST /api/auth/signup`(bcrypt 해시만 저장) → `POST /api/auth/token`(OAuth2 form) → JWT(`sub` · `exp` · **`jti`**) + `pm_session` 쿠키 → 보호 API마다 `CurrentUser`가 서명 · 만료 · 블랙리스트 확인 → `POST /api/auth/logout`이 `jti`를 `token_blacklist`에 → 같은 토큰 **401 "다시 로그인해 주세요."**
+- **관련 파일**: `backend/src/auth/` (domain `account.py` · `token.py` / infrastructure `hasher.py` · `jwt.py` · `repositories.py` / application `service.py` / presentation `router.py`) · `backend/src/common/auth.py` · (화면) `components/LoginForm.tsx` · `components/EmailSignupForm.tsx` · `components/AuthProvider.tsx`
+- **API**
+
+  | 메서드 · 경로 | 설명 | 실패 |
+  | --- | --- | --- |
+  | `POST /api/auth/signup` | `{email, password, nickname}` → 201 | 중복 이메일 · 닉네임 409, 비밀번호 8자 미만 422 |
+  | `POST /api/auth/token` | form `username`=이메일 · `password` → `{access_token, token_type}` + 쿠키 | 401 "이메일 또는 비밀번호가 맞지 않아요." |
+  | `POST /api/auth/logout` | `jti` → 블랙리스트, 쿠키 삭제 | 없음 (두 번 해도 200) |
+  | `GET /api/auth/me` | 내 정보 + `role` | 401 |
+  | `GET /api/admin/users?q=&role=&page=&size=` | 관리자 회원 목록 (검색 · 필터 · 페이지) | 일반 사용자 404 |
+- **정상 / 실패**: `tests/test_auth_api.py`: Bearer · 쿠키 모두 로그아웃 후 401, 개발용 로그인 토큰도 401, 관리자 API 404 / 200
+- **캡처**: (Swagger 로그인 · `/me` 200 · 로그아웃 후 401, 추가 예정)
+- **인수 전후**: 로그아웃이 쿠키 삭제뿐이라 복사한 토큰이 7일간 유효 → `jti` 블랙리스트로 즉시 무효
+
+### 🏹 관리자 주문 관리: 우동현
+- **흐름**: `/admin/orders` → `POST /api/admin/orders/{id}/advance` → `OrderProgress.advance()`(한 칸씩) → 상태 · 기록 저장 + 구매자 알림 / 취소 요청 → `CancelRequest.approve()` → 주문 취소 + `StockItem.restore()`
+- **관련 파일**: `backend/src/admin_orders/` · (화면) `app/admin/`
+- **API**: (작성 예정)
+- **정상 / 실패**: (작성 예정: 끝 칸에서 또 넘기기 409 · 이미 처리한 취소 409 · 일반 사용자 404 · 로그아웃 토큰 401)
+- **캡처**: (작성 예정)
+- **인수 전후**: 개발자 API로만 처리 → 관리자 화면 + 허용된 상태 전이만
+
+### 🔮 상품 문의 → 관리자 답변: 김예주
+- **흐름**: 상품 상세 Q&A 탭 → `POST /api/products/{id}/questions` → `Question`(제목 1~100자) → DB 저장 / 관리자 `POST /api/admin/questions/{id}/answer` → `answer_with()`(한 번만) → 작성자 알림
+- **관련 파일**: `backend/src/questions/` · (화면) `lib/questions.ts` · `components/products/Questions*` · `app/admin/questions/`
+- **API**: (작성 예정)
+- **정상 / 실패**: (작성 예정: 남의 비밀글 내용 안 보임 · 두 번 답변 409 · 빈 제목 422 · 로그아웃 토큰 401)
+- **캡처**: (작성 예정)
+- **인수 전후**: 새로고침하면 사라지는 메모리 데이터 → DB 저장 · 비밀글은 서버에서 가림
+
+## 10. 미완료 · Mock 목록
+| 항목 | 지금 상태 | 담당 |
+| --- | --- | --- |
+| 상품 문의 화면 | `lib/questions.ts` 메모리 어댑터 (진짜 API 연결 전) | 🔮 |
+| 관리자 화면 | 백엔드 머지 전까지 `mocks/` 임시 데이터 (`USE_MOCK`) | 🏹 |
+| 결제 | 가상 주문 (실제 결제 없음) | |
+| 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
+| 배포 · CI | 로컬 개발 전용, CI 없음 (추가 퀘스트) | 🧭 |
+| 알려진 문제 | `npx tsc --noEmit`에서 `app/admin/layout.tsx` 경로 타입 오류 1건 · 공유 DB에 발표용 데이터가 있으면 리뷰 · 문의 테스트 일부 실패 | |
+
+---
+
+## 부록: 1차 결과물
+### 1차 팀 (2026.10.07 ~ 10.13)
+| 이름 | 역할 | 담당 |
+| --- | --- | --- |
+| 채희주 ([@kixxuya](https://github.com/kixxuya)) | 프론트엔드 | 화면 전체, 디자인 시스템, 메인·상품·PIXEL LOCAL UI |
+| [@skshdwkdvkfl55-art](https://github.com/skshdwkdvkfl55-art) | BE-A 플랫폼·커머스 | 구글 로그인, 장바구니, 찜, 아바타, PIXEL LOCAL(덕력지도·거래) |
+| [@totoriri605-oss](https://github.com/totoriri605-oss) | BE-B 주문·CS | FAQ, 가상 주문·배송, 취소, 리뷰, 상품 Q&A, 키캡 호환성 |
+| [@kyrdufmal-summer](https://github.com/kyrdufmal-summer) | BE-C → 기획·정책 | PIXEL LOCAL 서비스 정의·운영 정책·개인정보 기준 정리(이슈 #151~), 현재 구현·화면 구조 문서화 |
+
+### 기술 스택
 | 구분 | 사용 기술 |
 | --- | --- |
 | 프론트 | Next.js 16 (App Router, Turbopack, Cache Components) · React 19 · TypeScript 5 · Tailwind CSS 4 (`@theme` 디자인 토큰) |
-| 백엔드 | FastAPI · SQLAlchemy 2 (async) · asyncpg · Alembic · Pydantic v2 · PyJWT · Authlib(구글 OAuth) |
+| 백엔드 | FastAPI · SQLAlchemy 2 (async) · asyncpg · Alembic · Pydantic v2 · PyJWT · bcrypt · Authlib(구글 OAuth) · uv |
 | DB | PostgreSQL (Docker 또는 설치형) |
 | 테스트 | pytest (백엔드) · `node --test` (프론트 유틸) · ESLint · ruff |
 | 외부 | Cloudflare Workers AI (AI 픽셀 아바타, 사용자 동의 시에만) |
 | 폰트 | Pretendard (본문) · Galmuri (픽셀 타이틀) |
-| 협업 | Git · GitHub (GitHub Flow + Pull Request · 이슈·에픽·라벨) · Notion |
+| 협업 | Git · GitHub (GitHub Flow + Pull Request · 이슈·라벨) · Notion |
 
-## 실행 방법
-프론트(Next.js, :3000)와 백엔드(FastAPI, :8000)를 함께 띄웁니다. 브라우저는 3000만 보고, `/api/*`는 Next가 8000으로 넘겨 줍니다.
-
-**준비물**: Node.js 22+, Python 3.12+, Docker Desktop 또는 설치형 PostgreSQL.
-처음 내려받는 경우 `git clone https://github.com/KANT-2/pixel-mart.git` 후 저장소 루트에서 시작합니다.
-아래는 **Windows PowerShell + Docker** 기준입니다. 설치형 DB와 macOS/Linux 절차는 [백엔드 실행 가이드](docs/backend/README.md)를 참고하세요.
-
-```powershell
-# 1) DB (저장소 루트, Docker Desktop 실행 후)
-docker compose up -d db
-
-# 2) 백엔드 (backend/)
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-# 최초 한 번만 복사합니다. 기존 .env가 있으면 덮어쓰지 않습니다.
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-```
-
-**다음 명령 전에 `backend/.env`의 `DATABASE_URL`을 확인합니다.** Docker는 **5433**, 설치형은 **5432**입니다.
-Docker를 사용할 때의 값:
-
-```dotenv
-DATABASE_URL=postgresql+asyncpg://pixelmart:pixelmart@localhost:5433/pixelmart
-```
-
-```powershell
-# backend/에서 계속 실행
-.\.venv\Scripts\python.exe -m alembic upgrade head
-.\.venv\Scripts\python.exe -m scripts.seed       # 상품·지역·취향·키보드 등
-.\.venv\Scripts\python.exe -m scripts.seed_demo  # 선택: 시연용 데모 이웃
-.\.venv\Scripts\python.exe -m scripts.seed_showcase 내이메일@gmail.com  # 선택: 한 번 로그인한 계정에 발표용 데이터 생성
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
-```
-
-**3) 프론트 — 새 터미널을 열고 저장소 루트에서:**
-
-```powershell
-npm ci
-npm run dev
-```
-브라우저에서 http://localhost:3000 접속 · API 문서 http://127.0.0.1:8000/api/docs (프론트를 거쳐 http://localhost:3000/api/docs 로도 열림)
-DB 연결은 http://localhost:3000/api/health/db 로 확인합니다. 상품 폴백 화면이 보이는 것만으로는 백엔드 연동을 확인할 수 없습니다.
-
-- 로그인: 개발 환경은 로그인 화면의 **개발용 이메일 로그인**(아무 이메일). 데모 이웃으로 보려면 `demo-coinmoa@demo.pixelmart.test` 처럼 `demo-<이름>@demo.pixelmart.test`
-- 백엔드가 꺼져 있어도 상품 목록·상세는 기본 상품 데이터로 보입니다(안내 문구 표시).
-
-| 명령어 | 설명 |
-| --- | --- |
-| `npm run dev` | 프론트 개발 서버 |
-| `npm run build` | 프로덕션 빌드 (타입 검사 포함) |
-| `npm run lint` · `npm test` | ESLint · 단위 테스트 |
-| `npx tsc --noEmit` | TypeScript 검사 |
-| `pytest` (backend/, 별도 테스트 DB 준비 후) | 백엔드 테스트 — 현재 설정된 DB 데이터를 변경해요 (데모 이웃이 지워지니 테스트 뒤 `python -m scripts.seed_demo` 다시 실행 — [backend/AGENTS.md](backend/AGENTS.md) 테스트 절 참고) |
-
-처음 합류한 팀원은 [docs/SETUP.md](docs/SETUP.md), 백엔드는 [docs/backend/README.md](docs/backend/README.md)를 따라 환경을 맞춰 주세요.
-
-## 페이지 구성
+### 페이지 구성
 | 경로 | 페이지 | 주요 내용 | 상태 |
 | --- | --- | --- | --- |
 | `/` | 메인 | 배너 3장(내 캐릭터 · 월드맵 · 데스크 룩북), 추천 아이템 | ✅ |
@@ -109,7 +244,7 @@ DB 연결은 http://localhost:3000/api/health/db 로 확인합니다. 상품 폴
 | `/products/[id]/fitting` | 키캡 피팅룸 | 내 키보드에 끼워 보기, 조합 장바구니 담기 | ✅ |
 | `/lookbook` | 데스크 테마 룩북 | 테마별 데스크와 상품 | ✅ |
 | `/cart` · `/checkout` | 장바구니 · 주문하기 | 수량·합계, 배송지 입력, 가상 주문 | ✅ |
-| `/login` · `/signup` | 로그인 · 가입 | 구글 로그인(개발 환경은 이메일 로그인), 닉네임 정하기 | ✅ |
+| `/login` · `/signup` | 로그인 · 가입 | 이메일·비밀번호 로그인/가입(2차), 구글 로그인 + 닉네임 정하기, 개발용 로그인 | ✅ |
 | `/mypage` | 마이페이지 | 닉네임, 아바타, 뱃지 도감, 바로가기 | ✅ |
 | `/mypage/orders` · `/[id]` | 주문 내역 · 상세 | 배송 단계·타임라인, 취소 신청, 리뷰 쓰기 | ✅ |
 | `/mypage/wishlist` · `/gifts` · `/avatar` · `/quests` | 찜 · 선물함 · 픽셀 아바타 · 내 퀘스트 | 찜 목록, 받은/보낸 선물(받기·거절), AI·캔버스 아바타, 퀘스트 요약 | ✅ |
@@ -121,7 +256,7 @@ DB 연결은 http://localhost:3000/api/health/db 로 확인합니다. 상품 폴
 | `/help` | 고객센터 | FAQ 검색·분류 | ✅ |
 | 404 · 오류 | GAME OVER 화면 | 없는 페이지·없는 상품·오류 | ✅ |
 
-### 사용자 흐름 (요약)
+#### 사용자 흐름 (요약)
 ```mermaid
 flowchart LR
   main["메인"] --> list["전체 상품"] --> detail["상품 상세"] --> cart["장바구니"] --> order["주문 · 배송"]
@@ -132,51 +267,7 @@ flowchart LR
 ```
 화면 구조·컴포넌트 트리·흐름 5개 상세는 **[docs/UI_STRUCTURE.md](docs/UI_STRUCTURE.md)** 에 있습니다.
 
-## 폴더 구조
-```
-pixel-mart/
-├─ app/                      # 화면 (App Router) — 쇼핑 · mypage · local(PIXEL LOCAL) · help · login
-├─ components/               # 공용(Header·ProductCard·Pagination…) + 기능별 폴더
-│  ├─ home/ hero/            # 메인 캐러셀 · 게임 무대
-│  ├─ products/ keycap/      # 상품 상세 탭·리뷰·문의 · 키캡 피팅룸
-│  ├─ cart/ orders/ wishlist/ gifts/ avatar/ profile/ help/
-│  └─ local/                 # 덕력지도 · 위시맵 · 거래·교환 · 선물 · 설정
-├─ lib/                      # API 호출(api.ts) · 기능별 클라이언트·데이터 저장소
-├─ utils/ types/ data/       # 순수 함수 · API 타입 · 폴백 정적 데이터
-├─ backend/                  # FastAPI — app/(models·schemas·services·routers) · alembic · seed · tests
-├─ tests/                    # 프론트 유틸 단위 테스트
-└─ docs/                     # 기획·정책·설계 문서 (아래 표)
-```
-
-## 문서
-| 문서 | 내용 |
-| --- | --- |
-| [docs/UI_STRUCTURE.md](docs/UI_STRUCTURE.md) | 화면 구조 기획과 분할 · 컴포넌트 조립과 배치 · 사용자 흐름 |
-| [docs/PIXEL_LOCAL_AS_BUILT.md](docs/PIXEL_LOCAL_AS_BUILT.md) | PIXEL LOCAL 현재 구현 (화면 문구·규칙·알려진 한계·시연 순서) |
-| [docs/archive/TASTE_COMMERCE_PLAN.md](docs/archive/TASTE_COMMERCE_PLAN.md) | (보관) 10/12 기준 다음 단계 기획 (취향 세분화·하트·개인정보·레퍼런스 분석) |
-| [docs/PIXEL_LOCAL_POLICY.md](docs/PIXEL_LOCAL_POLICY.md) · [docs/DUKRYEOK_MAP_POLICY.md](docs/DUKRYEOK_MAP_POLICY.md) · [docs/AVATAR_POLICY.md](docs/AVATAR_POLICY.md) | 운영 정책 |
-| [docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md) · [docs/UX_CX_STRATEGY.md](docs/UX_CX_STRATEGY.md) | 상품·UX 전략 |
-| [docs/backend/](docs/backend/README.md) | 백엔드 실행·구조·스키마·API |
-| [AGENTS.md](AGENTS.md) · [docs/SETUP.md](docs/SETUP.md) · [docs/archive/](docs/archive/) | 작업 규칙 · 환경 세팅 · 보관 문서 |
-
-## 팀원 및 역할
-### 1차 프로젝트 (2026.10.07 ~ 10.13)
-| 이름 | 역할 | 담당 |
-| --- | --- | --- |
-| 채희주 ([@kixxuya](https://github.com/kixxuya)) | 프론트엔드 | 화면 전체, 디자인 시스템, 메인·상품·PIXEL LOCAL UI |
-| [@skshdwkdvkfl55-art](https://github.com/skshdwkdvkfl55-art) | BE-A 플랫폼·커머스 | 구글 로그인, 장바구니, 찜, 아바타, PIXEL LOCAL(덕력지도·거래) |
-| [@totoriri605-oss](https://github.com/totoriri605-oss) | BE-B 주문·CS | FAQ, 가상 주문·배송, 취소, 리뷰, 상품 Q&A, 키캡 호환성 |
-| [@kyrdufmal-summer](https://github.com/kyrdufmal-summer) | BE-C → 기획·정책 | PIXEL LOCAL 서비스 정의·운영 정책·개인정보 기준 정리(이슈 #151~), 현재 구현·화면 구조 문서화 |
-
-> 1차 때는 GitHub 이슈 라벨 `FE` · `BE-A` · `BE-B` · `BE-C` · `policy`로 나눠 작업했어요. 2차 팀 구성과 역할은 아래에 새로 추가해 주세요.
-
-## 협업 규칙
-- **GitHub Flow**: `main`에 직접 push하지 않고 `feat/*` · `fix/*` · `docs/*` 브랜치에서 작업 후 Pull Request로 머지 (리뷰 1명 승인)
-- 커밋 메시지: `feat(be-orders): 주문 생성 API` 형식
-- 페이지 이동은 `next/link`의 `<Link>`, API 응답은 camelCase
-- 자세한 규칙: `AGENTS.md`(프론트) · `backend/AGENTS.md`(백엔드)
-
-## 화면 캡처
+### 화면 캡처 (1차)
 | 메인 (데스크톱) | 메인 (모바일) |
 | --- | --- |
 | ![메인 데스크톱](docs/screenshots/v2/main.png) | ![메인 모바일](docs/screenshots/v2/main-mobile.png) |
@@ -199,7 +290,18 @@ pixel-mart/
 
 > 캡처는 로그인하지 않은 상태, 1280px·390px 화면 기준입니다.
 
-## 트러블슈팅
+### 문서
+| 문서 | 내용 |
+| --- | --- |
+| [docs/UI_STRUCTURE.md](docs/UI_STRUCTURE.md) | 화면 구조 기획과 분할 · 컴포넌트 조립과 배치 · 사용자 흐름 |
+| [docs/PIXEL_LOCAL_AS_BUILT.md](docs/PIXEL_LOCAL_AS_BUILT.md) | PIXEL LOCAL 현재 구현 (화면 문구·규칙·알려진 한계·시연 순서) |
+| [docs/archive/TASTE_COMMERCE_PLAN.md](docs/archive/TASTE_COMMERCE_PLAN.md) | (보관) 10/12 기준 다음 단계 기획 (취향 세분화·하트·개인정보·레퍼런스 분석) |
+| [docs/PIXEL_LOCAL_POLICY.md](docs/PIXEL_LOCAL_POLICY.md) · [docs/DUKRYEOK_MAP_POLICY.md](docs/DUKRYEOK_MAP_POLICY.md) · [docs/AVATAR_POLICY.md](docs/AVATAR_POLICY.md) | 운영 정책 |
+| [docs/PRODUCT_STRATEGY.md](docs/PRODUCT_STRATEGY.md) · [docs/UX_CX_STRATEGY.md](docs/UX_CX_STRATEGY.md) | 상품·UX 전략 |
+| [docs/backend/](docs/backend/README.md) | 백엔드 실행·구조·스키마·API |
+| [AGENTS.md](AGENTS.md) · [docs/SETUP.md](docs/SETUP.md) · [docs/archive/](docs/archive/) | 작업 규칙 · 환경 세팅 · 보관 문서 |
+
+### 트러블슈팅 (1차)
 | 문제 | 원인 | 해결 |
 | --- | --- | --- |
 | 동적 상세 페이지의 `params` 처리 | `params`는 Promise이며, Cache Components 환경에서는 동적 값을 읽는 위치도 고려해야 함 | 페이지는 `params`를 자식에 전달하고, `<Suspense>` 내부의 `ProductDetail`에서 `await params`로 읽음. `generateStaticParams`와 `notFound()`로 정적 경로·없는 상품도 처리 |
