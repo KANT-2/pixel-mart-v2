@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.common import CamelModel
@@ -15,3 +18,14 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class AdminUserOut(CamelModel):
+    """관리자 회원 목록 한 줄 — 주소·전화 없음"""
+
+    id: int
+    email: str
+    nickname: str
+    role: str
+    signup_method: Literal["email", "google"]
+    created_at: datetime

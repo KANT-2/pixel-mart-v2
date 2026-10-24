@@ -1,19 +1,23 @@
-from typing import Annotated
+from math import ceil
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.security import clear_session_cookie, set_session_token
 from app.models import User
-from app.schemas.common import Message
+from app.schemas.common import Message, Page
 from app.schemas.user import UserOut
+from src.auth.application.admin_users import AdminUserService
 from src.auth.application.service import AuthService
 from src.auth.domain.exceptions import InvalidToken
-from src.auth.infrastructure.repositories import TokenBlacklistRepository, UserRepository
-from src.auth.presentation.schemas import SignupRequest, TokenResponse
-from src.common.auth import CurrentUser, DbSession, RawToken, authenticate
+from src.auth.infrastructure.repositories import MemberRepository, TokenBlacklistRepository, UserRepository
+from src.auth.presentation.schemas import AdminUserOut, SignupRequest, TokenResponse
+from src.common.auth import AdminUser, CurrentUser, DbSession, RawToken, authenticate
+from src.common.pagination import Pagination
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+admin_router = APIRouter(prefix="/admin/users", tags=["admin"])
 
 
 def get_auth_service(db: DbSession) -> AuthService:
@@ -62,3 +66,35 @@ async def logout(response: Response, service: AuthServiceDep, db: DbSession, raw
 @router.get("/me", response_model=UserOut, summary="내 정보 (role 포함)")
 async def me(user: CurrentUser):
     return user
+
+
+@admin_router.get(
+    "", response_model=Page[AdminUserOut], summary="[관리자] 회원 목록 (닉네임·이메일 검색 · 역할 필터 · 페이지)"
+)
+async def list_users(
+    _admin: AdminUser,
+    db: DbSession,
+    pagination: Pagination,
+    q: Annotated[str | None, Query(max_length=100, description="닉네임·이메일 부분 일치")] = None,
+    role: Annotated[Literal["user", "admin"] | None, Query()] = None,
+):
+    members, total = await AdminUserService(MemberRepository(db)).list_members(
+        q, role, pagination.page, pagination.size
+    )
+    return Page[AdminUserOut](
+        items=[
+            AdminUserOut(
+                id=m.id,
+                email=m.email,
+                nickname=m.nickname,
+                role=m.role,
+                signup_method=m.signup_method,
+                created_at=m.created_at,
+            )
+            for m in members
+        ],
+        total=total,
+        page=pagination.page,
+        size=pagination.size,
+        total_pages=max(1, ceil(total / pagination.size)),
+    )

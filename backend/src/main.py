@@ -137,3 +137,4 @@ for router in (
 
 # 새 4계층 라우터 등록
 app.include_router(auth_api.router, prefix="/api")
+app.include_router(auth_api.admin_router, prefix="/api")
