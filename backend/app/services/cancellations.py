@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import CancelRequest, Order, OrderStatusHistory, User
+from app.services import notifications  # 승인·거절 알림을 구매자에게 보내기 위해
 from app.services.orders import get_order
 
 # 배송이 시작되기 전에만 취소를 신청할 수 있다
@@ -67,13 +68,24 @@ async def resolve_cancel(db: AsyncSession, request: CancelRequest, *, approve: b
 
     order = await get_order(db, request.order_id)
     if approve:
-        request.status = "approved"
-        new_status = "cancelled"
+        request.status = "approved"  # 신청서 상태를 승인으로 바꾼다
+        new_status = "cancelled"  # 주문은 취소 완료 상태가 된다
+        title, body = "주문이 취소됐어요", f"주문번호 {order.id} · 결제가 취소됐어요."  # 구매자에게 보여줄 문구
     else:
-        request.status = "rejected"
-        new_status = status_before_cancel([h.status for h in order.history])
+        request.status = "rejected"  # 신청서 상태를 거절로 바꾼다
+        new_status = status_before_cancel([h.status for h in order.history])  # 신청 직전 상태로 복귀
+        title, body = "취소 요청이 거절됐어요", f"주문번호 {order.id} · 주문이 계속 진행돼요."  # 구매자에게 보여줄 문구
     order.status = new_status
     db.add(OrderStatusHistory(order_id=order.id, status=new_status))
+    await notifications.notify(
+        db,
+        order.user_id,  # 알림 대상은 신청자가 아니라 주문 주인(구매자)
+        f"cancel_{request.status}",  # cancel_approved / cancel_rejected
+        title,
+        body,
+        f"/mypage/orders/{order.id}",  # 주문 상세로 이동
+        f"cancel:{request.id}:{request.status}",  # 신청 번호 + 상태로 중복 알림 방지
+    )
     await db.commit()
     return await _load_request(db, request.id)
 

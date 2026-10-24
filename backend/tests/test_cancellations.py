@@ -28,6 +28,10 @@ async def require_db():
         await conn.execute(
             text("DELETE FROM orders WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'cancel%@pixelmart.test')")
         )
+        # 취소 알림(cancel_approved/cancel_rejected)의 ref_key는 신청 번호가 달라져 중복 방지에 안 걸리므로 직접 지운다
+        await conn.execute(
+            text("DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'cancel%@pixelmart.test')")
+        )
 
 
 async def login(client: AsyncClient, email: str) -> None:
@@ -158,6 +162,7 @@ async def test_approve_cancels_order(client):
     assert detail["status"] == "cancelled"
     assert detail["statusLabel"] == "취소 완료"
     assert [t["status"] for t in detail["timeline"]] == ["paid", "cancel_requested", "cancelled"]
+    assert await _notification_count(order_id, "cancel_approved") == 1  # 구매자에게 승인 알림 1건
 
 
 async def test_reject_restores_previous_status(client):
@@ -171,6 +176,7 @@ async def test_reject_restores_previous_status(client):
     detail = await order_detail(client, order_id)
     assert detail["status"] == "preparing"
     assert [t["status"] for t in detail["timeline"]] == ["paid", "preparing", "cancel_requested", "preparing"]
+    assert await _notification_count(order_id, "cancel_rejected") == 1  # 구매자에게 거절 알림 1건
 
 
 async def test_rejected_order_can_request_again_and_keep_flowing(client):
@@ -194,6 +200,8 @@ async def test_resolved_request_cannot_be_resolved_again(client):
         res = await client.post(f"/api/dev/cancel-requests/{request_id}/{action}")
         assert res.status_code == 400
     assert (await order_detail(client, order_id))["status"] == "cancelled"
+    assert await _notification_count(order_id, "cancel_approved") == 1  # 재처리 시도에도 알림은 늘지 않는다
+    assert await _notification_count(order_id, "cancel_rejected") == 0
 
 
 async def test_cancelled_order_cannot_advance(client):
@@ -226,3 +234,15 @@ async def test_resolve_is_404_when_not_local(client, monkeypatch):
 async def _count_requests(order_id: int) -> int:
     async with engine.connect() as conn:
         return await conn.scalar(text("SELECT count(*) FROM cancel_requests WHERE order_id = :id"), {"id": order_id})
+
+
+async def _notification_count(order_id: int, kind: str) -> int:
+    # 알림은 신청자가 아니라 주문 주인(구매자) 앞으로 쌓이므로 orders로 조인해서 센다
+    async with engine.connect() as conn:
+        return await conn.scalar(
+            text(
+                "SELECT count(*) FROM notifications n JOIN orders o ON o.user_id = n.user_id "
+                "WHERE o.id = :order_id AND n.kind = :kind"
+            ),
+            {"order_id": order_id, "kind": kind},
+        )
