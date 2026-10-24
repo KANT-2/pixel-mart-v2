@@ -11,6 +11,7 @@ PASSWORD_MAX_BYTES = 72  # bcrypt는 앞 72바이트만 쓰고, 5.0부터는 넘
 NICKNAME_MAX_LENGTH = 30  # users.nickname 컬럼 길이
 ADMIN_ROLE = "admin"
 
+
 def normalize_email(email: str) -> str:
     """앞뒤 공백을 지우고 소문자로 맞춘 뒤 형식을 검사한다."""
     value = email.strip().lower()

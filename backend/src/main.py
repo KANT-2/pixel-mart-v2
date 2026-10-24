@@ -36,6 +36,7 @@ from src.auth.domain.exceptions import (
     NicknameTaken,
     WeakPassword,
 )
+from src.auth.presentation import router as auth_api
 from src.common.errors import DomainError, domain_error_handler
 from src.common.logging import log_requests
 from src.database import engine
@@ -132,3 +133,7 @@ for router in (
     notifications.router,
 ):
     app.include_router(router, prefix="/api")
+
+
+# 새 4계층 라우터 등록
+app.include_router(auth_api.router, prefix="/api")

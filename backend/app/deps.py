@@ -3,35 +3,10 @@
 사용 예:
     @router.get("/me")
     async def me(user: CurrentUser, db: DbSession): ...
+
+로그인 확인은 src/common/auth.py 한 곳에서 한다 (Bearer·쿠키, 블랙리스트면 401) — 기존 라우터도 같은 검사를 받는다.
 """
 
-from typing import Annotated
+from src.common.auth import AdminUser, CurrentUser, DbSession, OptionalUser
 
-from fastapi import Cookie, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.db import get_db
-from app.core.security import SESSION_COOKIE, decode_access_token
-from app.models import User
-
-DbSession = Annotated[AsyncSession, Depends(get_db)]
-
-
-async def get_optional_user(
-    db: DbSession,
-    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
-) -> User | None:
-    if not session_token:
-        return None
-    user_id = decode_access_token(session_token)
-    return await db.get(User, user_id) if user_id else None
-
-
-async def get_current_user(user: Annotated[User | None, Depends(get_optional_user)]) -> User:
-    if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "로그인이 필요합니다.")
-    return user
-
-
-OptionalUser = Annotated[User | None, Depends(get_optional_user)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+__all__ = ["AdminUser", "CurrentUser", "DbSession", "OptionalUser"]
