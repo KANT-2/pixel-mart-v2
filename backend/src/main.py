@@ -27,7 +27,15 @@ from app.routers import (
     users,
     wishlist,
 )
-from src.auth.domain.exceptions import InvalidEmail, InvalidNickname, InvalidToken, WeakPassword
+from src.auth.domain.exceptions import (
+    EmailTaken,
+    InvalidEmail,
+    InvalidNickname,
+    InvalidToken,
+    LoginFailed,
+    NicknameTaken,
+    WeakPassword,
+)
 from src.common.errors import DomainError, domain_error_handler
 from src.common.logging import log_requests
 from src.database import engine
@@ -67,7 +75,7 @@ app = FastAPI(
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
 app.add_exception_handler(OutOfStock, domain_error_handler)
-for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken):
+for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken, LoginFailed, EmailTaken, NicknameTaken):
     app.add_exception_handler(auth_error, domain_error_handler)
 
 
