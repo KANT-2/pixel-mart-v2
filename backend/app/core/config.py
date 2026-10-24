@@ -2,6 +2,9 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# 공개 저장소에 적힌 기본값 — 로컬 개발에서만 쓰고, 배포(ENV가 local이 아님)에서는 거부한다
+DEFAULT_JWT_SECRET = "local-dev-secret-change-me-please-32chars"
+
 
 class Settings(BaseSettings):
     """환경 변수 / backend/.env 에서 읽는 설정값 (.env.example 참고)"""
@@ -10,7 +13,7 @@ class Settings(BaseSettings):
 
     env: str = "local"
     database_url: str = "postgresql+asyncpg://pixelmart:pixelmart@localhost:5432/pixelmart"
-    jwt_secret: str = "local-dev-secret-change-me-please-32chars"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_expire_minutes: int = 60 * 24 * 7  # 7일
     frontend_url: str = "http://localhost:3000"
     google_client_id: str = ""
@@ -25,10 +28,19 @@ class Settings(BaseSettings):
     def is_local(self) -> bool:
         return self.env == "local"
 
+    def ensure_deployable(self) -> "Settings":
+        """기본 비밀값은 누구나 볼 수 있어서, 배포에서 쓰면 로그인 토큰을 위조할 수 있다 → 서버 시작을 막는다.
+
+        pydantic 검증 오류는 입력값(DB 주소 등)을 같이 찍으므로, 안내 문장만 나가게 따로 검사한다.
+        """
+        if not self.is_local and (self.jwt_secret == DEFAULT_JWT_SECRET or len(self.jwt_secret) < 32):
+            raise RuntimeError("ENV가 local이 아니면 JWT_SECRET을 기본값이 아닌 32자 이상 비밀값으로 설정해야 해요.")
+        return self
+
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings().ensure_deployable()
 
 
 settings = get_settings()
