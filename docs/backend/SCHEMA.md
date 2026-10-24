@@ -1,6 +1,6 @@
 # DB 스키마
 
-> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`, 마이그레이션 head `3c1d9a7e5b20`).
+> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`, 마이그레이션 head `d6cb42e32a1b`).
 > 컬럼 이름은 snake_case, 모든 시간은 `timestamptz`. 새 테이블을 만들면 이 문서도 같이 고쳐 주세요.
 > 데스크 꾸미기·토너먼트 테이블은 범위에서 빠져 만들지 않았습니다.
 
@@ -33,17 +33,18 @@ erDiagram
 ## 계정 · 상품
 | 테이블 | 주요 컬럼 | 비고 |
 | --- | --- | --- |
-| **users** | id, email (unique), google_sub (unique), nickname (lower() unique), avatar_url, created_at | PIXEL LOCAL 컬럼은 아래 |
+| **users** | id, email (unique), role (기본 user), password_hash (nullable), google_sub (unique), nickname (lower() unique), avatar_url, created_at | PIXEL LOCAL 컬럼은 아래 |
+| **token_blacklist** | id, jti (unique), expires_at, created_at | 로그아웃 토큰 보관, 시간은 timestamptz |
 | (users · PIXEL LOCAL) | region_code FK, fandom_opt_in, profile_public, map_avatar_opt_in, nickname_public, map_card_public (모두 bool, 기본 false) | 집계 참여 · 취향 공개 · 지도 아바타 · 닉네임 공개 · 이웃 카드 공개 |
 | **categories** | slug PK, name (unique), description, sort_order | 6개 |
-| **products** | id, name, price, category_slug FK, image_url, description, is_new, created_at | 180개 시드 |
+| **products** | id, name, price, stock (기본 30), category_slug FK, image_url, description, is_new, created_at | 180개 시드 |
 | cart_items | user_id FK, product_id FK, quantity, added_at · PK(user_id, product_id) | 수량 1~99 |
 | wishlists | user_id FK, product_id FK, created_at · PK(user_id, product_id) | 위시맵 인기 찜 집계에도 사용 |
 
 ## 주문 · CS · 호환성
 | 테이블 | 주요 컬럼 | 비고 |
 | --- | --- | --- |
-| orders | id, user_id FK, status, total_price, recipient_name, address, created_at | status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` |
+| orders | id, user_id FK, status, total_price, shipping_fee (기본 0), recipient_name, address, created_at | status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` |
 | order_items | id, order_id FK, product_id FK, quantity, unit_price | 주문 시점 가격 |
 | order_status_history | id, order_id FK, status, changed_at | 배송 타임라인 |
 | cancel_requests | id, order_id FK, reason, status(`requested/approved/rejected`), created_at | |

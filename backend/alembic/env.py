@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 import app.models  # noqa: F401  — 모든 모델을 불러와야 autogenerate가 테이블을 인식
 from app.core.config import settings
 from app.core.db import Base
+from src.auth.infrastructure import models  # noqa: F401 — 신규 인증 모델 등록
 
 target_metadata = Base.metadata
 
