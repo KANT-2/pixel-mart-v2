@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import EmailSignupForm from "@/components/EmailSignupForm";
 import NicknameField, { type NicknameStatus } from "@/components/profile/NicknameField";
 import { api, ApiError } from "@/lib/api";
 import type { ApiSignupPending, ApiUser } from "@/types/api";
 
-/** 구글 확인 뒤 새 사용자의 닉네임 고르기 — 고른 닉네임이 사용 가능해야 계정이 만들어진다 */
-export default function SignupForm() {
+/** 구글 확인 뒤 새 사용자의 닉네임 고르기 — 고른 닉네임이 사용 가능해야 계정이 만들어진다.
+ * 구글 가입 대기 정보가 없으면 이메일 가입 폼을 보여 준다. */
+export default function SignupForm({ next }: { next?: string }) {
   const { updateUser, refresh } = useAuth();
   const router = useRouter();
   const [pending, setPending] = useState<ApiSignupPending | null>(null);
@@ -45,11 +46,7 @@ export default function SignupForm() {
     } finally { lock.current = false; setBusy(false); }
   }
 
-  if (missing) return <div className="pixel-panel p-6 text-center">
-    <p className="font-bold">가입 대기 정보가 없어요</p>
-    <p className="mt-2 text-sm text-sub">구글 로그인 뒤 15분 안에 닉네임을 정해야 해요. 다시 로그인해 주세요.</p>
-    <Link href="/login" className="btn-lime mt-5 inline-flex min-h-11 items-center px-5 font-bold">로그인으로</Link>
-  </div>;
+  if (missing) return <EmailSignupForm next={next} />;
   if (!pending) return <div role="status" aria-label="가입 정보 확인 중" className="h-64 animate-pulse rounded-xl bg-panel" />;
 
   return <form onSubmit={submit} className="pixel-panel space-y-5 p-5">

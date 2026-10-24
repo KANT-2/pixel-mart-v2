@@ -32,8 +32,10 @@ async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
     if (response.ok) throw new ApiError("서버 응답을 읽을 수 없습니다", response.status);
   }
   if (!response.ok) {
+    const detail = errorDetail(body);
     throw new ApiError(
-      response.status === 401 ? "로그인이 필요합니다" : errorDetail(body) ?? "요청을 처리하지 못했습니다",
+      // 401은 서버의 한글 안내("다시 로그인해 주세요." 등)만 그대로 쓰고, 영어 기본 문구는 바꿔서 보여 준다
+      response.status === 401 ? (detail && /[가-힣]/.test(detail) ? detail : "로그인이 필요합니다") : detail ?? "요청을 처리하지 못했습니다",
       response.status,
     );
   }
@@ -49,7 +51,18 @@ function clientRequest<T>(method: string, path: string, body?: unknown, init?: R
   });
 }
 
+/** OAuth2 로그인처럼 form(application/x-www-form-urlencoded)으로 보내야 하는 요청 */
+function clientFormRequest<T>(path: string, fields: Record<string, string>) {
+  return request<T>(apiPath(path), {
+    credentials: "same-origin",
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(fields).toString(),
+  });
+}
+
 export const api = {
+  postForm: <T>(path: string, fields: Record<string, string>) => clientFormRequest<T>(path, fields),
   get: <T>(path: string, init?: RequestInit) => clientRequest<T>("GET", path, undefined, init),
   post: <T>(path: string, body?: unknown, init?: RequestInit) => clientRequest<T>("POST", path, body, init),
   patch: <T>(path: string, body?: unknown, init?: RequestInit) => clientRequest<T>("PATCH", path, body, init),

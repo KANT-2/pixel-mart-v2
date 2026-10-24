@@ -9,7 +9,14 @@ interface AuthContextValue {
   loading: boolean;
   pending: boolean;
   error: string | null;
+  /** 로그아웃·만료된 토큰으로 확인했을 때 "다시 로그인해 주세요." (로그인 화면·사용자 메뉴에 표시) */
+  notice: string | null;
+  /** 개발용 이메일 로그인 (로컬 전용) */
   login: (email: string, nickname?: string) => Promise<void>;
+  /** 이메일·비밀번호 로그인 → /api/auth/token (OAuth2 form) */
+  passwordLogin: (email: string, password: string) => Promise<void>;
+  /** 이메일 가입 → 바로 로그인 */
+  signup: (email: string, password: string, nickname: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateUser: (nextUser: ApiUser) => void;
@@ -22,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const sequence = useRef(0);
   const mutating = useRef(false);
 
@@ -45,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cause instanceof ApiError && cause.status === 401) {
         setUser(null);
         setError(null);
+        // 토큰이 있었는데 거절됐을 때만 서버가 "다시 로그인해 주세요."를 보낸다 (그냥 비로그인은 안내 없음)
+        setNotice(cause.message.startsWith("다시 로그인") ? cause.message : null);
       } else {
         setError("로그인 상태를 확인하지 못했어요. 다시 시도해 주세요.");
       }
@@ -59,15 +69,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => controller.abort();
   }, [refresh]);
 
-  const login = useCallback(async (email: string, nickname?: string) => {
+  /** 로그인·가입처럼 사용자를 바꾸는 요청 — 동시에 하나만, 끝나면 최신 사용자로 */
+  const mutate = useCallback(async (run: () => Promise<ApiUser | null>) => {
     if (mutating.current) return;
     mutating.current = true;
     ++sequence.current;
     setPending(true);
     try {
-      const nextUser = await api.post<ApiUser>("/auth/dev-login", { email, ...(nickname ? { nickname } : {}) });
-      setUser(nextUser);
+      setUser(await run());
       setError(null);
+      setNotice(null);
     } finally {
       mutating.current = false;
       setPending(false);
@@ -75,23 +86,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    if (mutating.current) return;
-    mutating.current = true;
-    ++sequence.current;
-    setPending(true);
-    try {
-      await api.post("/auth/logout");
-      setUser(null);
-      setError(null);
-    } finally {
-      mutating.current = false;
-      setPending(false);
-      setLoading(false);
-    }
-  }, []);
+  const login = useCallback((email: string, nickname?: string) => mutate(
+    () => api.post<ApiUser>("/auth/dev-login", { email, ...(nickname ? { nickname } : {}) }),
+  ), [mutate]);
 
-  return <AuthContext.Provider value={{ user, loading, pending, error, login, logout, refresh, updateUser }}>{children}</AuthContext.Provider>;
+  const passwordLogin = useCallback((email: string, password: string) => mutate(async () => {
+    // 토큰은 서버가 httpOnly 쿠키(pm_session)로도 심어 주므로 화면은 응답 본문을 저장하지 않는다
+    await api.postForm("/auth/token", { username: email, password });
+    return api.get<ApiUser>("/auth/me", { cache: "no-store" });
+  }), [mutate]);
+
+  const signup = useCallback((email: string, password: string, nickname: string) => mutate(async () => {
+    await api.post<ApiUser>("/auth/signup", { email, password, nickname });
+    await api.postForm("/auth/token", { username: email, password });
+    return api.get<ApiUser>("/auth/me", { cache: "no-store" });
+  }), [mutate]);
+
+  const logout = useCallback(() => mutate(async () => {
+    await api.post("/auth/logout");
+    return null;
+  }), [mutate]);
+
+  return <AuthContext.Provider value={{ user, loading, pending, error, notice, login, passwordLogin, signup, logout, refresh, updateUser }}>
+    {children}
+  </AuthContext.Provider>;
 }
 
 export function useAuth() {

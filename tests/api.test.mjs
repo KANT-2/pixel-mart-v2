@@ -34,6 +34,7 @@ test("에러 상태·detail, 401, 비 JSON 에러와 빈 성공 응답", async (
     for (const [status, body, message] of [
       [404, '{"detail":"상품을 찾을 수 없습니다."}', "상품을 찾을 수 없습니다."],
       [401, '{"detail":"Unauthorized"}', "로그인이 필요합니다"],
+      [401, '{"detail":"다시 로그인해 주세요."}', "다시 로그인해 주세요."],
       [422, '{"detail":[{"msg":"필수 입력입니다"}]}', "필수 입력입니다"],
       [500, "<html>error</html>", "요청을 처리하지 못했습니다"],
       [200, "not json", "서버 응답을 읽을 수 없습니다"],
@@ -43,6 +44,20 @@ test("에러 상태·detail, 401, 비 JSON 에러와 빈 성공 응답", async (
     }
     globalThis.fetch = async () => new Response(null, { status: 204 });
     assert.equal(await api.delete("/example"), undefined);
+  } finally { globalThis.fetch = original; }
+});
+
+test("form 요청은 urlencoded 본문으로 보낸다 (OAuth2 로그인)", async () => {
+  const original = globalThis.fetch;
+  let call;
+  globalThis.fetch = async (url, init) => { call = { url, init }; return new Response('{"access_token":"t","token_type":"bearer"}'); };
+  try {
+    const result = await api.postForm("/auth/token", { username: "hero@pixelmart.test", password: "pixel pass" });
+    assert.equal(result.token_type, "bearer");
+    assert.equal(call.url, "/api/auth/token");
+    assert.equal(call.init.method, "POST");
+    assert.equal(call.init.headers.get("Content-Type"), "application/x-www-form-urlencoded");
+    assert.equal(call.init.body, "username=hero%40pixelmart.test&password=pixel+pass");
   } finally { globalThis.fetch = original; }
 });
 
