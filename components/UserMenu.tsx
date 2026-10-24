@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ApiError } from "@/lib/api";
@@ -12,7 +12,6 @@ interface UserMenuProps { compact?: boolean; }
 export default function UserMenu({ compact = false }: UserMenuProps) {
   const { user, loading, pending, error, notice, refresh, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
@@ -67,9 +66,11 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
           {logoutError && <p role="alert" className="px-3 py-2 text-sm text-pink">{logoutError}</p>}
         </div>
       )}
-      {notice && !loading && !user && pathname !== "/login" && <div role="alert" className="absolute right-0 top-12 z-50 w-60 pixel-panel p-3 text-sm">
+      {/* notice는 브라우저에서 /auth/me 확인 뒤에만 생기므로 window를 읽어도 서버 렌더와 어긋나지 않는다.
+          usePathname은 헤더(Suspense 밖)에서 동적 경로 prerender를 막아 쓰지 않는다 */}
+      {notice && !loading && !user && window.location.pathname !== "/login" && <div role="alert" className="absolute right-0 top-12 z-50 w-60 pixel-panel p-3 text-sm">
         <p className="font-semibold text-pink">{notice}</p>
-        <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="mt-2 inline-block underline">로그인하러 가기</Link>
+        <button type="button" onClick={() => router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`)} className="mt-2 underline">로그인하러 가기</button>
       </div>}
       {error && !loading && <div className="absolute right-0 top-12 w-60 pixel-panel p-3 text-sm text-sub">
         <p role="status">{error}</p><button type="button" onClick={() => void refresh()} className="mt-2 underline">다시 확인</button>
