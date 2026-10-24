@@ -64,4 +64,5 @@ ERD는 **어떤 데이터를 저장하고, 데이터끼리 어떻게 연결되�
 ## 관련 자료
 
 - [기사 인수 상태와 변경 전 화면](BASELINE_DAY1.md)
-- [팀 Notion 작업 기록](https://app.notion.com/p/teamsparta/1-ERD-4032dc3ef514800d8b72c2929c332a9b)
+- [팀 Notion — ERD 쉽게 보기](https://app.notion.com/p/teamsparta/ERD-4032dc3ef51480d3906ec0445bbd70c1)
+- [기존 작업일지·인수 확인 기록](https://app.notion.com/p/teamsparta/1-ERD-4032dc3ef514800d8b72c2929c332a9b)
