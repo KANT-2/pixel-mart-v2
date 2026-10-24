@@ -1,7 +1,15 @@
 ﻿from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-from src.auth.domain.exceptions import InvalidEmail, InvalidNickname, InvalidToken, WeakPassword
+from src.auth.domain.exceptions import (
+    EmailTaken,
+    InvalidEmail,
+    InvalidNickname,
+    InvalidToken,
+    LoginFailed,
+    NicknameTaken,
+    WeakPassword,
+)
 from src.orders.domain.exceptions import OutOfStock
 
 
@@ -31,6 +39,9 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     WeakPassword: status.HTTP_422_UNPROCESSABLE_CONTENT,
     InvalidNickname: status.HTTP_422_UNPROCESSABLE_CONTENT,
     InvalidToken: status.HTTP_401_UNAUTHORIZED,
+    LoginFailed: status.HTTP_401_UNAUTHORIZED,
+    EmailTaken: status.HTTP_409_CONFLICT,
+    NicknameTaken: status.HTTP_409_CONFLICT,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ForbiddenError: status.HTTP_403_FORBIDDEN,
     InvalidStateError: status.HTTP_400_BAD_REQUEST,
