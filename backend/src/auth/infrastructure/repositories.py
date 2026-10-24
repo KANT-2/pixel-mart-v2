@@ -1,11 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.services.search import LIKE_ESCAPE, like_pattern
 from src.auth.domain.account import Account
+from src.auth.domain.member import MemberSummary
 from src.auth.infrastructure.models import TokenBlacklist
 
 
@@ -47,6 +49,39 @@ class UserRepository:
         self.session.add(user)
         await self.session.flush()  # id·role 기본값을 받아 온다
         return _to_account(user)
+
+
+class MemberRepository:
+    """관리자 회원 목록 — 닉네임·이메일 부분 일치 + 역할 필터 + 페이지"""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def search(self, q: str | None, role: str | None, offset: int, limit: int) -> tuple[list[MemberSummary], int]:
+        conditions = []
+        if q:
+            pattern = like_pattern(q)
+            conditions.append(
+                or_(User.nickname.ilike(pattern, escape=LIKE_ESCAPE), User.email.ilike(pattern, escape=LIKE_ESCAPE))
+            )
+        if role:
+            conditions.append(User.role == role)
+        total = await self.session.scalar(select(func.count()).select_from(User).where(*conditions))
+        rows = await self.session.scalars(
+            select(User).where(*conditions).order_by(User.created_at.desc(), User.id.desc()).offset(offset).limit(limit)
+        )
+        members = [
+            MemberSummary(
+                id=u.id,
+                email=u.email,
+                nickname=u.nickname,
+                role=u.role,
+                google_linked=u.google_sub is not None,
+                created_at=u.created_at,
+            )
+            for u in rows
+        ]
+        return members, total or 0
 
 
 class TokenBlacklistRepository:
