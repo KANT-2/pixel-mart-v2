@@ -5,7 +5,7 @@ import pytest
 
 from src.auth.domain.account import Account, check_password, normalize_email
 from src.auth.domain.exceptions import InvalidEmail, InvalidNickname, InvalidToken, WeakPassword
-from src.auth.domain.token import IssuedToken
+from src.auth.domain.token import IssuedToken, can_forget_blacklisted
 from src.auth.infrastructure.hasher import hash_password, verify_password
 from src.auth.infrastructure.jwt import decode_token, issue_token
 from src.common.errors import domain_error_handler
@@ -136,3 +136,10 @@ def test_token_without_jti_is_rejected():
 async def test_auth_errors_map_to_http_status(error, status_code):
     response = await domain_error_handler(None, error)
     assert response.status_code == status_code
+
+
+def test_blacklist_row_is_forgettable_only_after_expiry():
+    now = datetime(2026, 10, 24, tzinfo=UTC)
+    assert can_forget_blacklisted(now - timedelta(seconds=1), now)
+    assert not can_forget_blacklisted(now, now)  # 만료 시각과 같은 순간엔 JWT가 아직 유효
+    assert not can_forget_blacklisted(now + timedelta(days=7), now)

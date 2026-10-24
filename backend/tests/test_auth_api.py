@@ -4,13 +4,15 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, text, update
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.models import User
+from src.auth.application.service import AuthService
 from src.auth.infrastructure.jwt import decode_token
 from src.auth.infrastructure.models import TokenBlacklist
+from src.auth.infrastructure.repositories import TokenBlacklistRepository, UserRepository
 from src.auth.presentation.router import router as auth_router
 from src.common.auth import AdminUser
 from src.common.errors import domain_error_handler
@@ -155,3 +157,15 @@ async def test_admin_user_hides_admin_api_with_404(ctx):
 
         c.cookies.clear()
         assert (await c.get("/api/admin/ping")).status_code == 401  # 비로그인
+
+
+async def test_purge_does_not_revive_logged_out_token(client, ctx):
+    engine, tag, jtis = ctx
+    token = await signup_and_login(client, tag, jtis)
+    auth = {"Authorization": f"Bearer {token}"}
+    assert (await client.post("/api/auth/logout", headers=auth)).status_code == 200
+
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        await AuthService(UserRepository(session), TokenBlacklistRepository(session), session).purge_expired_blacklist()
+    # 이 토큰은 아직 만료 전이라 블랙리스트에 남아 있어야 한다
+    assert (await client.get("/api/auth/me", headers=auth)).status_code == 401

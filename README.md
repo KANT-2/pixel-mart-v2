@@ -160,6 +160,7 @@ uv run alembic upgrade head                      # 테이블 만들기 · 최신
 uv run python -m scripts.seed                    # 상품 · 지역 · 취향 · 키보드 (재실행 안전)
 uv run python -m scripts.seed_demo               # 선택: 시연용 데모 이웃
 uv run python -m scripts.make_admin 이메일        # 관리자 만들기 (먼저 한 번 가입·로그인한 계정)
+uv run python -m scripts.purge_blacklist         # (가끔) 이미 만료된 로그아웃 토큰 줄 정리 — 만료 전 줄은 남겨서 401 그대로
 ```
 - pytest는 **지금 연결된 DB를 그대로** 써요. 데모 이웃을 지우는 `tests/test_seed_demo.py`는 빼고 돌리고, 테스트 뒤 `seed_demo`를 다시 실행해 주세요.
 - 스키마 · ERD: [docs/backend/ERD_DAY1.md](docs/backend/ERD_DAY1.md) · [docs/backend/SCHEMA.md](docs/backend/SCHEMA.md)
