@@ -48,7 +48,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | google_sub | VARCHAR(255) | 허용 | UNIQUE | 기존 |
 | nickname | VARCHAR(30) | 불가 |  | 기존 |
 | avatar_url | TEXT | 허용 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
 | region_code | VARCHAR(12) | 허용 | FK → regions.code | 기존 |
 | fandom_opt_in | BOOLEAN | 불가 |  | 기존 |
 | profile_public | BOOLEAN | 불가 |  | 기존 |
@@ -64,8 +64,8 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 |---|---|---|---|---|
 | id | INTEGER | 불가 | PK | ★ 신규 |
 | jti | VARCHAR(255) | 불가 | UNIQUE | ★ 신규 |
-| expires_at | DATETIME | 불가 |  | ★ 신규 |
-| created_at | DATETIME | 불가 |  | ★ 신규 |
+| expires_at | TIMESTAMPTZ | 불가 |  | ★ 신규 |
+| created_at | TIMESTAMPTZ | 불가 |  | ★ 신규 |
 
 ### products
 
@@ -78,7 +78,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | image_url | VARCHAR(300) | 불가 |  | 기존 |
 | description | TEXT | 불가 |  | 기존 |
 | is_new | BOOLEAN | 불가 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
 | stock | INTEGER | 불가 |  | ★ 신규 |
 
 ### cart_items
@@ -88,7 +88,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | user_id | INTEGER | 불가 | PK, FK → users.id | 기존 |
 | product_id | INTEGER | 불가 | PK, FK → products.id | 기존 |
 | quantity | INTEGER | 불가 |  | 기존 |
-| added_at | DATETIME | 불가 |  | 기존 |
+| added_at | TIMESTAMPTZ | 불가 |  | 기존 |
 
 ### orders
 
@@ -100,7 +100,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | total_price | INTEGER | 불가 |  | 기존 |
 | recipient_name | VARCHAR(50) | 불가 |  | 기존 |
 | address | VARCHAR(200) | 불가 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
 | shipping_fee | INTEGER | 불가 |  | ★ 신규 |
 
 ### order_items
@@ -120,7 +120,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | id | INTEGER | 불가 | PK | 기존 |
 | order_id | INTEGER | 불가 | FK → orders.id | 기존 |
 | status | VARCHAR(20) | 불가 |  | 기존 |
-| changed_at | DATETIME | 불가 |  | 기존 |
+| changed_at | TIMESTAMPTZ | 불가 |  | 기존 |
 
 ### cancel_requests
 
@@ -130,7 +130,7 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | order_id | INTEGER | 불가 | FK → orders.id | 기존 |
 | reason | VARCHAR(200) | 불가 |  | 기존 |
 | status | VARCHAR(20) | 불가 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
 
 ### product_questions
 
@@ -143,8 +143,8 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | content | VARCHAR(500) | 불가 |  | 기존 |
 | is_secret | BOOLEAN | 불가 |  | 기존 |
 | answer | TEXT | 허용 |  | 기존 |
-| answered_at | DATETIME | 허용 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
+| answered_at | TIMESTAMPTZ | 허용 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
 
 ### notifications
 
@@ -157,8 +157,8 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 | body | VARCHAR(200) | 불가 |  | 기존 |
 | href | VARCHAR(200) | 허용 |  | 기존 |
 | ref_key | VARCHAR(120) | 불가 |  | 기존 |
-| created_at | DATETIME | 불가 |  | 기존 |
-| read_at | DATETIME | 허용 |  | 기존 |
+| created_at | TIMESTAMPTZ | 불가 |  | 기존 |
+| read_at | TIMESTAMPTZ | 허용 |  | 기존 |
 
 ## 복합 키와 제약
 
@@ -167,6 +167,10 @@ PK=기본키, FK=외래키. 추가 컬럼의 기본값은 users.role=user, produ
 - notifications: UNIQUE(user_id, kind, ref_key).
 - users: email·google_sub UNIQUE, lower(nickname) 유일 인덱스.
 - products.stock의 음수 방지는 후속 #8 원자적 UPDATE에서 구현하며, 이번 마이그레이션에 CHECK가 있다고 표시하지 않습니다.
+
+## 팀 Notion
+
+[기사 1일차 ERD·작업일지](https://app.notion.com/p/teamsparta/1-ERD-4032dc3ef514800d8b72c2929c332a9b)
 
 ## 팀 적용
 
