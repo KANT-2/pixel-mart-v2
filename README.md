@@ -30,7 +30,7 @@
 
 ## 2차 프로젝트 ERD
 
-[4개 Use Case ERD — 기존 테이블과 마이그레이션 ① 변경 표시](docs/backend/ERD_DAY1.md)
+[4개 Use Case ERD — 기존 테이블과 마이그레이션 ① 변경 표시](docs/backend/ERD_DAY1.md) · [기사 인수 상태와 변경 전 캡처](docs/backend/BASELINE_DAY1.md)
 
 ## 기술 스택
 | 구분 | 사용 기술 |
