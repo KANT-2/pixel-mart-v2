@@ -1,4 +1,4 @@
-﻿from fastapi import Request, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
 from src.auth.domain.exceptions import (
@@ -10,7 +10,7 @@ from src.auth.domain.exceptions import (
     NicknameTaken,
     WeakPassword,
 )
-from src.orders.domain.exceptions import OutOfStock
+from src.orders.domain.exceptions import EmptyCart, OutOfStock
 
 
 class DomainError(Exception):
@@ -34,6 +34,7 @@ class InvalidInputError(DomainError):
 
 
 ERROR_STATUS_MAP: dict[type[Exception], int] = {
+    EmptyCart: status.HTTP_409_CONFLICT,
     OutOfStock: status.HTTP_409_CONFLICT,
     InvalidEmail: status.HTTP_422_UNPROCESSABLE_CONTENT,
     WeakPassword: status.HTTP_422_UNPROCESSABLE_CONTENT,

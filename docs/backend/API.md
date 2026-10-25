@@ -32,9 +32,9 @@
 ## 주문 · CS · 호환성
 | 메서드 | 경로 | 설명 | 상태 |
 | --- | --- | --- | --- |
-| POST | /api/orders 🔒 | 장바구니로 가상 주문 생성 (결제 없음) → 장바구니 비움 | ✅ |
-| GET | /api/orders 🔒 | 내 주문 목록 | ✅ |
-| GET | /api/orders/{id} 🔒 | 주문 상세 + 배송 타임라인 | ✅ |
+| POST | /api/orders 🔒 | `{recipientName, address}`로 장바구니 전체 가상 주문 → 재고 차감·장바구니 비움(201, 빈 장바구니/재고 부족 409) | ✅ |
+| GET | /api/orders?status=&q=&page=&size= 🔒 | 내 주문 목록 — 상태 필터, 상품명·주문번호 검색, 페이지네이션 | ✅ |
+| GET | /api/orders/{id} 🔒 | 내 주문 상세 + 배송 타임라인 (남의 주문도 404) | ✅ |
 | POST | /api/orders/{id}/cancel-requests 🔒 | 취소 신청 (배송 전만) | ✅ |
 | POST | /api/dev/cancel-requests/{id}/approve | [로컬 전용] 취소 승인 → 주문 취소 완료 | ✅ |
 | POST | /api/dev/cancel-requests/{id}/reject | [로컬 전용] 취소 거절 → 신청 직전 상태로 복귀 | ✅ |

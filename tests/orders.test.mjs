@@ -41,7 +41,7 @@ test("취소 사유는 trim 후 1~200자를 허용하고 원문 내부 줄바꿈
 });
 
 test("배송 4단계 상수는 backend STATUS_LABELS와 일치하고 취소 라벨을 포함하지 않음", async () => {
-  const source = await readFile(new URL("../backend/app/schemas/order.py", import.meta.url), "utf8");
+  const source = await readFile(new URL("../backend/src/orders/domain/order.py", import.meta.url), "utf8");
   const match = source.match(/STATUS_LABELS\s*=\s*(\{[^}]+\})/);
   assert.ok(match, "백엔드 STATUS_LABELS 정의가 있어야 합니다");
   const labels = JSON.parse(match[1].replace(/,\s*}/, "}"));

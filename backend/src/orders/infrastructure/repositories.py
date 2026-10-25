@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart import CartItem
@@ -6,6 +6,7 @@ from app.models.order import Order as OrderModel
 from app.models.order import OrderItem as OrderItemModel
 from app.models.order import OrderStatusHistory
 from app.models.product import Product
+from app.services import notifications
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.domain.order import Order, OrderItem
 
@@ -39,6 +40,7 @@ class OrderRepository:
         raise OutOfStock(remaining or 0)
 
     async def add(self, user_id: int, recipient_name: str, address: str, order: Order) -> int:
+        before = await notifications.snapshot(self.session, user_id)
         record = OrderModel(
             user_id=user_id,
             status="paid",
@@ -54,7 +56,63 @@ class OrderRepository:
         )
         self.session.add(record)
         await self.session.flush()
+        await notifications.notify(
+            self.session,
+            user_id,
+            "order_placed",
+            "주문이 완료됐어요",
+            f"주문번호 {record.id} · 상품 {sum(item.quantity for item in order.items)}개",
+            f"/mypage/orders/{record.id}",
+            f"order:{record.id}",
+        )
+        await notifications.notify_progress(self.session, user_id, before)
         return record.id
 
     async def clear_cart(self, user_id: int) -> None:
         await self.session.execute(delete(CartItem).where(CartItem.user_id == user_id))
+
+    async def get_for_user(self, user_id: int, order_id: int) -> OrderModel | None:
+        return await self.session.scalar(
+            select(OrderModel)
+            .where(OrderModel.id == order_id, OrderModel.user_id == user_id)
+            .execution_options(populate_existing=True)
+        )
+
+    async def list_for_user(
+        self,
+        user_id: int,
+        status: str | None,
+        query: str | None,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[OrderModel], int]:
+        filters = [OrderModel.user_id == user_id]
+        if status is not None:
+            filters.append(OrderModel.status == status)
+        if query:
+            escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            product_match = (
+                select(OrderItemModel.id)
+                .join(Product, Product.id == OrderItemModel.product_id)
+                .where(
+                    OrderItemModel.order_id == OrderModel.id,
+                    Product.name.ilike(f"%{escaped}%", escape="\\"),
+                )
+                .exists()
+            )
+            order_number = query.removeprefix("#")
+            filters.append(
+                or_(OrderModel.id == int(order_number), product_match) if order_number.isdecimal() else product_match
+            )
+
+        total = await self.session.scalar(select(func.count()).select_from(OrderModel).where(*filters)) or 0
+        rows = list(
+            await self.session.scalars(
+                select(OrderModel)
+                .where(*filters)
+                .order_by(OrderModel.created_at.desc(), OrderModel.id.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+        )
+        return rows, total

@@ -6,19 +6,10 @@ from pydantic import StringConstraints
 from app.models.order import Order, OrderItem, OrderStatusHistory
 from app.schemas.common import CamelModel
 from app.schemas.product import ProductOut
+from src.orders.domain.order import STATUS_LABELS
 
 RecipientName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-
-# 화면에 보여 줄 한글 이름 (프론트가 변환표를 따로 만들지 않아도 되게)
-STATUS_LABELS = {
-    "paid": "주문 완료",
-    "preparing": "상품 준비중",
-    "shipping": "배송중",
-    "delivered": "배송 완료",
-    "cancel_requested": "취소 요청",
-    "cancelled": "취소 완료",
-}
 
 
 class OrderCreate(CamelModel):
