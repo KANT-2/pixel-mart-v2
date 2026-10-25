@@ -26,7 +26,7 @@
 | GET | /api/rarities?category= | 등급별 카테고리 — `common/rare/epic/unique`의 가격 범위(`minPrice` 포함·`maxPrice` 미포함, UNIQUE는 상한 없음)와 상품 개수 | ✅ |
 | GET | /api/products?category=&q=&minPrice=&maxPrice=&isNew=&rarity=&sort=&page=&size= | 목록 (category·rarity는 쉼표로 여러 개, 없는 등급 422, sort: `id/new/price_asc/price_desc/popular`(찜 많은 순), 응답에 `isWished`·`rarity`) | ✅ |
 | GET | /api/products/{id} | 상세 (없으면 404, 응답에 `isWished`·`rarity`) | ✅ |
-| GET · POST · PATCH · DELETE | /api/cart, /api/cart/items/{productId} 🔒 | 장바구니 조회·담기(같은 상품은 수량 합산, 최대 99)·수량변경·삭제 — 응답은 모두 장바구니 전체 | ✅ |
+| GET · POST · PATCH · DELETE | /api/cart, /api/cart/items/{productId} 🔒 | 장바구니 조회·담기(같은 상품은 수량 합산, 최대 99·재고 초과 409)·수량변경·삭제 — 전체 응답에 `itemsPrice`·`shippingFee`·`freeShippingLeft`·배송비 포함 `totalPrice` | ✅ |
 | GET · PUT · DELETE | /api/wishlist, /api/wishlist/{productId} 🔒 | 찜 목록(Page, 최근 찜한 순)·찜(이미 있으면 그대로)·해제 | ✅ |
 
 ## 주문 · CS · 호환성

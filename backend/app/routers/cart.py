@@ -4,6 +4,8 @@ from sqlalchemy import select
 from app.deps import CurrentUser, DbSession
 from app.models import CartItem, Product, User
 from app.schemas.cart import MAX_QUANTITY, CartItemIn, CartItemOut, CartItemUpdate, CartOut
+from src.orders.domain.order import OrderItem, summarize_prices
+from src.orders.domain.stock import StockItem
 
 router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -16,10 +18,14 @@ async def _cart_out(db: DbSession, user: User) -> CartOut:
         .execution_options(populate_existing=True)
     )
     items = [CartItemOut.from_model(item) for item in rows]
+    prices = summarize_prices(tuple(OrderItem(item.product.id, item.quantity, item.product.price) for item in items))
     return CartOut(
         items=items,
         total_quantity=sum(i.quantity for i in items),
-        total_price=sum(i.subtotal for i in items),
+        items_price=prices.items_price,
+        shipping_fee=prices.shipping_fee,
+        free_shipping_left=prices.free_shipping_left,
+        total_price=prices.total_price,
     )
 
 
@@ -37,14 +43,17 @@ async def get_cart(user: CurrentUser, db: DbSession):
 
 @router.post("/items", response_model=CartOut, summary="담기 (이미 있으면 수량 더하기)")
 async def add_item(body: CartItemIn, user: CurrentUser, db: DbSession):
-    if await db.get(Product, body.product_id) is None:
+    product = await db.get(Product, body.product_id)
+    if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "상품을 찾을 수 없습니다.")
 
     item = await db.get(CartItem, (user.id, body.product_id))
+    quantity = body.quantity if item is None else item.quantity + body.quantity
+    if quantity > MAX_QUANTITY:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"한 상품은 최대 {MAX_QUANTITY}개까지 담을 수 있습니다.")
+    StockItem(product.id, product.stock).take(quantity)
     if item is None:
         db.add(CartItem(user_id=user.id, product_id=body.product_id, quantity=body.quantity))
-    elif item.quantity + body.quantity > MAX_QUANTITY:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"한 상품은 최대 {MAX_QUANTITY}개까지 담을 수 있습니다.")
     else:
         item.quantity += body.quantity
     await db.commit()
@@ -54,6 +63,7 @@ async def add_item(body: CartItemIn, user: CurrentUser, db: DbSession):
 @router.patch("/items/{product_id}", response_model=CartOut, summary="수량 변경")
 async def update_item(product_id: int, body: CartItemUpdate, user: CurrentUser, db: DbSession):
     item = await _get_item(db, user, product_id)
+    StockItem(item.product.id, item.product.stock).take(body.quantity)
     item.quantity = body.quantity
     await db.commit()
     return await _cart_out(db, user)
