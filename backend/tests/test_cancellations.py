@@ -14,10 +14,13 @@ from app.services.cancellations import (
 )
 
 BODY = {"recipientName": "홍길동", "address": "서울시 마포구 픽셀로 8"}
+PRODUCT = 0
 
 
 @pytest.fixture(autouse=True)
-async def require_db():
+async def require_db(test_products):
+    global PRODUCT
+    PRODUCT = test_products[0]
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1 FROM cancel_requests LIMIT 1"))
@@ -47,7 +50,7 @@ async def login(client: AsyncClient, email: str) -> None:
 async def place_order(client: AsyncClient, email: str, advance: int = 0) -> int:
     """로그인 → 주문 → (선택) 배송을 advance번 진행하고 주문 번호를 돌려준다"""
     await login(client, email)
-    await client.post("/api/cart/items", json={"productId": 1, "quantity": 1})
+    await client.post("/api/cart/items", json={"productId": PRODUCT, "quantity": 1})
     order_id = (await client.post("/api/orders", json=BODY)).json()["id"]
     for _ in range(advance):
         await client.post(f"/api/dev/orders/{order_id}/advance")
