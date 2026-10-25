@@ -1,3 +1,10 @@
+class EmptyCart(Exception):
+    """장바구니에 주문할 품목이 없을 때 발생한다."""
+
+    def __init__(self) -> None:
+        super().__init__("장바구니가 비어 있어요.")
+
+
 class OutOfStock(Exception):
     """주문에 필요한 재고가 부족할 때 발생한다."""
 
