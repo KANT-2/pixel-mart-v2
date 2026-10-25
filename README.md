@@ -184,12 +184,76 @@ uv run python -m scripts.purge_blacklist         # (가끔) 이미 만료된 로
 > 각자 자기 칸을 채워요: **흐름 · 관련 파일 · API · 정상/실패 결과 · 캡처 · 인수 전후 비교**. 모두 **로그인 → 내 API 200 → 로그아웃 → 같은 토큰 401**을 보여 줘요.
 
 ### 🛡️ 주문하기 (재고 · 배송비): 양성용
-- **흐름**: 장바구니 → `POST /api/orders` → `Order`(합계 · 배송비) · `StockItem.take()` → 주문 저장 · 재고 차감 · 장바구니 비우기 (한 트랜잭션) → 주문 완료
-- **관련 파일**: `backend/src/orders/` · (화면) `components/cart/` · `app/checkout/`
-- **API**: `POST /api/orders` · `GET /api/orders?status=&q=&page=&size=` · `GET /api/orders/{id}`
-- **정상 / 실패**: 생성 201 · 받는 사람 빈칸 422 · 재고 부족/빈 장바구니 409 · 남의 주문 404 · 비로그인/로그아웃 토큰 401
-- **캡처**: (작성 예정)
-- **인수 전후**: 재고 · 배송비 없음 → 재고 차감 · 3만 원 무료 배송 · 실패 시 재고 그대로
+- **UC 한 줄**: 로그인 사용자가 장바구니 상품을 주문하면 서버가 재고와 배송비를 검증하고, 주문·상태 기록·알림·재고 차감·장바구니 비우기를 한 트랜잭션으로 확정합니다.
+
+```mermaid
+flowchart LR
+  screen["화면<br/>/cart → /checkout"] --> api["API<br/>POST /api/orders"]
+  api --> service["Application<br/>OrderService.place_order()"]
+  service --> domain["Domain<br/>Order · summarize_prices()<br/>StockItem.take() 규칙"]
+  service --> repo["Infrastructure<br/>OrderRepository"]
+  repo --> db["PostgreSQL<br/>products · orders · order_items<br/>order_status_history · notifications · cart_items"]
+  repo -->|"조건부 UPDATE 실패"| rollback["rollback<br/>주문·재고 그대로"]
+```
+
+- **관련 파일**: 화면 `components/cart/` · `components/orders/CheckoutContents.tsx` · 클라이언트 `lib/cart.ts` · `lib/orders.ts` · API `backend/src/orders/presentation/` · 서비스 `backend/src/orders/application/` · 도메인 `backend/src/orders/domain/` · 저장소 `backend/src/orders/infrastructure/`
+- **업무 규칙**: 상품 합계 30,000원 미만은 배송비 3,000원, 이상은 무료 배송 · 재고 차감은 `stock >= quantity` 조건부 UPDATE · 주문 생성 중 하나라도 실패하면 전체 rollback · 내 주문만 조회하며 남의 주문도 같은 404로 숨김
+- **API**
+
+  | 메서드 · 경로 | 정상 | 주요 실패 |
+  | --- | --- | --- |
+  | `POST /api/orders` | 주문 확정 201 | 입력 422 · 빈 장바구니/재고 부족 409 · 로그아웃 토큰 401 |
+  | `GET /api/orders?status=&q=&page=&size=` | 상태 필터·상품명/주문번호 검색·페이지 목록 200 | 로그아웃 토큰 401 |
+  | `GET /api/orders/{id}` | 내 주문 상세·타임라인 200 | 없거나 남의 주문 404 · 로그아웃 토큰 401 |
+
+- **Swagger 정상 / 실패 증거**
+
+  <details>
+  <summary>주문 생성 201 — 상품 합계 29,000원 + 배송비 3,000원 = 총액 32,000원</summary>
+
+  ![주문 생성 201](docs/screenshots/issue-36/orders/orders-201.jpg)
+  </details>
+
+  <details>
+  <summary>받는 사람 빈칸 422</summary>
+
+  ![빈 받는 사람 422](docs/screenshots/issue-36/orders/orders-422.jpg)
+  </details>
+
+  <details>
+  <summary>없거나 다른 사용자의 주문 상세 404</summary>
+
+  ![주문 상세 404](docs/screenshots/issue-36/orders/orders-404.jpg)
+  </details>
+
+  <details>
+  <summary>빈 장바구니 주문 409</summary>
+
+  ![빈 장바구니 409](docs/screenshots/issue-36/orders/orders-409.jpg)
+  </details>
+
+- **로그인 → 내 API → 로그아웃 → 같은 토큰 401**
+
+  <details>
+  <summary>Bearer 로그인 뒤 <code>GET /api/auth/me</code> 200</summary>
+
+  ![내 정보 200](docs/screenshots/issue-36/orders/auth-me-200.jpg)
+  </details>
+
+  <details>
+  <summary><code>POST /api/auth/logout</code> 200</summary>
+
+  ![로그아웃 200](docs/screenshots/issue-36/orders/auth-logout-200.jpg)
+  </details>
+
+  <details>
+  <summary>로그아웃한 동일 Bearer 토큰으로 <code>GET /api/auth/me</code> 401</summary>
+
+  ![로그아웃 토큰 401](docs/screenshots/issue-36/orders/auth-me-after-logout-401.jpg)
+  </details>
+
+- **인수 전후**: 재고·배송비 없이 상품 합계만 저장하던 주문 → 재고 차감·3만 원 무료 배송·검색/페이지 조회·오류 계약을 갖춘 4계층 주문으로 개선했고, 실패 시 주문과 재고가 함께 원상 유지됩니다.
+- **트러블슈팅**: 공유 시드 상품 재고를 바꾸지 않도록 문서 검수 전용 상품·계정을 사용했고, 캡처에서는 Swagger의 Bearer 토큰이 보이는 Curl 영역을 제외했습니다.
 
 ### 🧭 가입 · 로그인 · 로그아웃: 채희주
 - **흐름**: `/signup` 이메일 가입 → `POST /api/auth/signup`(bcrypt 해시만 저장) → `POST /api/auth/token`(OAuth2 form) → JWT(`sub` · `exp` · **`jti`**) + `pm_session` 쿠키 → 보호 API마다 `CurrentUser`가 서명 · 만료 · 블랙리스트 확인 → `POST /api/auth/logout`이 `jti`를 `token_blacklist`에 → 같은 토큰 **401 "다시 로그인해 주세요."**
