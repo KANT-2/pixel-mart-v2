@@ -40,4 +40,7 @@ class CartItemOut(CamelModel):
 class CartOut(CamelModel):
     items: list[CartItemOut]
     total_quantity: int
+    items_price: int
+    shipping_fee: int
+    free_shipping_left: int
     total_price: int

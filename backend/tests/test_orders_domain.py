@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from src.common.errors import domain_error_handler
 from src.main import app as production_app
 from src.orders.domain.exceptions import OutOfStock
-from src.orders.domain.order import Order, OrderItem
+from src.orders.domain.order import Order, OrderItem, summarize_prices
 from src.orders.domain.stock import StockItem
 
 
@@ -35,6 +35,14 @@ def test_order_sums_quantity_and_prices_and_copies_input():
 def test_empty_order_is_rejected():
     with pytest.raises(ValueError, match="비어"):
         Order(())
+
+
+def test_empty_price_summary_does_not_charge_shipping():
+    prices = summarize_prices(())
+    assert prices.items_price == 0
+    assert prices.shipping_fee == 0
+    assert prices.free_shipping_left == 30_000
+    assert prices.total_price == 0
 
 
 @pytest.mark.parametrize("quantity", [0, -1, 1.5, True])

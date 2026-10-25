@@ -11,12 +11,14 @@ export function parseQuantityInput(raw: string, max = 99): number | null {
   return Number.isSafeInteger(quantity) && quantity >= 1 && quantity <= Math.min(max, 99) ? quantity : null;
 }
 
-export function calculateCart(items: readonly ApiCartItem[]): ApiCart {
+type CartPricing = Pick<ApiCart, "itemsPrice" | "shippingFee" | "freeShippingLeft" | "totalPrice">;
+
+export function calculateCart(items: readonly ApiCartItem[], pricing: CartPricing): ApiCart {
   const calculated = items.map((item) => ({ ...item, subtotal: item.product.price * item.quantity }));
   return {
+    ...pricing,
     items: calculated,
     totalQuantity: calculated.reduce((sum, item) => sum + item.quantity, 0),
-    totalPrice: calculated.reduce((sum, item) => sum + item.subtotal, 0),
   };
 }
 
@@ -28,5 +30,7 @@ export function applyCartChanges(cart: ApiCart | null, changes: readonly CartCha
       ? items.filter((item) => item.product.id !== change.productId)
       : items.map((item) => item.product.id === change.productId ? { ...item, quantity: change.quantity } : item);
   }
-  return calculateCart(items);
+  const itemsPrice = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  // 배송 기준은 서버가 계산하므로 낙관적 변경 중에는 마지막 확정 배송비를 쓰고 응답으로 교체합니다.
+  return calculateCart(items, { ...cart, itemsPrice, totalPrice: itemsPrice + cart.shippingFee });
 }

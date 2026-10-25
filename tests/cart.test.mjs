@@ -16,12 +16,14 @@ const { parseQuantityInput, calculateCart, applyCartChanges } = await import(uti
 const { createCartStore } = await import(await moduleUrl("../lib/cart.ts", { "@/lib/api": apiUrl, "@/utils/cart": utilsUrl }));
 
 function cart(...quantities) {
-  return calculateCart(quantities.flatMap((quantity, index) => quantity ? [{
+  const items = quantities.flatMap((quantity, index) => quantity ? [{
     product: { id: index + 1, name: `상품 ${index + 1}`, price: (index + 1) * 1000 },
     quantity,
     subtotal: 0,
     addedAt: "2026-10-09T00:00:00Z",
-  }] : []));
+  }] : []);
+  const itemsPrice = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  return calculateCart(items, { itemsPrice, shippingFee: 0, freeShippingLeft: 0, totalPrice: itemsPrice });
 }
 
 async function tick() {

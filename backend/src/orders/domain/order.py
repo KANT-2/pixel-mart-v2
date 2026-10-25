@@ -14,6 +14,17 @@ STATUS_LABELS = {
 
 
 @dataclass(frozen=True)
+class PriceSummary:
+    items_price: int
+    shipping_fee: int
+    free_shipping_left: int
+
+    @property
+    def total_price(self) -> int:
+        return self.items_price + self.shipping_fee
+
+
+@dataclass(frozen=True)
 class OrderItem:
     product_id: int
     quantity: int
@@ -30,6 +41,16 @@ class OrderItem:
         return self.quantity * self.unit_price
 
 
+def summarize_prices(items: tuple[OrderItem, ...]) -> PriceSummary:
+    items_price = sum(item.subtotal for item in items)
+    shipping_fee = 0 if not items or items_price >= FREE_SHIPPING_MINIMUM else SHIPPING_FEE
+    return PriceSummary(
+        items_price=items_price,
+        shipping_fee=shipping_fee,
+        free_shipping_left=max(0, FREE_SHIPPING_MINIMUM - items_price),
+    )
+
+
 @dataclass(frozen=True)
 class Order:
     items: tuple[OrderItem, ...]
@@ -42,16 +63,20 @@ class Order:
 
     @property
     def items_price(self) -> int:
-        return sum(item.subtotal for item in self.items)
+        return self.price_summary.items_price
 
     @property
     def shipping_fee(self) -> int:
-        return 0 if self.items_price >= FREE_SHIPPING_MINIMUM else SHIPPING_FEE
+        return self.price_summary.shipping_fee
 
     @property
     def total_price(self) -> int:
-        return self.items_price + self.shipping_fee
+        return self.price_summary.total_price
 
     @property
     def free_shipping_left(self) -> int:
-        return max(0, FREE_SHIPPING_MINIMUM - self.items_price)
+        return self.price_summary.free_shipping_left
+
+    @property
+    def price_summary(self) -> PriceSummary:
+        return summarize_prices(self.items)

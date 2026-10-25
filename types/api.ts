@@ -39,6 +39,9 @@ export interface ApiCartItem {
 export interface ApiCart {
   items: ApiCartItem[];
   totalQuantity: number;
+  itemsPrice: number;
+  shippingFee: number;
+  freeShippingLeft: number;
   totalPrice: number;
 }
 
