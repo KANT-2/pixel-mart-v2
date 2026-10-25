@@ -108,7 +108,7 @@ test("UTC 주문 시각을 로컬 YYYY.MM.DD HH:mm으로 표시하고 잘못된 
 test("주문 API는 수령 정보만 전송하고 서버 상품·금액 응답을 그대로 반환", async (t) => {
   const originalFetch = globalThis.fetch;
   const calls = [];
-  const serverOrder = { id: 42, status: "paid", totalPrice: 98765, items: [{ product: { id: 17 }, quantity: 3, unitPrice: 32921, subtotal: 98763 }] };
+  const serverOrder = { id: 42, status: "paid", statusLabel: "주문 완료", itemsPrice: 98763, shippingFee: 2, totalPrice: 98765, items: [{ product: { id: 17 }, quantity: 3, unitPrice: 32921, subtotal: 98763 }] };
   globalThis.fetch = async (url, init) => {
     calls.push({ url, ...init, body: init.body ? JSON.parse(init.body) : undefined });
     return new Response(JSON.stringify(serverOrder));

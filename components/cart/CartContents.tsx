@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/CartProvider";
 import CartItemRow from "@/components/cart/CartItemRow";
-import { formatPrice } from "@/utils/formatPrice";
+import CartPriceSummary from "@/components/cart/CartPriceSummary";
 
 export default function CartContents() {
   const { user, loading: authLoading, pending: authPending } = useAuth();
-  const { cart, loading, error, pendingIds, refresh } = useCart();
+  const { cart, loading, error, errorStatus, pendingIds, refresh } = useCart();
+  const stockBlocked = errorStatus === 409;
 
   if (authLoading || (user && !cart && loading)) return <CartSkeleton />;
 
@@ -43,11 +44,12 @@ export default function CartContents() {
         </div>
         <aside aria-label="장바구니 합계" className="pixel-panel p-5 lg:sticky lg:top-24">
           <h2 className="mb-5 text-lg font-extrabold">담은 아이템 합계</h2>
-          <dl className="space-y-4">
-            <div className="flex justify-between gap-3 text-sm"><dt className="text-sub">총 수량</dt><dd className="font-semibold">{cart.totalQuantity}개</dd></div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4"><dt className="font-semibold">총 상품 금액</dt><dd className="text-2xl font-extrabold text-lime">{formatPrice(cart.totalPrice)}</dd></div>
-          </dl>
-          <Link href="/checkout" className="mt-6 flex min-h-11 w-full items-center justify-center btn-lime px-4 py-3 font-bold text-lime-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet">주문하기</Link>
+          <div className="mb-4 flex justify-between gap-3 text-sm"><span className="text-sub">총 수량</span><span className="font-semibold">{cart.totalQuantity}개</span></div>
+          <CartPriceSummary itemsPrice={cart.itemsPrice} shippingFee={cart.shippingFee} totalPrice={cart.totalPrice} freeShippingLeft={cart.freeShippingLeft} />
+          {stockBlocked
+            ? <span aria-disabled="true" className="mt-6 flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-lg border border-line bg-panel-2 px-4 py-3 font-bold text-dim">재고 확인 필요</span>
+            : <Link href="/checkout" className="mt-6 flex min-h-11 w-full items-center justify-center btn-lime px-4 py-3 font-bold text-lime-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet">주문하기</Link>}
+          {stockBlocked && <p className="mt-3 text-center text-xs text-pink">재고 경고를 확인한 뒤 장바구니를 다시 불러와 주세요.</p>}
           <p role="status" className="mt-4 min-h-5 text-center text-xs text-sub">{pendingIds.length > 0 ? "변경 사항을 저장하고 있어요." : loading ? "장바구니를 확인하고 있어요." : "장바구니는 로그인 계정에 저장돼요."}</p>
         </aside>
       </div>}

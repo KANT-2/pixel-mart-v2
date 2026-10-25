@@ -13,9 +13,10 @@ interface CartItemRowProps {
 }
 
 export default function CartItemRow({ item, disabled = false }: CartItemRowProps) {
-  const { update, remove, pendingIds } = useCart();
+  const { update, remove, pendingIds, error, errorStatus, errorProductId } = useCart();
   const [deleting, setDeleting] = useState(false);
   const { product } = item;
+  const stockError = errorStatus === 409 && errorProductId === product.id ? error : null;
 
   async function removeItem() {
     setDeleting(true);
@@ -47,6 +48,7 @@ export default function CartItemRow({ item, disabled = false }: CartItemRowProps
           <p className="mt-1 min-h-4 text-xs text-dim">{pendingIds.includes(product.id) ? "저장 중…" : ""}</p>
         </div>
       </div>
+      {stockError && <p role="alert" className="mt-4 rounded-lg border border-pink/30 bg-panel-2 px-3 py-2 text-sm text-pink">{stockError}</p>}
     </article>
   </li>;
 }

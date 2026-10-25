@@ -9,6 +9,8 @@ interface CartContextValue {
   cart: ApiCart | null;
   loading: boolean;
   error: string | null;
+  errorStatus: number | null;
+  errorProductId: number | null;
   pendingIds: readonly number[];
   add: (productId: number, quantity: number) => Promise<void>;
   update: (productId: number, quantity: number) => Promise<void>;
