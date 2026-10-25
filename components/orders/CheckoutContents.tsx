@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useCart } from "@/components/CartProvider";
+import CartPriceSummary from "@/components/cart/CartPriceSummary";
 import { ApiError } from "@/lib/api";
 import { ordersApi } from "@/lib/orders";
 import type { ApiOrder } from "@/types/api";
@@ -23,12 +24,13 @@ export default function CheckoutContents() {
 
 function CheckoutForm() {
   const { pending: authPending, refresh: refreshAuth } = useAuth();
-  const { cart, loading, error: cartError, pendingIds, refresh } = useCart();
+  const { cart, loading, error: cartError, errorStatus: cartErrorStatus, pendingIds, refresh } = useCart();
   const router = useRouter();
   const [recipientName, setRecipientName] = useState("");
   const [address, setAddress] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ recipientName?: string; address?: string }>({});
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<ApiOrder | null>(null);
   const [busy, setBusy] = useState(false);
@@ -79,6 +81,7 @@ function CheckoutForm() {
     setAddress(validation.values.address);
     setFieldErrors(validation.errors);
     setError(null);
+    setErrorStatus(null);
     if (!validation.valid) {
       const invalid = event.currentTarget.elements.namedItem(validation.errors.recipientName ? "recipientName" : "address");
       if (invalid instanceof HTMLElement) invalid.focus();
@@ -103,6 +106,7 @@ function CheckoutForm() {
         void refreshAuth();
       } else {
         setError(cause instanceof ApiError ? cause.message : "주문 결과를 확인하지 못했어요. 다시 주문하기 전에 주문 내역을 확인해 주세요.");
+        setErrorStatus(cause instanceof ApiError ? cause.status : null);
       }
     } finally {
       if (isCurrent(controller, request)) {
@@ -137,7 +141,7 @@ function CheckoutForm() {
       <p className="mt-2 text-sm text-sub">주문번호 #{createdOrder.id}</p>
       <p className="mt-3 text-sm text-sub">{busy ? "장바구니를 갱신한 뒤 주문 상세로 이동해요." : "아래는 서버에서 확정한 주문 내용이에요."}</p>
     </div>
-    <CheckoutSummary items={createdOrder.items} totalPrice={createdOrder.totalPrice} confirmed />
+    <CheckoutSummary items={createdOrder.items} itemsPrice={createdOrder.itemsPrice} shippingFee={createdOrder.shippingFee} totalPrice={createdOrder.totalPrice} confirmed />
     {refreshError && <p role="alert" className="rounded-xl border border-pink/30 bg-panel p-5 text-sm text-pink">주문은 완료됐지만 장바구니 갱신에 실패했어요. {refreshError}</p>}
     {!busy && <div className="flex flex-wrap items-center gap-4">
       <button type="button" disabled={authPending} onClick={() => void retryCartRefresh()}
@@ -161,9 +165,11 @@ function CheckoutForm() {
 
   const disabled = busy || authPending;
   const cartPending = loading || pendingIds.length > 0;
+  const stockBlocked = errorStatus === 409 || cartErrorStatus === 409;
   return <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
     <div className="min-w-0 space-y-4">
-      <CheckoutSummary items={cart.items.map((item) => ({ ...item, unitPrice: item.product.price }))} totalPrice={cart.totalPrice} />
+      <CheckoutSummary items={cart.items.map((item) => ({ ...item, unitPrice: item.product.price }))}
+        itemsPrice={cart.itemsPrice} shippingFee={cart.shippingFee} totalPrice={cart.totalPrice} freeShippingLeft={cart.freeShippingLeft} />
       <Link href="/cart" className="inline-flex py-2 text-sm text-sub hover:text-ink">← 장바구니 수정하기</Link>
     </div>
     <form onSubmit={submit} noValidate className="min-w-0 pixel-panel p-5 sm:p-6">
@@ -191,8 +197,9 @@ function CheckoutForm() {
         {error && <Link href="/mypage/orders" className="mt-2 inline-flex text-sub underline underline-offset-4">주문 내역 확인</Link>}
       </div>}
       <p className="mt-5 text-xs leading-relaxed text-dim">주문 버튼을 누르면 서버 장바구니의 모든 상품으로 주문이 생성돼요.</p>
-      <button type="submit" disabled={disabled || cartPending}
-        className="mt-4 min-h-12 w-full btn-lime px-4 py-3 text-sm font-bold text-lime-ink disabled:opacity-50">{busy ? "주문 처리 중…" : "주문하기"}</button>
+      <button type="submit" disabled={disabled || cartPending || stockBlocked}
+        className="mt-4 min-h-12 w-full btn-lime px-4 py-3 text-sm font-bold text-lime-ink disabled:cursor-not-allowed disabled:opacity-50">{busy ? "주문 처리 중…" : stockBlocked ? "재고 확인 필요" : "주문하기"}</button>
+      {stockBlocked && <p className="mt-3 text-center text-xs text-pink">장바구니로 돌아가 재고 경고를 확인해 주세요.</p>}
       <p role="status" className="mt-3 min-h-5 text-center text-xs text-sub">{cartPending ? "장바구니 변경 사항을 확인하고 있어요." : ""}</p>
     </form>
   </div>;
@@ -200,11 +207,14 @@ function CheckoutForm() {
 
 interface CheckoutSummaryProps {
   items: ApiOrder["items"];
+  itemsPrice: number;
+  shippingFee: number;
   totalPrice: number;
+  freeShippingLeft?: number;
   confirmed?: boolean;
 }
 
-function CheckoutSummary({ items, totalPrice, confirmed = false }: CheckoutSummaryProps) {
+function CheckoutSummary({ items, itemsPrice, shippingFee, totalPrice, freeShippingLeft, confirmed = false }: CheckoutSummaryProps) {
   return <section aria-label={confirmed ? "확정된 주문 내용" : "주문 상품 요약"} className="min-w-0 pixel-panel p-5 sm:p-6">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-xl font-extrabold">{confirmed ? "확정된 주문 상품" : "주문 상품"}</h2>
@@ -223,8 +233,8 @@ function CheckoutSummary({ items, totalPrice, confirmed = false }: CheckoutSumma
         </div>
       </li>)}
     </ul>
-    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5">
-      <span className="font-semibold">총 주문 금액</span><strong className="text-2xl font-extrabold text-lime">{formatPrice(totalPrice)}</strong>
+    <div className="mt-2 border-t border-line pt-5">
+      <CartPriceSummary itemsPrice={itemsPrice} shippingFee={shippingFee} totalPrice={totalPrice} freeShippingLeft={freeShippingLeft} totalLabel="총 주문 금액" />
     </div>
   </section>;
 }

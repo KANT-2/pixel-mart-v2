@@ -84,7 +84,7 @@ test("비로그인 스토어는 조회하지 않고 빈 상태를 유지한다",
   const calls = network(t);
   const store = createCartStore(false);
   store.start();
-  assert.deepEqual(store.getSnapshot(), { cart: null, loading: false, error: null, pendingIds: [] });
+  assert.deepEqual(store.getSnapshot(), { cart: null, loading: false, error: null, errorStatus: null, errorProductId: null, pendingIds: [] });
   await assert.rejects(store.add(1, 1), /로그인이 필요합니다/);
   assert.equal(calls.length, 0);
   store.stop();
@@ -202,6 +202,25 @@ test("담기는 서버 전체 응답을 사용하고 합계 99 초과 오류를 
     await assert.rejects(store.add(1, quantity), /1~99/);
   }
   assert.equal(calls.length, 3);
+});
+
+test("재고 409는 상품과 서버 detail을 보존하고 새로고침 성공 때 해제한다", async (t) => {
+  const initial = cart(2, 1);
+  const { store, calls } = await ready(t, initial);
+  const failed = assert.rejects(store.update(1, 4), /재고가 부족해요/);
+  calls[1].reply({ detail: "재고가 부족해요. (남은 수량 3개)" }, 409);
+  await failed;
+  assert.deepEqual(store.getSnapshot().cart, initial);
+  assert.equal(store.getSnapshot().error, "재고가 부족해요. (남은 수량 3개)");
+  assert.equal(store.getSnapshot().errorStatus, 409);
+  assert.equal(store.getSnapshot().errorProductId, 1);
+
+  const refreshed = store.refresh();
+  calls[2].reply(initial);
+  await refreshed;
+  assert.equal(store.getSnapshot().error, null);
+  assert.equal(store.getSnapshot().errorStatus, null);
+  assert.equal(store.getSnapshot().errorProductId, null);
 });
 
 test("조회 실패는 빈 장바구니로 바꾸지 않고 재시도할 수 있다", async (t) => {

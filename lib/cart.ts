@@ -6,6 +6,8 @@ export interface CartSnapshot {
   cart: ApiCart | null;
   loading: boolean;
   error: string | null;
+  errorStatus: number | null;
+  errorProductId: number | null;
   pendingIds: readonly number[];
 }
 
@@ -29,9 +31,10 @@ function requestError(error: unknown): Error {
 }
 
 export function createCartStore(enabled: boolean) {
-  let snapshot: CartSnapshot = { cart: null, loading: enabled, error: null, pendingIds: [] };
+  let snapshot: CartSnapshot = { cart: null, loading: enabled, error: null, errorStatus: null, errorProductId: null, pendingIds: [] };
   let confirmed: ApiCart | null = null;
   let error: string | null = null;
+  let errorStatus: number | null = null;
   let errorProductId: number | null = null;
   let active = false;
   let generation = 0;
@@ -47,6 +50,8 @@ export function createCartStore(enabled: boolean) {
       cart: applyCartChanges(confirmed, changes),
       loading: enabled && pending.some((task) => task.kind === "get"),
       error,
+      errorStatus,
+      errorProductId,
       pendingIds: [...new Set(pending.flatMap((task) => task.kind === "get" ? [] : [task.productId]))],
     };
     listeners.forEach((listener) => listener());
@@ -64,12 +69,17 @@ export function createCartStore(enabled: boolean) {
             : await api.delete<ApiCart>(`/cart/items/${task.productId}`, init);
       if (!active || generation !== token) return;
       confirmed = result;
-      if (errorProductId === (task.kind === "get" ? null : task.productId)) error = null;
+      if (task.kind === "get" || errorProductId === task.productId) {
+        error = null;
+        errorStatus = null;
+        errorProductId = null;
+      }
       task.completions.forEach(({ resolve }) => resolve());
     } catch (reason) {
       if (!active || generation !== token) return;
       const failure = requestError(reason);
       error = failure.message;
+      errorStatus = failure instanceof ApiError ? failure.status : null;
       errorProductId = task.kind === "get" ? null : task.productId;
       task.completions.forEach(({ reject }) => reject(failure));
     } finally {
@@ -100,6 +110,7 @@ export function createCartStore(enabled: boolean) {
       return Promise.reject(new Error("삭제 중인 상품이에요. 잠시 기다려 주세요."));
     }
     error = null;
+    errorStatus = null;
     errorProductId = null;
     return new Promise<void>((resolve, reject) => {
       const completion = { resolve, reject };

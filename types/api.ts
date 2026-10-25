@@ -67,6 +67,9 @@ export interface ApiOrderItem {
 export interface ApiOrder {
   id: number;
   status: string;
+  statusLabel: string;
+  itemsPrice: number;
+  shippingFee: number;
   totalPrice: number;
   recipientName: string;
   address: string;
@@ -81,7 +84,6 @@ export interface ApiOrderTimelineEntry {
 }
 
 export interface ApiOrderDetail extends ApiOrder {
-  statusLabel: string;
   timeline: ApiOrderTimelineEntry[];
 }
 

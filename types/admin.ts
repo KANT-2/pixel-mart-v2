@@ -22,8 +22,6 @@ export interface AdminOrderDetail extends ApiOrderDetail {
   status: AdminOrderStatus; // 6종 중 하나
   userNickname: string; // 주문자 닉네임
   userEmail: string; // 주문자 이메일
-  itemsPrice?: number; // 상품 합계 (성용님의 DB 변경이 머지된 뒤에 생긴다)
-  shippingFee?: number; // 배송비 (위와 같다)
 }
 
 // 관리자 취소 요청 한 장 = 손님 취소 요청 + 주문자 닉네임·주문 금액
