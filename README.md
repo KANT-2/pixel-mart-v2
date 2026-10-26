@@ -289,7 +289,8 @@ flowchart LR
   | `GET /api/products/{id}/questions` | 목록 · 페이지 (size 기본 10) | **+ `answered` 필터** · size 기본 20 · 비밀글은 작성자·**관리자**도 봄 (#30) |
   | `POST /api/products/{id}/questions` | 쓰기 (라우터·서비스에 규칙이 섞임) | 같은 주소 · 규칙은 `Question` 도메인 · 실패 시 rollback (#30) |
   | `DELETE /api/questions/{id}` | 없음 | **새로** · 본인만 · 답변 전에만 (남 404 · 답변 후 409) (#30) |
-  | `POST /api/dev/questions/{id}/answer` | 로컬에서 로그인한 누구나 답변 | #31에서 `POST /api/admin/questions/{id}/answer`(관리자만)로 교체 예정 |
+  | `GET /api/admin/questions?answered=&q=&page=` | 없음 | **새로** · 관리자만 · 답변 여부 필터 · 상품 이름/제목 검색 · 비밀글 내용도 보임 · `productName`·`authorNickname` (#31) |
+  | `POST /api/admin/questions/{id}/answer` | `POST /api/dev/questions/{id}/answer` — 로컬에서 로그인한 누구나 · 두 번 답변 400 | **관리자만**(아니면 404) · 두 번 답변 **409** · 작성자 알림 · 개발용 API 삭제 (#31) |
 - **정상 / 실패**: (작성 예정: 남의 비밀글 내용 안 보임 · 두 번 답변 409 · 빈 제목 422 · 로그아웃 토큰 401)
 - **캡처**: (작성 예정)
 - **인수 전후**: 새로고침하면 사라지는 메모리 데이터 → DB 저장 · 비밀글은 서버에서 가림

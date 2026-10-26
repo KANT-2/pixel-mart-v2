@@ -8,6 +8,8 @@ from src.questions.domain.question import Question
 
 # (문의, 작성자 닉네임)
 Authored = tuple[Question, str]
+# (문의, 작성자 닉네임, 상품 이름)
+AdminRow = tuple[Question, str, str]
 
 
 class Questions(Protocol):
@@ -17,6 +19,9 @@ class Questions(Protocol):
     async def list_for_product(
         self, product_id: int, answered: bool | None, offset: int, limit: int
     ) -> tuple[list[Authored], int]: ...
+    async def list_for_admin(
+        self, answered: bool | None, query: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminRow], int]: ...
     async def save_answer(self, question: Question) -> None: ...
     async def notify_answered(self, question: Question) -> None: ...
     async def delete(self, question_id: int) -> None: ...
@@ -65,6 +70,15 @@ def to_view(authored: Authored, viewer_id: int | None, is_admin: bool = False) -
     )
 
 
+@dataclass(frozen=True)
+class AdminQuestionView:
+    """관리자 목록 한 줄 — 비밀글도 내용이 보이고, 상품 이름·작성자 닉네임이 붙는다"""
+
+    question: QuestionView
+    product_name: str
+    author_nickname: str
+
+
 class QuestionService:
     """조회 → 도메인 규칙 → 저장 → commit. 중간에 실패하면 rollback해서 아무것도 남기지 않는다."""
 
@@ -106,6 +120,17 @@ class QuestionService:
         rows, total = await self.questions.list_for_product(product_id, answered, (page - 1) * size, size)
         return [to_view(row, viewer_id, is_admin) for row in rows], total
 
+    async def list_for_admin(
+        self, admin_id: int, answered: bool | None, query: str | None, page: int, size: int
+    ) -> tuple[list[AdminQuestionView], int]:
+        """관리자 문의 목록 — 모든 상품 · 최신순 · 답변 여부 필터 · 상품 이름/제목 검색"""
+        rows, total = await self.questions.list_for_admin(answered, query, (page - 1) * size, size)
+        views = [
+            AdminQuestionView(to_view((question, nickname), admin_id, is_admin=True), product_name, nickname)
+            for question, nickname, product_name in rows
+        ]
+        return views, total
+
     async def answer(self, question_id: int, text: str, admin_id: int) -> QuestionView:
         """관리자 답변 — 답변 저장과 작성자 알림을 한 트랜잭션으로"""
         authored = await self.questions.get(question_id)
@@ -135,4 +160,3 @@ class QuestionService:
         except Exception:
             await self.tx.rollback()
             raise
-        

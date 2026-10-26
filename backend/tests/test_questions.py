@@ -6,7 +6,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from app.core.config import settings
 from app.core.db import engine
 from app.main import app
 from app.schemas.question import is_hidden
@@ -213,78 +212,4 @@ async def test_masked_output_never_contains_secret_text(client, anon):
     assert "절대노출금지" not in raw
 
 
-# ---- 답변 (로컬 전용) ----
-async def test_answer_marks_answered_and_shows_to_viewers(client, anon):
-    await login(client, AUTHOR)
-    q = await ask(client)
-    res = await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "구성은 상세 탭을 보세요"})
-    body = res.json()
-    assert res.status_code == 200
-    assert body["answered"] is True
-    assert body["answer"] == "구성은 상세 탭을 보세요"
-    assert body["answeredAt"] is not None
-
-    [seen] = await listing(anon)  # 공개글의 답변은 누구에게나 보인다
-    assert seen["answered"] is True
-    assert seen["answer"] == "구성은 상세 탭을 보세요"
-
-
-async def test_answer_to_secret_question_stays_masked_for_others(client, anon):
-    await login(client, AUTHOR)
-    q = await ask(client, "비밀 제목", "비밀 내용", secret=True)
-
-    await login(client, VISITOR)  # 작성자가 아닌 사람이 답변을 달아도
-    res = await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "비밀 답변"})
-    body = res.json()
-    assert res.status_code == 200
-    assert body["answered"] is True
-    assert body["hidden"] is True  # 응답에서도 비밀글 내용·답변을 돌려주지 않는다
-    assert body["title"] is None
-    assert body["answer"] is None
-
-    [seen] = await listing(anon)
-    assert seen["answered"] is True  # 답변 완료 표시는 보이지만
-    assert seen["answer"] is None  # 내용은 가려진다
-    assert "비밀 답변" not in (await anon.get(url())).text
-
-    await login(client, AUTHOR)  # 작성자는 답변을 볼 수 있다
-    [mine] = await listing(client)
-    assert mine["answer"] == "비밀 답변"
-
-
-async def test_second_answer_is_400(client):
-    await login(client, AUTHOR)
-    q = await ask(client)
-    await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "첫 답변"})
-    res = await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "두번째"})
-    assert res.status_code == 400
-    assert res.json()["detail"] == "이미 답변이 달린 문의입니다."
-    assert (await listing(client))[0]["answer"] == "첫 답변"
-
-
-async def test_answer_unknown_question_is_404(client):
-    await login(client, AUTHOR)
-    assert (await client.post("/api/dev/questions/999999/answer", json={"answer": "x"})).status_code == 404
-
-
-async def test_answer_requires_login(client, anon):
-    await login(client, AUTHOR)
-    q = await ask(client)
-    assert (await anon.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "x"})).status_code == 401
-
-
-@pytest.mark.parametrize("answer", ["", "   ", "가" * 501])
-async def test_invalid_answer_is_422(client, answer):
-    await login(client, AUTHOR)
-    q = await ask(client)
-    assert (await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": answer})).status_code == 422
-    assert (await listing(client))[0]["answered"] is False
-
-
-async def test_answer_is_404_when_not_local(client, monkeypatch):
-    await login(client, AUTHOR)
-    q = await ask(client)
-    monkeypatch.setattr(settings, "env", "production")
-    assert (await client.post(f"/api/dev/questions/{q['id']}/answer", json={"answer": "x"})).status_code == 404
-    monkeypatch.undo()
-    assert (await listing(client))[0]["answered"] is False
+# 답변 테스트는 관리자 답변 API로 옮겼어요 → tests/test_admin_questions_api.py (#31)
