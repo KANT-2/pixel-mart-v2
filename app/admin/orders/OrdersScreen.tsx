@@ -22,7 +22,7 @@ const NEXT_STATUS_LABEL: Partial<Record<AdminOrderStatus, string>> = { paid: "�
 
 // 요약 카드 4개 — 눌러서 그 상태로 필터, 다시 누르면 해제
 const CARDS: { status: AdminOrderStatus; countKey: keyof AdminOrderCounts; label: string; hint: string }[] = [
-  { status: "paid", countKey: "paid", label: "처리 필요", hint: "결제완료 · 준비를 시작해 주세요" },
+  { status: "paid", countKey: "paid", label: "처리 필요", hint: "주문 완료 · 준비를 시작해 주세요" }, // statusLabel("주문 완료")과 문구를 맞춘다
   { status: "preparing", countKey: "preparing", label: "상품 준비중", hint: "포장이 끝나면 배송을 시작해 주세요" },
   { status: "shipping", countKey: "shipping", label: "배송중", hint: "도착하면 배송완료로 넘겨주세요" },
   { status: "cancel_requested", countKey: "cancelRequested", label: "취소 요청", hint: "취소 요청 화면에서 처리해요" },
@@ -31,7 +31,7 @@ const CARDS: { status: AdminOrderStatus; countKey: keyof AdminOrderCounts; label
 // 상태 탭 — "전체"는 StatusFilter가 직접 그려 주므로 나머지 5개만 넘긴다 (취소됨은 탭에 없음, 전체에서만 보임)
 function buildTabOptions(counts: AdminOrderCounts | null) {
   return [
-    { value: "paid", label: "결제완료", count: counts?.paid },
+    { value: "paid", label: "주문 완료", count: counts?.paid }, // statusLabel("주문 완료")과 문구를 맞춘다
     { value: "preparing", label: "상품 준비중", count: counts?.preparing },
     { value: "shipping", label: "배송중", count: counts?.shipping },
     { value: "delivered", label: "배송 완료", count: counts?.delivered },

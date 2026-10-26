@@ -25,17 +25,17 @@ const CANCEL_BADGE: Record<AdminCancelStatus, string> = {
 
 // 요약 카드 3개 — 눌러서 그 상태로 필터, 다시 누르면 해제
 const CARDS: { status: AdminCancelStatus; countKey: keyof AdminCancelCounts; label: string; hint: string }[] = [
-  { status: "requested", countKey: "requested", label: "대기 중", hint: "승인 또는 거절이 필요해요" },
-  { status: "approved", countKey: "approved", label: "승인", hint: "주문 취소와 재고 복구가 끝났어요" },
-  { status: "rejected", countKey: "rejected", label: "거절", hint: "주문이 원래 단계로 돌아갔어요" },
+  { status: "requested", countKey: "requested", label: "취소 요청중", hint: "승인 또는 거절이 필요해요" },
+  { status: "approved", countKey: "approved", label: "취소 승인", hint: "주문 취소와 재고 복구가 끝났어요" },
+  { status: "rejected", countKey: "rejected", label: "취소 거절", hint: "주문이 원래 단계로 돌아갔어요" },
 ];
 
 // 상태 탭 — "전체"는 StatusFilter가 직접 그려 주므로 나머지 3개만 넘긴다
 function buildTabOptions(counts: AdminCancelCounts | null) {
   return [
-    { value: "requested", label: "대기 중", count: counts?.requested },
-    { value: "approved", label: "승인", count: counts?.approved },
-    { value: "rejected", label: "거절", count: counts?.rejected },
+    { value: "requested", label: "취소 요청중", count: counts?.requested },
+    { value: "approved", label: "취소 승인", count: counts?.approved },
+    { value: "rejected", label: "취소 거절", count: counts?.rejected },
   ];
 }
 

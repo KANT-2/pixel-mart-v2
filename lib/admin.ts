@@ -16,8 +16,8 @@ import type {
   Page,
 } from "@/types/admin";
 
-// 스위치예요. true = 가짜 서버, false = 진짜 서버. 백엔드가 완성되면 false로 바꿔요.
-const USE_MOCK = true;
+// 스위치예요. true = 가짜 서버, false = 진짜 서버. 주문·취소 요청 API가 머지되어 false로 바꿨어요.
+const USE_MOCK = false;
 
 // 주문 건수가 바뀌었을 수도 있다고 알리는 이벤트 이름이에요 (사이드바 배지가 이 소식을 듣고 다시 불러와요).
 const COUNTS_CHANGED_EVENT = "admin-order-counts-changed";
