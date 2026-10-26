@@ -88,6 +88,7 @@ class TradePost(Base):
     trade_method: Mapped[str] = mapped_column(String(10), default="direct")
     content: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(10), default="open", server_default="open")
+    hidden_by_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

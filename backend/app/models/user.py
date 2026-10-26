@@ -12,6 +12,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
     role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")
+    suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    featured_badge: Mapped[str | None] = mapped_column(String(30))
     password_hash: Mapped[str | None] = mapped_column(Text)
     google_sub: Mapped[str | None] = mapped_column(String(255), unique=True)  # 구글 계정 고유 ID
     nickname: Mapped[str] = mapped_column(String(30))
