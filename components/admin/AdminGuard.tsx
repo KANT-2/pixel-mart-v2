@@ -35,8 +35,8 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     );
   }
 
-  // TODO(#27): 백엔드에 ApiUser.role이 추가되면 아래 조건을 user.role !== "admin"으로 바꿔서 실제 권한 체크를 켠다.
-  const isNotAdmin = false; // 지금은 role이 없어서 항상 통과시킨다
+  // role이 "admin"이 아니면(값이 없는 경우 포함) 권한 없음으로 본다 — role은 선택값이라 옵셔널 체이닝으로 읽는다
+  const isNotAdmin = user?.role !== "admin";
 
   // 3) 로그인은 했지만 관리자가 아니면 권한 없음 안내를 보여 준다
   if (isNotAdmin) {
