@@ -42,6 +42,14 @@ from src.common.logging import log_requests
 from src.database import engine
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.presentation import router as orders_api
+from src.questions.domain.exceptions import (
+    AnsweredQuestionNotDeletable,
+    InvalidQuestion,
+    ProductNotFound,
+    QuestionAlreadyAnswered,
+    QuestionNotFound,
+)
+from src.questions.presentation import router as questions_api
 
 
 # FastAPI 서버의 시작 및 종료 과정 관리
@@ -80,6 +88,14 @@ for order_error in (EmptyCart, OutOfStock):
     app.add_exception_handler(order_error, domain_error_handler)
 for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken, LoginFailed, EmailTaken, NicknameTaken):
     app.add_exception_handler(auth_error, domain_error_handler)
+for question_error in (
+    QuestionNotFound,
+    ProductNotFound,
+    InvalidQuestion,
+    QuestionAlreadyAnswered,
+    AnsweredQuestionNotDeletable,
+):
+    app.add_exception_handler(question_error, domain_error_handler)
 
 
 # 프론트엔드의 직접 API 호출을 위한 CORS 설정
@@ -128,8 +144,7 @@ for router in (
     local_trades.router,
     trade_requests.router,
     reviews.router,
-    questions.router,
-    questions.dev_router,
+    questions.dev_router,  # 답변은 아직 개발용 (#31에서 관리자 API로 교체)
     compat.router,
     notifications.router,
 ):
@@ -140,3 +155,4 @@ for router in (
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
+app.include_router(questions_api.router, prefix="/api")
