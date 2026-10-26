@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { FeedbackLogin, FeedbackSkeleton } from "@/components/products/FeedbackStates";
+import QuestionDeleteButton from "@/components/products/QuestionDeleteButton";
 import QuestionEntries from "@/components/products/QuestionEntries";
-import { questions, questionLimits, validateQuestion, type QuestionView } from "@/lib/questions";
-import type { ApiUser } from "@/types/api";
+import { ApiError } from "@/lib/api";
+import { canDeleteQuestion, questionLimits, questionPageAfterReload, questionsApi, validateQuestion, type QuestionView } from "@/lib/questions";
+import type { ApiUser, Page } from "@/types/api";
 
 interface QuestionsPanelProps { productId: number; }
 
@@ -17,64 +19,128 @@ export default function QuestionsPanel({ productId }: QuestionsPanelProps) {
   </div>;
 }
 
+// 삭제로 이번 페이지가 비었으면 앞 페이지를 한 번 더 받아 온다
+async function fetchQuestionPage(productId: number, page: number, signal: AbortSignal) {
+  const first = await questionsApi.list(productId, page, signal);
+  const corrected = questionPageAfterReload(first);
+  return corrected === first.page ? first : questionsApi.list(productId, corrected, signal);
+}
+
 interface AccountQuestionsProps extends QuestionsPanelProps { viewer: ApiUser | null; }
 
+// 로그인한 사람마다 비밀글 보이는 범위가 달라서, 계정이 바뀌면 key로 새로 그린다
 function AccountQuestions({ productId, viewer }: AccountQuestionsProps) {
-  const { pending: authPending } = useAuth();
+  const { pending: authPending, refresh: refreshAuth } = useAuth();
   const id = useId();
-  const [items, setItems] = useState<QuestionView[] | null>(null);
+  const [data, setData] = useState<Page<QuestionView> | null>(null);
+  const [page, setPage] = useState(1);
+  const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSecret, setIsSecret] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const lock = useRef(false);
   const lifetime = useRef<AbortController | null>(null);
-  const load = useCallback((signal: AbortSignal) =>
-    questions.list(productId, viewer, signal).then((next) => {
-      if (!signal.aborted) { setItems(next); setListError(null); }
-    }).catch((cause: unknown) => {
-      if (!signal.aborted) setListError(cause instanceof Error ? cause.message : "질문을 불러오지 못했어요.");
-    }), [productId, viewer]);
+  const blocked = busy || deletingId !== null || authPending;
+
+  // 서버 응답을 화면 상태로 — 첫 로딩은 effect의 .then에서, 다시 불러오기는 load()에서 쓴다
+  const show = useCallback((next: Page<QuestionView>, signal: AbortSignal) => {
+    if (signal.aborted) return;
+    setData(next); setPage(next.page); setListError(null); setListLoading(false);
+  }, []);
+  const fail = useCallback((cause: unknown, signal: AbortSignal) => {
+    if (signal.aborted) return;
+    setListError(cause instanceof ApiError ? cause.message : "문의를 불러오지 못했어요. 다시 시도해 주세요.");
+    setListLoading(false);
+  }, []);
+
+  async function load(nextPage: number, signal: AbortSignal) {
+    try { show(await fetchQuestionPage(productId, nextPage, signal), signal); }
+    catch (cause) { fail(cause, signal); }
+  }
+
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
-    void load(controller.signal);
-    return () => { controller.abort(); lock.current = false; setBusy(false); };
-  }, [load]);
+    fetchQuestionPage(productId, 1, controller.signal).then((next) => show(next, controller.signal), (cause) => fail(cause, controller.signal));
+    return () => { controller.abort(); lock.current = false; setBusy(false); setDeletingId(null); };
+  }, [productId, show, fail]);
+
+  function startLoading() { setListLoading(true); setListError(null); }
+
+  function reload(nextPage: number) {
+    const signal = lifetime.current?.signal;
+    if (signal && !signal.aborted) { startLoading(); void load(nextPage, signal); }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (lock.current || authPending || !viewer) return;
+    if (lock.current || blocked || !viewer) return;
     const validation = validateQuestion(title, content);
-    setErrors(validation.errors); setError(null); setSuccess(false);
+    setErrors(validation.errors); setError(null); setNotice(null);
     if (!validation.valid) return;
     const signal = lifetime.current?.signal;
     if (!signal || signal.aborted) return;
     lock.current = true; setBusy(true);
     try {
-      await questions.create(productId, viewer, { ...validation.values, isSecret }, signal);
+      await questionsApi.create(productId, { ...validation.values, isSecret }, signal);
       if (signal.aborted) return;
-      setTitle(""); setContent(""); setIsSecret(false); setSuccess(true);
-      await load(signal);
+      setTitle(""); setContent(""); setIsSecret(false); setNotice("질문을 등록했어요.");
+      startLoading(); await load(1, signal); // 새 문의는 최신순 맨 앞
     } catch (cause) {
-      if (!signal.aborted) setError(cause instanceof Error ? cause.message : "질문을 저장하지 못했어요.");
+      if (signal.aborted) return;
+      setError(cause instanceof Error ? cause.message : "질문을 저장하지 못했어요. 다시 시도해 주세요.");
+      if (cause instanceof ApiError && cause.status === 401) void refreshAuth();
     } finally {
       if (!signal.aborted) { lock.current = false; setBusy(false); }
     }
   }
 
+  async function remove(question: QuestionView) {
+    if (lock.current || blocked || !canDeleteQuestion(question, Boolean(viewer))) return;
+    const signal = lifetime.current?.signal;
+    if (!signal || signal.aborted) return;
+    lock.current = true; setDeletingId(question.id); setError(null); setNotice(null);
+    try {
+      const { message } = await questionsApi.remove(question.id, signal);
+      if (signal.aborted) return;
+      setNotice(message);
+      startLoading(); await load(page, signal);
+    } catch (cause) {
+      if (signal.aborted) return;
+      setError(cause instanceof Error ? cause.message : "문의를 삭제하지 못했어요. 다시 시도해 주세요.");
+      if (cause instanceof ApiError && cause.status === 401) void refreshAuth();
+      else if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) { startLoading(); await load(page, signal); } // 이미 지워졌거나 답변이 달림
+    } finally {
+      if (!signal.aborted) { lock.current = false; setDeletingId(null); }
+    }
+  }
+
   return <>
     {listError && <div role="alert" className="rounded-xl border border-pink/30 bg-panel p-5 text-sm text-pink">
-      <p>{listError}</p><button type="button" onClick={() => { const signal = lifetime.current?.signal; if (signal) void load(signal); }} className="mt-2 min-h-11 font-bold underline">질문 다시 불러오기</button>
+      <p>{listError}</p><button type="button" disabled={listLoading} onClick={() => reload(page)} className="mt-2 min-h-11 font-bold underline underline-offset-4">다시 시도</button>
     </div>}
-    {items ? items.length ? <QuestionEntries items={items} /> : <p className="pixel-panel p-8 text-center text-sm text-sub">아직 질문이 없어요.</p> : !listError && <FeedbackSkeleton label="질문 불러오는 중" />}
+    {notice && <p role="status" className="rounded-xl border border-mint/30 bg-panel p-4 text-sm text-mint">{notice}</p>}
+    {listLoading && !data ? <FeedbackSkeleton label="질문 불러오는 중" /> : data && <>
+      {data.items.length ? <QuestionEntries items={data.items} actions={(question) => canDeleteQuestion(question, Boolean(viewer))
+        ? <QuestionDeleteButton disabled={blocked || listLoading} pending={deletingId === question.id} onConfirm={() => remove(question)} />
+        : null} /> : <div className="pixel-panel p-8 text-center">
+        <p className="font-bold">아직 문의가 없어요</p><p className="mt-2 text-sm text-sub">궁금한 점이 있으면 첫 문의를 남겨 주세요.</p>
+      </div>}
+      {data.totalPages > 1 && <nav aria-label="문의 페이지 이동" className="flex flex-wrap items-center justify-center gap-4 text-sm">
+        <button type="button" disabled={blocked || listLoading || data.page <= 1} onClick={() => reload(data.page - 1)} className="min-h-11 btn-pixel px-4 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-mint">이전 문의</button>
+        <span aria-live="polite">{data.page} / {data.totalPages}</span>
+        <button type="button" disabled={blocked || listLoading || data.page >= data.totalPages} onClick={() => reload(data.page + 1)} className="min-h-11 btn-pixel px-4 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-mint">다음 문의</button>
+      </nav>}
+    </>}
     {!viewer ? <FeedbackLogin section="qna" /> : <form onSubmit={submit} noValidate className="pixel-panel p-5 sm:p-6">
       <h3 className="text-lg font-bold">질문 쓰기</h3>
-      <fieldset disabled={busy || authPending} className="mt-5 space-y-4">
+      <fieldset disabled={blocked} className="mt-5 space-y-4">
         <div><label htmlFor={`${id}-title`} className="mb-2 block text-sm font-semibold">질문 제목</label>
           <input id={`${id}-title`} value={title} maxLength={questionLimits.title} onChange={(event) => setTitle(event.target.value)} aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? `${id}-title-error` : undefined} className="min-h-11 w-full min-w-0 pixel-input px-3 text-sm focus-visible:outline-2 focus-visible:outline-mint" />
           {errors.title && <p id={`${id}-title-error`} role="alert" className="mt-2 text-sm text-pink">{errors.title}</p>}
@@ -84,11 +150,10 @@ function AccountQuestions({ productId, viewer }: AccountQuestionsProps) {
           <p id={`${id}-count`} className="mt-1 text-right text-xs text-dim">{Array.from(content).length} / {questionLimits.content}자</p>
           {errors.content && <p id={`${id}-content-error`} role="alert" className="mt-2 text-sm text-pink">{errors.content}</p>}
         </div>
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={isSecret} onChange={(event) => setIsSecret(event.target.checked)} className="size-4 accent-mint" />비밀글 (나만 보기)</label>
-        <button type="submit" className="min-h-11 btn-lime px-5 py-3 text-sm font-bold text-lime-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">{busy ? "저장 중…" : "질문 등록"}</button>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={isSecret} onChange={(event) => setIsSecret(event.target.checked)} className="size-4 accent-mint" />비밀글 (나와 관리자만 보기)</label>
+        <button type="submit" className="min-h-11 btn-lime px-5 py-3 text-sm font-bold text-lime-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">{busy ? "처리 중…" : "질문 등록"}</button>
       </fieldset>
       {error && <p role="alert" className="mt-3 text-sm text-pink">{error}</p>}
-      {success && <p role="status" className="mt-3 text-sm text-mint">질문을 등록했어요.</p>}
     </form>}
   </>;
 }

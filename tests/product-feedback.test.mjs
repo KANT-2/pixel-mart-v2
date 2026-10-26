@@ -13,12 +13,13 @@ async function moduleUrl(path, dependencies = {}) {
 }
 const feedbackModule = await moduleUrl("../utils/productFeedback.ts");
 const { tabFromHash, tabForKey, validateReview, canDeleteReview, reviewPageAfterReload } = await import(feedbackModule);
-const { createQuestionsAdapter, validateQuestion } = await import(await moduleUrl("../lib/questions.ts"));
 const apiModule = await moduleUrl("../lib/api.ts");
+const { questionsApi, validateQuestion, canDeleteQuestion, questionPageAfterReload } = await import(await moduleUrl("../lib/questions.ts", { "@/lib/api": apiModule }));
 const { ApiError } = await import(apiModule);
 const { reviewsApi, createReviewStore } = await import(await moduleUrl("../lib/reviews.ts", { "@/lib/api": apiModule, "@/utils/productFeedback": feedbackModule }));
 const formatModule = await moduleUrl("../utils/formatDate.ts");
-const renderDependencies = { "react/jsx-runtime": import.meta.resolve("react/jsx-runtime"), "@/utils/formatDate": formatModule };
+const pixelIconModule = await moduleUrl("../components/PixelIcon.tsx", { "react/jsx-runtime": import.meta.resolve("react/jsx-runtime") });
+const renderDependencies = { "react/jsx-runtime": import.meta.resolve("react/jsx-runtime"), "@/utils/formatDate": formatModule, "@/components/PixelIcon": pixelIconModule };
 const { default: ReviewEntries } = await import(await moduleUrl("../components/products/ReviewEntries.tsx", renderDependencies));
 const { default: QuestionEntries } = await import(await moduleUrl("../components/products/QuestionEntries.tsx", renderDependencies));
 
@@ -156,54 +157,60 @@ test("계정별 새 스토어는 이전 계정의 늦은 isMine 응답을 공유
   assert.equal(current.store.getSnapshot().data.items[0].isMine, false);
 });
 
-test("질문 데모 입력 검증은 제목·본문 trim과 길이 제한, 텍스트 줄바꿈 보존", () => {
+test("질문 입력 검증은 제목·본문 trim과 길이 제한, 텍스트 줄바꿈 보존", () => {
   assert.equal(validateQuestion(" ", " ").valid, false);
   assert.equal(validateQuestion("가".repeat(101), "가").valid, false);
   assert.equal(validateQuestion("제목", "가".repeat(501)).valid, false);
+  assert.equal(validateQuestion("가".repeat(100), "가".repeat(500)).valid, true);
   assert.deepEqual(validateQuestion(" <b>제목</b> ", " 첫 줄\n둘째 줄 ").values, { title: "<b>제목</b>", content: "첫 줄\n둘째 줄" });
 });
 
-test("Q&A 데모 비밀글은 본인만 내용·닉네임을 읽고 로그아웃·다른 계정에서는 제거", async () => {
-  const adapter = createQuestionsAdapter();
-  const owner = { id: 7, nickname: "<b>작성자</b>" };
-  await adapter.create(1, owner, { title: "민감한 제목", content: "비공개 본문", isSecret: true });
-  const own = (await adapter.list(1, owner))[0];
-  assert.equal(own.hidden, false); assert.equal(own.content, "비공개 본문"); assert.equal(own.nickname, owner.nickname);
-  for (const viewer of [null, { id: 8, nickname: "다른 계정" }]) {
-    const hidden = (await adapter.list(1, viewer))[0];
-    assert.equal(hidden.hidden, true);
-    for (const key of ["title", "content", "nickname", "answer"]) assert.equal(hidden[key], null);
-    assert.ok(!JSON.stringify(hidden).includes("비공개"));
+test("문의 API는 상품 문의 GET·POST와 문의 DELETE, 캐시 비활성, 409·404 서버 메시지 보존", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const calls = [];
+  globalThis.fetch = async (url, init) => { calls.push({ url, ...init }); return new Response(JSON.stringify({ id: 9 })); };
+  await questionsApi.list(3, 2);
+  await questionsApi.create(3, { title: "제목", content: "본문", isSecret: true });
+  await questionsApi.remove(9);
+  assert.equal(calls[0].url, "/api/products/3/questions?page=2&size=20");
+  assert.equal(calls[0].method, "GET");
+  assert.equal(calls[1].url, "/api/products/3/questions");
+  assert.equal(calls[1].method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].body), { title: "제목", content: "본문", isSecret: true });
+  assert.equal(calls[2].url, "/api/questions/9");
+  assert.equal(calls[2].method, "DELETE");
+  for (const call of calls) { assert.equal(call.cache, "no-store"); assert.equal(call.credentials, "same-origin"); }
+  for (const [status, detail] of [[409, "답변이 달린 문의는 삭제할 수 없어요."], [404, "문의를 찾을 수 없어요."]]) {
+    globalThis.fetch = async () => new Response(JSON.stringify({ detail }), { status });
+    await assert.rejects(questionsApi.remove(9), { status, message: detail });
   }
-  assert.equal((await adapter.list(1, { ...owner, nickname: "새 닉네임" }))[0].hidden, false);
 });
 
-test("질문 어댑터는 상품별 저장·최신순, 새 문서에서는 초기화, 비로그인·취소 요청 저장 거부", async () => {
-  const adapter = createQuestionsAdapter(); const user = { id: 1, nickname: "QA" };
-  assert.equal(adapter.mode, "demo"); assert.match(adapter.notice, /새로고침/);
-  const before = await adapter.list(1, user);
-  const input = { title: "추가 질문", content: "본문", isSecret: false };
-  await adapter.create(1, user, input);
-  assert.equal((await adapter.list(1, null))[0].title, input.title);
-  assert.equal((await adapter.list(1, null)).length, before.length + 1);
-  assert.equal((await adapter.list(2, null)).length, before.length);
-  assert.equal((await createQuestionsAdapter().list(1, null)).length, before.length);
-  await assert.rejects(adapter.create(1, null, input), /로그인/);
-  const controller = new AbortController(); controller.abort();
-  await assert.rejects(adapter.create(1, user, input, controller.signal), { name: "AbortError" });
-  assert.equal((await adapter.list(1, null)).length, before.length + 1);
-  assert.equal(before.some((question) => question.answered), true);
+test("문의 삭제 버튼은 로그인 + 내 문의 + 답변 전일 때만", () => {
+  assert.equal(canDeleteQuestion({ isMine: true, answered: false }, true), true);
+  assert.equal(canDeleteQuestion({ isMine: true, answered: true }, true), false);
+  assert.equal(canDeleteQuestion({ isMine: false, answered: false }, true), false);
+  assert.equal(canDeleteQuestion({ isMine: true, answered: false }, false), false);
+  for (const isMine of [undefined, null, "true", 1]) assert.equal(canDeleteQuestion({ isMine, answered: false }, true), false);
+});
+
+test("문의 삭제 뒤 페이지가 비면 앞 페이지로, 1보다 작아지지 않음", () => {
+  assert.equal(questionPageAfterReload({ page: 2, totalPages: 2, items: [{ id: 1 }] }), 2);
+  assert.equal(questionPageAfterReload({ page: 3, totalPages: 2, items: [] }), 2);
+  assert.equal(questionPageAfterReload({ page: 2, totalPages: 0, items: [] }), 1);
+  assert.equal(questionPageAfterReload({ page: 1, totalPages: 0, items: [] }), 1);
 });
 
 test("리뷰·질문 본문·제목·답변·닉네임의 HTML 문자열은 텍스트로만 렌더링", () => {
   const malicious = '<b>텍스트</b>\n<script>alert(1)</script><img src=x onerror=alert(1)>';
   const common = { id: 1, createdAt: "2026-01-01T00:00:00Z", nickname: malicious, content: malicious };
   const review = renderToStaticMarkup(createElement(ReviewEntries, { items: [{ ...common, productId: 1, rating: 5 }] }));
-  const question = renderToStaticMarkup(createElement(QuestionEntries, { items: [{ ...common, id: "question-1", title: malicious, answer: malicious, isSecret: false, hidden: false, answered: true }] }));
+  const question = renderToStaticMarkup(createElement(QuestionEntries, { items: [{ ...common, id: 11, title: malicious, answer: malicious, isSecret: false, hidden: false, answered: true }] }));
   for (const html of [review, question]) {
     assert.ok(html.includes("&lt;b&gt;텍스트&lt;/b&gt;")); assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(!html.includes("<script>")); assert.ok(!html.includes("<img")); assert.ok(html.includes("whitespace-pre-line")); assert.ok(html.includes("\n"));
   }
-  const masked = renderToStaticMarkup(createElement(QuestionEntries, { items: [{ ...common, id: "hidden", title: malicious, answer: malicious, isSecret: true, hidden: true, answered: true }] }));
-  assert.ok(masked.includes("비밀글입니다")); assert.ok(masked.includes("답변 완료")); assert.ok(!masked.includes("텍스트"));
+  const masked = renderToStaticMarkup(createElement(QuestionEntries, { items: [{ ...common, id: 12, title: malicious, answer: malicious, isSecret: true, hidden: true, answered: true }] }));
+  assert.ok(masked.includes("비밀글이에요")); assert.ok(masked.includes("hero-lock.svg")); assert.ok(masked.includes("답변 완료")); assert.ok(!masked.includes("텍스트"));
 });
