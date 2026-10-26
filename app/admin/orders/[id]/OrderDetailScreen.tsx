@@ -146,7 +146,7 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
                   {reached && !current ? "✓" : index + 1}
                 </span>
                 <span className={`truncate text-xs ${current ? "font-bold text-ink" : reached ? "text-sub" : "text-dim"}`}>
-                  {["결제완료", "상품 준비중", "배송중", "배송 완료"][index]}
+                  {["주문 완료", "상품 준비중", "배송중", "배송 완료"][index]} {/* statusLabel("주문 완료")과 문구를 맞춘다 */}
                 </span>
                 {index < FLOW.length - 1 && <span aria-hidden="true" className={`h-0.5 min-w-2 flex-1 ${currentIndex > index ? "bg-lime" : "bg-line"}`} />}
               </li>
