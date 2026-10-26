@@ -1,55 +1,43 @@
-from app.models import Product
-from app.schemas.common import CamelModel
-from app.services.rarity import Rarity
+"""add product rarity and visibility
+
+Revision ID: e74971cc6d7f
+Revises: d6cb42e32a1b
+Create Date: 2026-10-26 17:35:00.000000
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "e74971cc6d7f"
+down_revision: str | None = "d6cb42e32a1b"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
-class CategoryOut(CamelModel):
-    slug: str
-    name: str
-    description: str
+def upgrade() -> None:
+    op.add_column(
+        "products",
+        sa.Column("rarity", sa.String(length=10), server_default="common", nullable=False),
+    )
+    op.add_column(
+        "products",
+        sa.Column("is_hidden", sa.Boolean(), server_default=sa.false(), nullable=False),
+    )
+    op.execute(
+        """
+        UPDATE products
+        SET rarity = CASE
+            WHEN price < 10000 THEN 'common'
+            WHEN price < 20000 THEN 'rare'
+            WHEN price < 30000 THEN 'epic'
+            ELSE 'unique'
+        END
+        """
+    )
 
 
-class ProductOut(CamelModel):
-    """프론트 상품 정보와 같은 모양 + categorySlug"""
-
-    id: int
-    name: str
-    price: int
-    category: str
-    category_slug: str
-    image_url: str
-    description: str
-    is_new: bool
-    stock: int
-    rarity: Rarity
-
-    @classmethod
-    def from_model(cls, product: Product) -> "ProductOut":
-        return cls(
-            id=product.id,
-            name=product.name,
-            price=product.price,
-            category=product.category.name,
-            category_slug=product.category_slug,
-            image_url=product.image_url,
-            description=product.description,
-            is_new=product.is_new,
-            stock=product.stock,
-            rarity=product.rarity,
-        )
-
-
-class ProductWithWishOut(ProductOut):
-    """상품 목록·상세 응답 — 로그인한 사용자의 찜 여부 포함"""
-
-    is_wished: bool = False
-
-
-class RarityOut(CamelModel):
-    """등급별 카테고리 — 현재 가격 기준 응답, 다음 단계에서 변경"""
-
-    key: Rarity
-    label: str
-    min_price: int
-    max_price: int | None
-    count: int
+def downgrade() -> None:
+    op.drop_column("products", "is_hidden")
+    op.drop_column("products", "rarity")
