@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import type { CategoryCount } from "@/lib/categoryCounts";
 import type { RarityCount } from "@/lib/products";
 import { RARITY_RANGES, rarityInfo } from "@/utils/gameItem";
 import { formatPrice } from "@/utils/formatPrice";
 import { changeProductQuery, productHref, PRODUCT_MAX_PRICE, toggleRarity, type ProductQuery } from "@/utils/productQuery";
 
-export interface CategoryCount { slug?: string; name: string; count: number; }
-
 interface ProductFilterBarProps {
   query: ProductQuery;
-  /** 맨 앞은 '전체' (slug 없음) */
+  /** 맨 앞은 '전체' (slug 없음) — 숫자는 서버 상품 수 (app/products/page.tsx에서 categoryCounts로) */
   categories: CategoryCount[];
   rarityCounts: RarityCount[];
 }
