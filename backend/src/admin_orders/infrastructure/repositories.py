@@ -1,12 +1,30 @@
 # 관리자 주문 레포지토리 — ORM(app.models.*)과 admin_orders 도메인을 연결한다. commit은 서비스가 한다.
-from sqlalchemy import select, update
+from dataclasses import dataclass
+from datetime import datetime
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cancel_request import CancelRequest as CancelRequestModel
 from app.models.order import Order, OrderStatusHistory
 from app.models.product import Product
+from app.models.user import User
 from app.services import notifications  # 구매자 알림은 기존 알림 서비스를 그대로 쓴다
 from src.orders.domain.stock import StockItem  # 재고 복구 규칙(성용님 파일) — 호출만 하고 고치지 않는다
+
+
+@dataclass
+class CancelRequestListRow:
+    """취소 요청 목록 한 줄 — CancelRequest·Order·User를 join한 결과를 담는 순수 데이터 그릇"""
+
+    id: int
+    order_id: int
+    reason: str
+    status: str
+    created_at: datetime
+    order_status: str
+    buyer_nickname: str
+    total_price: int
 
 
 class AdminOrderRepository:
@@ -40,3 +58,36 @@ class AdminOrderRepository:
     async def notify_buyer(self, user_id: int, kind: str, title: str, body: str, href: str, ref_key: str) -> None:
         # 주문 주인(구매자)에게 보내는 알림 — 기존 notifications.notify를 그대로 호출한다
         await notifications.notify(self.session, user_id, kind, title, body, href, ref_key)
+
+    async def list_cancel_requests(
+        self, status: str | None, offset: int, limit: int
+    ) -> tuple[list[CancelRequestListRow], int]:
+        # 읽기 전용 — 취소 요청 목록 화면용. CancelRequest엔 Order와의 관계가 없어서 직접 join한다
+        filters = [CancelRequestModel.status == status] if status is not None else []
+
+        total = await self.session.scalar(
+            select(func.count()).select_from(CancelRequestModel).where(*filters)
+        ) or 0
+
+        rows = (
+            await self.session.execute(
+                select(
+                    CancelRequestModel.id,
+                    CancelRequestModel.order_id,
+                    CancelRequestModel.reason,
+                    CancelRequestModel.status,
+                    CancelRequestModel.created_at,
+                    Order.status,  # CancelRequestListRow.order_status
+                    User.nickname,  # CancelRequestListRow.buyer_nickname
+                    Order.total_price,  # CancelRequestListRow.total_price
+                )
+                .join(Order, Order.id == CancelRequestModel.order_id)
+                .join(User, User.id == Order.user_id)
+                .where(*filters)
+                .order_by(CancelRequestModel.created_at.desc(), CancelRequestModel.id.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+        ).all()
+
+        return [CancelRequestListRow(*row) for row in rows], total
