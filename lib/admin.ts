@@ -4,8 +4,10 @@ import { api } from "@/lib/api";
 import * as mock from "@/mocks/admin";
 // 우리가 만든 타입들을 가져와요. (type만 가져오니 실행 코드에는 안 들어가요)
 import type {
+  AdminCancelCounts,
   AdminCancelQuery,
   AdminCancelRequest,
+  AdminCancelStatus,
   AdminOrderCounts,
   AdminOrderDetail,
   AdminOrderQuery,
@@ -83,23 +85,33 @@ export async function getAdminOrderCounts(): Promise<AdminOrderCounts> {
   return { total: total.total, paid, preparing, shipping, delivered, cancelRequested, cancelled };
 }
 
-// 화면은 이 admin 객체의 함수만 불러요. mock인지 진짜인지는 화면이 몰라도 돼요.
-export const admin = {
-  // 취소 요청 목록 (상태 필터, 페이지)
-  cancelRequests(query: AdminCancelQuery = {}): Promise<Page<AdminCancelRequest>> {
-    if (USE_MOCK) return mock.cancelRequests(query);
-    return api.get(`/admin/cancel-requests${toQuery({ ...query })}`);
-  },
+// 취소 요청 목록 (상태 필터, 페이지)
+export function getAdminCancelRequests(query: AdminCancelQuery = {}): Promise<Page<AdminCancelRequest>> {
+  if (USE_MOCK) return mock.cancelRequests(query);
+  return api.get(`/admin/cancel-requests${toQuery({ ...query })}`);
+}
 
-  // 취소 요청 승인 (주문 취소 + 재고 복구 + 알림)
-  approveCancel(id: number): Promise<AdminCancelRequest> {
-    if (USE_MOCK) return mock.approveCancel(id);
-    return api.post(`/admin/cancel-requests/${id}/approve`);
-  },
+// 취소 요청 승인 (주문 취소 + 재고 복구 + 알림) — 백엔드가 Message만 돌려주므로 성공 여부만 본다
+export async function approveAdminCancel(id: number): Promise<void> {
+  if (USE_MOCK) await mock.approveCancel(id);
+  else await api.post(`/admin/cancel-requests/${id}/approve`);
+  notifyAdminOrderCountsChanged(); // 승인되면 주문이 cancel_requested를 벗어나니 사이드바 배지도 다시 불러오게 한다
+}
 
-  // 취소 요청 거절 (주문이 요청 전 상태로 돌아가요)
-  rejectCancel(id: number): Promise<AdminCancelRequest> {
-    if (USE_MOCK) return mock.rejectCancel(id);
-    return api.post(`/admin/cancel-requests/${id}/reject`);
-  },
-};
+// 취소 요청 거절 (주문이 요청 전 상태로 돌아가요)
+export async function rejectAdminCancel(id: number): Promise<void> {
+  if (USE_MOCK) await mock.rejectCancel(id);
+  else await api.post(`/admin/cancel-requests/${id}/reject`);
+  notifyAdminOrderCountsChanged(); // 거절되어도 주문이 cancel_requested를 벗어나니 마찬가지로 알려 준다
+}
+
+// 카드·탭이 함께 쓰는 취소 요청 상태별 건수 — #25와 같은 방식으로, 진짜 서버 모드에서는 상태마다 size=1 요청의 total만 읽는다
+export async function getAdminCancelCounts(): Promise<AdminCancelCounts> {
+  if (USE_MOCK) return mock.cancelCounts();
+  const statuses: AdminCancelStatus[] = ["requested", "approved", "rejected"];
+  const [total, requested, approved, rejected] = await Promise.all([
+    api.get<Page<AdminCancelRequest>>(`/admin/cancel-requests?size=1`),
+    ...statuses.map((status) => api.get<Page<AdminCancelRequest>>(`/admin/cancel-requests${toQuery({ status, size: 1 })}`)),
+  ]);
+  return { total: total.total, requested: requested.total, approved: approved.total, rejected: rejected.total };
+}
