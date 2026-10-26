@@ -19,14 +19,13 @@ class OrderRepository:
         self.session = session
 
     async def from_cart(self, user_id: int) -> Order:
-        # 동일 사용자의 동시 주문을 직렬화한다.
-        # 이 행 잠금은 서비스의 commit 또는 rollback까지 유지된다.
-        # 먼저 완료된 주문이 장바구니를 비우면
-        # 다음 요청은 EmptyCart로 중복 주문을 방지한다.
+        # 동일 사용자의 동시 주문을 직렬화하되 FK의 KEY SHARE 잠금은 허용한다.
+        # NO KEY UPDATE 잠금은 commit/rollback까지 유지되므로
+        # 첫 주문이 장바구니를 비우면 다음 요청은 EmptyCart로 종료된다.
         await self.session.scalar(
             select(User.id)
             .where(User.id == user_id)
-            .with_for_update()
+            .with_for_update(key_share=True)
         )
 
         rows = (
