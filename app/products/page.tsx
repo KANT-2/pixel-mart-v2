@@ -3,11 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import ProductFilterBar from "@/components/ProductFilterBar";
-import { products } from "@/data/products";
 import ProductInfiniteGrid from "@/components/products/ProductInfiniteGrid";
 import ProductFilters from "@/components/ProductFilters";
 import { getCategories, getProducts, PAGE_SIZE, getRarityCounts } from "@/lib/products";
 import { ProductFallbackNotice, ProductSkeleton } from "@/components/products/ProductStates";
+import { categoryCounts } from "@/lib/categoryCounts";
 import { normalizeProductQuery, productApiParams, productHref, productQueryParams, type ProductQuery } from "@/utils/productQuery";
 
 export const metadata: Metadata = { title: "전체 상품 | PIXEL MART" };
@@ -49,7 +49,9 @@ async function ProductResults({ query: requestedQuery, raw }: ProductResultsProp
   const query = normalizeProductQuery(productQueryParams(requestedQuery), categoryResult.data.map((item) => item.slug));
   const category = categoryResult.data.find((item) => item.slug === query.category);
   // 페이지 번호 없이 첫 페이지만 서버에서 그리고, 나머지는 내려가며 이어서 불러온다 (예전 ?page= 링크는 첫 페이지로 정리)
-  const [result, rarityCounts] = await Promise.all([getProducts({ ...query, page: 1 }), getRarityCounts(query.category)]);
+  // 필터 바 카테고리 숫자 — 카테고리마다 /api/products?category=<slug>&size=1 의 total (#35). API가 안 되면 getProducts가 정적 데이터로 센다
+  const countOf = async (slug?: string) => (await getProducts({ category: slug, size: 1 })).data.total;
+  const [result, rarityCounts, categories] = await Promise.all([getProducts({ ...query, page: 1 }), getRarityCounts(query.category), categoryCounts(categoryResult.data, countOf)]);
   const { items, totalPages, total } = result.data;
   const currentQuery = { ...query, page: 1 };
   const apiQuery = productApiParams(currentQuery, 1, PAGE_SIZE);
@@ -71,11 +73,7 @@ async function ProductResults({ query: requestedQuery, raw }: ProductResultsProp
       </header>
 
       <ProductFilters key={canonical.toString()} query={currentQuery}>
-        <ProductFilterBar query={currentQuery} rarityCounts={rarityCounts} categories={[
-        // TODO(#16): API productCount로 교체 — 지금은 정적 상품 수 (예전 카테고리 탭과 같은 값)
-        { name: "전체", count: products.length },
-        ...categoryResult.data.map((item) => ({ slug: item.slug, name: item.name, count: products.filter((product) => product.category === item.name).length })),
-        ]} />
+        <ProductFilterBar query={currentQuery} rarityCounts={rarityCounts} categories={categories} />
       </ProductFilters>
       {(result.fallback || categoryResult.fallback) && <ProductFallbackNotice />}
       {result.fallback && query.sort === "popular" && (
