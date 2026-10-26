@@ -14,6 +14,7 @@ from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.questions.domain.exceptions import (
     AnsweredQuestionNotDeletable,
     InvalidQuestion,
+    ProductNotFound,
     QuestionAlreadyAnswered,
     QuestionNotFound,
 )
@@ -50,6 +51,7 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     EmailTaken: status.HTTP_409_CONFLICT,
     NicknameTaken: status.HTTP_409_CONFLICT,
     QuestionNotFound: status.HTTP_404_NOT_FOUND,
+    ProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidQuestion: status.HTTP_422_UNPROCESSABLE_CONTENT,
     QuestionAlreadyAnswered: status.HTTP_409_CONFLICT,
     AnsweredQuestionNotDeletable: status.HTTP_409_CONFLICT,
