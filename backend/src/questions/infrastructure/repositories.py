@@ -1,4 +1,4 @@
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -8,6 +8,8 @@ from src.questions.domain.question import Question
 
 # (문의, 작성자 닉네임) — 닉네임은 화면 표시용이라 도메인 밖에서 함께 넘긴다
 Authored = tuple[Question, str]
+# (문의, 작성자 닉네임, 상품 이름) — 관리자 목록용
+AdminRow = tuple[Question, str, str]
 
 
 def _to_domain(row: ProductQuestion) -> Authored:
@@ -77,6 +79,39 @@ class QuestionRepository:
         )
         return [_to_domain(row) for row in rows], total
 
+    async def list_for_admin(
+        self, answered: bool | None, query: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminRow], int]:
+        """관리자 문의 목록 — 모든 상품 · 최신순. query는 상품 이름·문의 제목에서 찾는다"""
+        filters = []
+        if answered is True:
+            filters.append(ProductQuestion.answer.is_not(None))
+        elif answered is False:
+            filters.append(ProductQuestion.answer.is_(None))
+        if query:
+            # %·_를 글자 그대로 찾도록 이스케이프 (주문 검색과 같은 방식)
+            escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            filters.append(
+                or_(
+                    Product.name.ilike(pattern, escape="\\"),
+                    ProductQuestion.title.ilike(pattern, escape="\\"),
+                )
+            )
+
+        joined = select(ProductQuestion).join(Product, Product.id == ProductQuestion.product_id).where(*filters)
+        total = await self.session.scalar(select(func.count()).select_from(joined.subquery())) or 0
+        rows = await self.session.execute(
+            select(ProductQuestion, Product.name)
+            .join(Product, Product.id == ProductQuestion.product_id)
+            .where(*filters)
+            .order_by(ProductQuestion.created_at.desc(), ProductQuestion.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .execution_options(populate_existing=True)
+        )
+        return [(*_to_domain(row), product_name) for row, product_name in rows.all()], total
+
     async def save_answer(self, question: Question) -> None:
         row = await self.session.get(ProductQuestion, question.id)
         assert row is not None
@@ -98,4 +133,3 @@ class QuestionRepository:
 
     async def delete(self, question_id: int) -> None:
         await self.session.execute(delete(ProductQuestion).where(ProductQuestion.id == question_id))
-        

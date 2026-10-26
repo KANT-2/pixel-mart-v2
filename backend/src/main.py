@@ -21,7 +21,6 @@ from app.routers import (
     notifications,
     orders,
     products,
-    questions,
     reviews,
     trade_requests,
     users,
@@ -148,7 +147,6 @@ for router in (
     local_trades.router,
     trade_requests.router,
     reviews.router,
-    questions.dev_router,  # 답변은 아직 개발용 (#31에서 관리자 API로 교체)
     compat.router,
     notifications.router,
 ):
@@ -161,3 +159,4 @@ app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(questions_api.router, prefix="/api")
+app.include_router(questions_api.admin_router, prefix="/api")
