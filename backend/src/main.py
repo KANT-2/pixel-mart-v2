@@ -27,6 +27,8 @@ from app.routers import (
     users,
     wishlist,
 )
+from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
+from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.auth.domain.exceptions import (
     EmailTaken,
     InvalidEmail,
@@ -86,6 +88,8 @@ app = FastAPI(
 app.add_exception_handler(DomainError, domain_error_handler)
 for order_error in (EmptyCart, OutOfStock):
     app.add_exception_handler(order_error, domain_error_handler)
+for admin_order_error in (InvalidTransition, AlreadyResolved, OrderNotFound, CancelRequestNotFound):
+    app.add_exception_handler(admin_order_error, domain_error_handler)
 for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken, LoginFailed, EmailTaken, NicknameTaken):
     app.add_exception_handler(auth_error, domain_error_handler)
 for question_error in (
@@ -155,4 +159,5 @@ for router in (
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
+app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(questions_api.router, prefix="/api")
