@@ -1,6 +1,7 @@
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
+from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.auth.domain.exceptions import (
     EmailTaken,
     InvalidEmail,
@@ -57,6 +58,10 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     ForbiddenError: status.HTTP_403_FORBIDDEN,
     InvalidStateError: status.HTTP_400_BAD_REQUEST,
     InvalidInputError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    InvalidTransition: status.HTTP_409_CONFLICT,
+    AlreadyResolved: status.HTTP_409_CONFLICT,
+    OrderNotFound: status.HTTP_404_NOT_FOUND,
+    CancelRequestNotFound: status.HTTP_404_NOT_FOUND,
 }
 
 
