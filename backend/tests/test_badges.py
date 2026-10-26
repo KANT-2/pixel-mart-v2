@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import text
 
 from app.core.db import SessionLocal, engine
+from app.models import Order, OrderItem, User
 from app.services import badges, local_stats
 from app.services.badges import BADGES, Stats, earned, last_week, representative
 
@@ -75,6 +76,41 @@ async def test_badge_book_for_new_player(client):
 def test_every_badge_has_pixel_icon():
     missing = [b.image for b in BADGES if not (PUBLIC / b.image.lstrip("/")).is_file()]
     assert missing == []  # python tools/gen_badges.py
+
+
+async def test_unique_hunter_uses_database_rarity(test_products):
+    product_id, _ = test_products
+    email = "badge-unique@pixelmart.test"
+
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("DELETE FROM users WHERE email = :email"), {"email": email})
+            await conn.execute(
+                text("UPDATE products SET rarity = 'unique' WHERE id = :product_id"),
+                {"product_id": product_id},
+            )
+
+        async with SessionLocal() as db:
+            user = User(email=email, nickname="유니크뱃지")
+            db.add(user)
+            await db.flush()
+
+            order = Order(
+                user_id=user.id,
+                total_price=12_000,
+                recipient_name="테스트",
+                address="주소",
+            )
+            db.add(order)
+            await db.flush()
+            db.add(OrderItem(order_id=order.id, product_id=product_id, quantity=1, unit_price=12_000))
+            await db.commit()
+
+            stats = await badges.stats_for(db, [user])
+            assert stats[user.id].unique is True
+    finally:
+        async with engine.begin() as conn:
+            await conn.execute(text("DELETE FROM users WHERE email = :email"), {"email": email})
 
 
 @pytest.mark.parametrize(
