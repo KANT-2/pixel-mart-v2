@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ActivityPoint, Gift, Order, OrderItem, Product, Review, TradePost, User
 from app.services import activity, local_stats
-from app.services.rarity import BY_KEY
 from app.services.trade_rules import DEMO_EMAIL_DOMAIN
 
 
@@ -135,23 +134,22 @@ async def stats_for(db: AsyncSession, users: list[User]) -> dict[int, Stats]:
         else:
             stats[user_id].gifts = n
 
-    unique_from = BY_KEY["unique"].min_price
     bought = await db.execute(
         select(
             Order.user_id,
             func.count(distinct(Order.id)),
             func.count(distinct(Product.category_slug)),
-            func.max(Product.price),
+            func.count(Product.id).filter(Product.rarity == "unique"),
         )
         .join(OrderItem, OrderItem.order_id == Order.id)
         .join(Product, Product.id == OrderItem.product_id)
         .where(Order.user_id.in_(ids), Order.status != "cancelled")
         .group_by(Order.user_id)
     )
-    for user_id, orders, categories, top_price in bought:
+    for user_id, orders, categories, unique_count in bought:
         stats[user_id].orders = orders
         stats[user_id].categories = categories
-        stats[user_id].unique = (top_price or 0) >= unique_from
+        stats[user_id].unique = bool(unique_count)
 
     reviews = await db.execute(
         select(Review.user_id, func.count()).where(Review.user_id.in_(ids)).group_by(Review.user_id)
