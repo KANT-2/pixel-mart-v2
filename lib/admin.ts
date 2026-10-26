@@ -6,14 +6,30 @@ import * as mock from "@/mocks/admin";
 import type {
   AdminCancelQuery,
   AdminCancelRequest,
+  AdminOrderCounts,
   AdminOrderDetail,
   AdminOrderQuery,
+  AdminOrderStatus,
   AdminOrderSummary,
   Page,
 } from "@/types/admin";
 
 // 스위치예요. true = 가짜 서버, false = 진짜 서버. 백엔드가 완성되면 false로 바꿔요.
 const USE_MOCK = true;
+
+// 주문 건수가 바뀌었을 수도 있다고 알리는 이벤트 이름이에요 (사이드바 배지가 이 소식을 듣고 다시 불러와요).
+const COUNTS_CHANGED_EVENT = "admin-order-counts-changed";
+
+// 건수가 바뀌었을 때 이 함수를 불러서 이벤트를 쏴요.
+function notifyAdminOrderCountsChanged(): void {
+  window.dispatchEvent(new Event(COUNTS_CHANGED_EVENT));
+}
+
+// 건수 변경 소식을 듣고 싶은 쪽(AdminNav 등)이 이 함수로 구독해요. 반환값을 부르면 구독을 끊어요.
+export function onAdminOrderCountsChanged(listener: () => void): () => void {
+  window.addEventListener(COUNTS_CHANGED_EVENT, listener);
+  return () => window.removeEventListener(COUNTS_CHANGED_EVENT, listener);
+}
 
 // 값이 비어 있는 항목을 빼고 "?status=paid&page=2" 같은 주소 꼬리를 만들어 주는 도우미예요.
 function toQuery(params: Record<string, string | number | undefined>): string {
@@ -32,29 +48,43 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   return text ? `?${text}` : "";
 }
 
+// 주문 목록 (상태 필터, 검색어, 페이지, 쪽당 건수)
+export function getAdminOrders(query: AdminOrderQuery = {}): Promise<Page<AdminOrderSummary>> {
+  // 스위치가 켜져 있으면 가짜 서버를 불러요.
+  if (USE_MOCK) return mock.orders(query);
+  // 꺼져 있으면 진짜 서버에 GET 요청을 보내요.
+  return api.get(`/admin/orders${toQuery({ ...query })}`);
+}
+
+// 주문 상세 (주문 번호 하나)
+export function getAdminOrder(id: number): Promise<AdminOrderDetail> {
+  if (USE_MOCK) return mock.orderDetail(id);
+  return api.get(`/admin/orders/${id}`);
+}
+
+// 배송 단계 한 칸 넘기기 (결제완료 → 준비중 → 배송중 → 배송완료)
+export async function advanceAdminOrder(id: number): Promise<AdminOrderDetail> {
+  // 가짜 서버든 진짜 서버든 성공하면 건수가 바뀌니, 어디서 넘겼든(목록/상세) 사이드바 배지에 알려 줘요.
+  const detail = USE_MOCK ? await mock.advanceOrder(id) : await api.post<AdminOrderDetail>(`/admin/orders/${id}/advance`);
+  notifyAdminOrderCountsChanged();
+  return detail;
+}
+
+// 카드·탭·메뉴 배지가 함께 쓰는 상태별 건수 — #22에 건수 전용 API가 없어서,
+// 진짜 서버 모드에서는 상태마다 size=1로만 불러서 Page.total 값만 가볍게 읽어온다.
+export async function getAdminOrderCounts(): Promise<AdminOrderCounts> {
+  if (USE_MOCK) return mock.orderCounts();
+  const statuses: AdminOrderStatus[] = ["paid", "preparing", "shipping", "delivered", "cancel_requested", "cancelled"];
+  const [total, ...perStatus] = await Promise.all([
+    api.get<Page<AdminOrderSummary>>(`/admin/orders?size=1`), // 전체 건수
+    ...statuses.map((status) => api.get<Page<AdminOrderSummary>>(`/admin/orders${toQuery({ status, size: 1 })}`)),
+  ]);
+  const [paid, preparing, shipping, delivered, cancelRequested, cancelled] = perStatus.map((page) => page.total);
+  return { total: total.total, paid, preparing, shipping, delivered, cancelRequested, cancelled };
+}
+
 // 화면은 이 admin 객체의 함수만 불러요. mock인지 진짜인지는 화면이 몰라도 돼요.
 export const admin = {
-  // 주문 목록 (상태 필터, 검색어, 페이지)
-  orders(query: AdminOrderQuery = {}): Promise<Page<AdminOrderSummary>> {
-    // 스위치가 켜져 있으면 가짜 서버를 불러요.
-    if (USE_MOCK) return mock.orders(query);
-    // 꺼져 있으면 진짜 서버에 GET 요청을 보내요.
-    return api.get(`/admin/orders${toQuery({ ...query })}`);
-  },
-
-  // 주문 상세 (주문 번호 하나)
-  orderDetail(id: number): Promise<AdminOrderDetail> {
-    if (USE_MOCK) return mock.orderDetail(id);
-    return api.get(`/admin/orders/${id}`);
-  },
-
-  // 배송 단계 한 칸 넘기기 (결제완료 → 준비중 → 배송중 → 배송완료)
-  advanceOrder(id: number): Promise<AdminOrderDetail> {
-    if (USE_MOCK) return mock.advanceOrder(id);
-    // 상태를 바꾸는 일이라 POST를 써요.
-    return api.post(`/admin/orders/${id}/advance`);
-  },
-
   // 취소 요청 목록 (상태 필터, 페이지)
   cancelRequests(query: AdminCancelQuery = {}): Promise<Page<AdminCancelRequest>> {
     if (USE_MOCK) return mock.cancelRequests(query);
