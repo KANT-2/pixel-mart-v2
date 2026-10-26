@@ -5,6 +5,13 @@ class QuestionNotFound(Exception):
         super().__init__("문의를 찾을 수 없어요.")
 
 
+class ProductNotFound(Exception):
+    """문의할 상품이 없을 때 발생한다 (404)."""
+
+    def __init__(self) -> None:
+        super().__init__("상품을 찾을 수 없어요.")
+
+
 class InvalidQuestion(Exception):
     """제목·내용·답변이 비었거나 너무 길 때 발생한다 (422)."""
 
@@ -24,3 +31,4 @@ class AnsweredQuestionNotDeletable(Exception):
 
     def __init__(self) -> None:
         super().__init__("답변이 달린 문의는 삭제할 수 없어요.")
+        
