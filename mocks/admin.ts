@@ -2,6 +2,7 @@
 // 진짜 서버처럼 잠깐 기다렸다가 답하고, 바꾼 값(배송 단계·취소 처리)은 기억한다.
 import { ApiError } from "@/lib/api"; // 서버 오류와 같은 모양의 오류 (메시지, 상태 번호)
 import type {
+  AdminCancelCounts,
   AdminCancelQuery,
   AdminCancelRequest,
   AdminCancelStatus,
@@ -84,6 +85,11 @@ const ORDERS: MockOrder[] = [
   { id: 1034, buyerNickname: "도토리", buyerEmail: "acorn@pixelmart.test", recipientName: "서은우", address: "제주시 노형로 14", lines: [{ productId: 3, quantity: 1 }, { productId: 7, quantity: 1 }], history: history("2026-10-19T09:00:00Z", "paid", "preparing", "shipping", "delivered") },
   { id: 1033, buyerNickname: "픽셀토끼", buyerEmail: "pixelrabbit@pixelmart.test", recipientName: "임가은", address: "수원시 영통구 광교로 55", lines: [{ productId: 1, quantity: 2 }], history: history("2026-10-24T08:00:00Z", "paid", "preparing", "cancel_requested") },
   { id: 1032, buyerNickname: "네온고양이", buyerEmail: "neoncat@pixelmart.test", recipientName: "조현우", address: "전주시 덕진구 기린대로 9", lines: [{ productId: 5, quantity: 1 }], history: history("2026-10-18T09:00:00Z", "paid", "cancel_requested", "cancelled") },
+  // 1046~1049는 취소 요청 화면(#26) 전용 — 대기 중 2건, 승인 1건, 거절 1건을 더 채운다 (위 14건 분포는 그대로 둔다)
+  { id: 1049, buyerNickname: "별자리술사", buyerEmail: "starmage@pixelmart.test", recipientName: "백도현", address: "청주시 흥덕구 사직대로 2", lines: [{ productId: 1, quantity: 1 }], history: history("2026-10-23T11:00:00Z", "paid", "preparing", "cancel_requested", "preparing") },
+  { id: 1048, buyerNickname: "구름여행자", buyerEmail: "cloudtrip@pixelmart.test", recipientName: "민서아", address: "강릉시 교동로 6", lines: [{ productId: 3, quantity: 1 }], history: history("2026-10-22T13:00:00Z", "paid", "cancel_requested", "cancelled") },
+  { id: 1047, buyerNickname: "달빛나비", buyerEmail: "moonmoth@pixelmart.test", recipientName: "정하람", address: "창원시 성산구 중앙대로 30", lines: [{ productId: 7, quantity: 1 }], history: history("2026-10-25T15:00:00Z", "paid", "cancel_requested") },
+  { id: 1046, buyerNickname: "은빛여우", buyerEmail: "silverfox@pixelmart.test", recipientName: "강지우", address: "포항시 북구 중앙로 18", lines: [{ productId: 5, quantity: 2 }], history: history("2026-10-25T18:00:00Z", "paid", "cancel_requested") },
 ];
 
 // ---------- 가짜 취소 요청 ----------
@@ -98,6 +104,10 @@ interface MockCancel {
 const CANCELS: MockCancel[] = [
   { id: 2, orderId: 1033, reason: "색상이 마음에 안 들어서 취소하고 싶어요.", status: "requested", createdAt: "2026-10-24T09:00:00Z", prevStatus: "preparing" },
   { id: 1, orderId: 1032, reason: "실수로 주문했어요.", status: "approved", createdAt: "2026-10-18T10:00:00Z", prevStatus: "paid" },
+  { id: 3, orderId: 1046, reason: "다른 색상으로 다시 주문하고 싶어요.", status: "requested", createdAt: "2026-10-25T18:30:00Z", prevStatus: "paid" },
+  { id: 4, orderId: 1047, reason: "배송이 너무 늦어질 것 같아요.", status: "requested", createdAt: "2026-10-25T15:30:00Z", prevStatus: "paid" },
+  { id: 5, orderId: 1048, reason: "주소를 잘못 입력했어요.", status: "approved", createdAt: "2026-10-22T13:30:00Z", prevStatus: "paid" },
+  { id: 6, orderId: 1049, reason: "변심으로 취소를 요청했다가 다시 받기로 했어요.", status: "rejected", createdAt: "2026-10-23T11:30:00Z", prevStatus: "preparing" },
 ];
 
 // ---------- 도우미 ----------
@@ -123,7 +133,7 @@ function findOrder(id: number): MockOrder {
 
 function findCancel(id: number): MockCancel {
   const cancel = CANCELS.find((item) => item.id === id); // 번호로 찾는다
-  if (!cancel) throw new ApiError("취소 요청을 찾을 수 없어요.", 404); // 없는 요청
+  if (!cancel) throw new ApiError("요청을 찾을 수 없어요.", 404); // 없는 요청
   return cancel;
 }
 
@@ -164,7 +174,8 @@ function toCancel(cancel: MockCancel): AdminCancelRequest {
     status: cancel.status,
     statusLabel: CANCEL_LABEL[cancel.status],
     createdAt: cancel.createdAt,
-    userNickname: order.buyerNickname,
+    orderStatus: statusOf(order), // 연결된 주문의 지금 상태 (#23 응답과 같은 필드)
+    buyerNickname: order.buyerNickname,
     totalPrice: totalPriceOf(order),
   };
 }
@@ -217,23 +228,30 @@ export async function cancelRequests(q: AdminCancelQuery = {}): Promise<Page<Adm
   const rows = CANCELS.filter((cancel) => !q.status || cancel.status === q.status) // 상태 필터
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt)) // 최근 요청이 위로
     .map(toCancel); // 화면용 모양으로 바꾼다
-  return paginate(rows, q.page);
+  return paginate(rows, q.page, q.size);
 }
 
-export async function approveCancel(id: number): Promise<AdminCancelRequest> {
+// 카드·탭이 함께 쓰는 취소 요청 상태별 건수 — 전체를 한 번 돌며 센다
+export async function cancelCounts(): Promise<AdminCancelCounts> {
+  await wait();
+  const counts: AdminCancelCounts = { total: CANCELS.length, requested: 0, approved: 0, rejected: 0 };
+  for (const cancel of CANCELS) counts[cancel.status] += 1;
+  return counts;
+}
+
+// 승인·거절은 실제 백엔드(#23)도 Message만 돌려주므로, 여기서도 반환값 없이 끝낸다
+export async function approveCancel(id: number): Promise<void> {
   await wait();
   const cancel = findCancel(id); // 없으면 404
   if (cancel.status !== "requested") throw new ApiError("이미 처리된 요청이에요.", 409); // 두 번 처리 금지
   cancel.status = "approved"; // 요청을 승인으로
   findOrder(cancel.orderId).history.push({ status: "cancelled", changedAt: new Date().toISOString() }); // 주문은 취소 완료로
-  return toCancel(cancel);
 }
 
-export async function rejectCancel(id: number): Promise<AdminCancelRequest> {
+export async function rejectCancel(id: number): Promise<void> {
   await wait();
   const cancel = findCancel(id); // 없으면 404
   if (cancel.status !== "requested") throw new ApiError("이미 처리된 요청이에요.", 409); // 두 번 처리 금지
   cancel.status = "rejected"; // 요청을 거절로
   findOrder(cancel.orderId).history.push({ status: cancel.prevStatus, changedAt: new Date().toISOString() }); // 주문은 신청 직전 상태로 돌아간다
-  return toCancel(cancel);
 }
