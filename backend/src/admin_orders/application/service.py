@@ -14,6 +14,8 @@ class AdminOrders(Protocol):
     async def get_cancel_request_for_update(self, request_id: int): ...
     async def restore_item_stock(self, product_id: int, quantity: int) -> None: ...
     async def notify_buyer(self, user_id: int, kind: str, title: str, body: str, href: str, ref_key: str) -> None: ...
+    async def list_orders(self, status: str | None, q: str | None, offset: int, limit: int): ...
+    async def get_order_detail(self, order_id: int): ...
 
 
 # 트랜잭션이 갖춰야 할 모양 — 실제로는 AsyncSession 자체가 들어온다
@@ -75,6 +77,17 @@ class AdminOrderService:
         except Exception:
             await self.tx.rollback()
             raise
+
+    async def list_orders(self, status: str | None, q: str | None, page: int, size: int):
+        """주문 목록 — 조회만 하므로 커밋/롤백이 필요 없어 저장소에 그대로 위임한다."""
+        return await self.orders.list_orders(status, q, (page - 1) * size, size)
+
+    async def get_order(self, order_id: int):
+        """주문 상세 — 없으면 OrderNotFound(404)."""
+        row = await self.orders.get_order_detail(order_id)
+        if row is None:
+            raise OrderNotFound()
+        return row
 
     async def reject_cancel(self, request_id: int) -> None:
         """취소 요청을 거절 — 주문을 신청 직전 상태로 되돌리고 알림까지 성공해야 커밋한다. 재고는 건드리지 않는다."""

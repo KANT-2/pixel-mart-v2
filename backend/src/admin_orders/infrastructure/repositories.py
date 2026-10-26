@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cancel_request import CancelRequest as CancelRequestModel
@@ -11,6 +11,15 @@ from app.models.product import Product
 from app.models.user import User
 from app.services import notifications  # 구매자 알림은 기존 알림 서비스를 그대로 쓴다
 from src.orders.domain.stock import StockItem  # 재고 복구 규칙(성용님 파일) — 호출만 하고 고치지 않는다
+
+
+@dataclass
+class AdminOrderRow:
+    """주문 목록·상세 한 줄 — Order·User를 join한 결과를 담는 순수 데이터 그릇"""
+
+    order: Order
+    buyer_nickname: str
+    buyer_email: str
 
 
 @dataclass
@@ -91,3 +100,56 @@ class AdminOrderRepository:
         ).all()
 
         return [CancelRequestListRow(*row) for row in rows], total
+
+    def _order_row_query(self):
+        # 목록·상세가 공통으로 쓰는 join — Order엔 User와의 관계가 없어서 직접 join한다
+        return select(Order, User.nickname, User.email).join(User, User.id == Order.user_id)
+
+    async def list_orders(
+        self, status: str | None, q: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminOrderRow], int]:
+        # 읽기 전용 — 주문 목록 화면용 (상태 필터, 주문번호·닉네임·이메일 검색, 페이지)
+        filters = []
+        if status is not None:
+            filters.append(Order.status == status)
+        if q:
+            # %, _, \ 는 검색어 안에서 와일드카드로 쓰이지 않게 이스케이프한다
+            escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            name_match = or_(
+                User.nickname.ilike(f"%{escaped}%", escape="\\"),
+                User.email.ilike(f"%{escaped}%", escape="\\"),
+            )
+            order_number = q.removeprefix("#")
+            filters.append(or_(Order.id == int(order_number), name_match) if order_number.isdecimal() else name_match)
+
+        total = (
+            await self.session.scalar(
+                select(func.count()).select_from(Order).join(User, User.id == Order.user_id).where(*filters)
+            )
+            or 0
+        )
+
+        rows = (
+            await self.session.execute(
+                self._order_row_query()
+                .where(*filters)
+                .order_by(Order.created_at.desc(), Order.id.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+        ).all()
+
+        # Order.items/history는 모델에서 lazy="selectin"이라, 이렇게 조회만 해도 N+1 없이 한 번씩 더 불러온다
+        admin_rows = [
+            AdminOrderRow(order=order, buyer_nickname=nickname, buyer_email=email) for order, nickname, email in rows
+        ]
+        return admin_rows, total
+
+    async def get_order_detail(self, order_id: int) -> AdminOrderRow | None:
+        # 읽기 전용 — 주문 상세 화면용 (잠그지 않는다, 그건 advance/승인/거절 쪽 메서드가 한다)
+        row = await self.session.execute(self._order_row_query().where(Order.id == order_id))
+        result = row.first()
+        if result is None:
+            return None
+        order, nickname, email = result
+        return AdminOrderRow(order=order, buyer_nickname=nickname, buyer_email=email)
