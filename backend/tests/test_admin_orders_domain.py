@@ -1,7 +1,7 @@
 # 관리자 주문 도메인(순수 파이썬) 테스트 — DB·FastAPI 없이 상태 전이 규칙만 확인한다
 import pytest  # 예외 발생을 확인하는 pytest.raises를 쓴다
 
-from src.admin_orders.domain.cancel import CancelRequest
+from src.admin_orders.domain.cancel import CancelRequest, status_before_cancel
 from src.admin_orders.domain.exceptions import AlreadyResolved, InvalidTransition
 from src.admin_orders.domain.progress import OrderProgress
 
@@ -57,3 +57,19 @@ def test_reject_after_approve_raises_already_resolved() -> None:
     assert cancel.approve() == "approved"
     with pytest.raises(AlreadyResolved):
         cancel.reject()
+
+
+def test_status_before_cancel_returns_latest_status_outside_cancel_flow() -> None:
+    # 타임라인에서 cancel_requested를 빼고 가장 최근 상태(preparing)를 찾는다
+    assert status_before_cancel(["paid", "preparing", "cancel_requested"]) == "preparing"
+
+
+def test_status_before_cancel_skips_multiple_cancel_flow_entries() -> None:
+    # 취소 흐름 상태가 여러 번 쌓여 있어도 그 이전의 진짜 상태를 찾는다
+    assert status_before_cancel(["paid", "cancel_requested", "cancelled"]) == "paid"
+
+
+def test_status_before_cancel_raises_value_error_without_prior_status() -> None:
+    # 취소 흐름 이전 기록이 하나도 없으면 데이터가 잘못된 것이므로 ValueError
+    with pytest.raises(ValueError):
+        status_before_cancel(["cancel_requested"])

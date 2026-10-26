@@ -15,3 +15,19 @@ class AlreadyResolved(Exception):
     def __init__(self, message: str = "이미 처리된 요청이에요.") -> None:
         # 호출부가 메시지를 안 넘겨도 기본 한글 메시지가 붙도록 한다
         super().__init__(message)
+
+
+class OrderNotFound(Exception):
+    """주어진 id의 주문이 없을 때"""
+
+    def __init__(self, message: str = "주문을 찾을 수 없어요.") -> None:
+        # 호출부가 메시지를 안 넘겨도 기본 한글 메시지가 붙도록 한다
+        super().__init__(message)
+
+
+class CancelRequestNotFound(Exception):
+    """주어진 id의 취소 요청이 없을 때"""
+
+    def __init__(self, message: str = "취소 요청을 찾을 수 없어요.") -> None:
+        # 호출부가 메시지를 안 넘겨도 기본 한글 메시지가 붙도록 한다
+        super().__init__(message)
