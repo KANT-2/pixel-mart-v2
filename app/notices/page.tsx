@@ -49,7 +49,7 @@ async function NoticesList({ searchParams }: { searchParams: PageProps<"/notices
               <span className="flex min-w-0 items-center gap-2">
                 {/* 아이콘 칸 폭을 고정해서, 별이 없는 공지도 제목 시작 위치가 같게 맞춘다 */}
                 <span className="flex w-5 shrink-0 items-center justify-center">
-                  {notice.isPinned && <PixelStar className="size-4" />}
+                  {notice.isPinned && <PixelStar className="h-4 w-auto" />}
                 </span>
                 <span className="min-w-0 break-words font-bold text-ink [overflow-wrap:anywhere]">{notice.title}</span>
                 {isRecentNotice(notice.createdAt) && (

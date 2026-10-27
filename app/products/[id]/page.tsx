@@ -11,7 +11,7 @@ import { stockLabel, stockStatus } from "@/utils/stock";
 import { getProduct, getProducts, getProductParams } from "@/lib/products";
 import { ProductFallbackNotice } from "@/components/products/ProductStates";
 import ProductDetailTabs from "@/components/products/ProductDetailTabs";
-import RecentlyViewed from "@/components/products/RecentlyViewed";
+import RecentlyViewedTracker from "@/components/products/RecentlyViewedTracker";
 import { keycapByProduct } from "@/data/keycaps";
 
 // API가 꺼져 있어도 정적 상품 ID로 상세 경로를 생성합니다.
@@ -168,8 +168,8 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
-      {/* 최근 본 아이템 — 브라우저에 기록, 지금 상품만 빼고 */}
-      <RecentlyViewed current={{ id: product.id, name: product.name, price: product.price, imageUrl: product.imageUrl }} />
+      {/* 최근 본 상품 기록만(화면에는 안 그림) — 목록은 오른쪽 아래 위젯(RecentlyViewedWidget)에서 보여준다 */}
+      <RecentlyViewedTracker productId={product.id} name={product.name} price={product.price} imageUrl={product.imageUrl} />
     </>
   );
 }
