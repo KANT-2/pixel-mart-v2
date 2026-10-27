@@ -29,3 +29,10 @@ class AdminUserOut(CamelModel):
     role: str
     signup_method: Literal["email", "google"]
     created_at: datetime
+    avatar_url: str | None = None
+
+
+class AvatarResetRequest(CamelModel):
+    """아바타 초기화 사유 (본인 알림에 함께 보여요)"""
+
+    memo: str | None = Field(default=None, max_length=200)

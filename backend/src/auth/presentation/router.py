@@ -8,11 +8,12 @@ from app.core.security import clear_session_cookie, set_session_token
 from app.models import User
 from app.schemas.common import Message, Page
 from app.schemas.user import UserOut
-from src.auth.application.admin_users import AdminUserService
+from src.auth.application.admin_users import AdminUserService, AvatarResetService
 from src.auth.application.service import AuthService
 from src.auth.domain.exceptions import InvalidToken
+from src.auth.domain.member import MemberSummary
 from src.auth.infrastructure.repositories import MemberRepository, TokenBlacklistRepository, UserRepository
-from src.auth.presentation.schemas import AdminUserOut, SignupRequest, TokenResponse
+from src.auth.presentation.schemas import AdminUserOut, AvatarResetRequest, SignupRequest, TokenResponse
 from src.common.auth import AdminUser, CurrentUser, DbSession, RawToken, authenticate
 from src.common.pagination import Pagination
 
@@ -82,19 +83,29 @@ async def list_users(
         q, role, pagination.page, pagination.size
     )
     return Page[AdminUserOut](
-        items=[
-            AdminUserOut(
-                id=m.id,
-                email=m.email,
-                nickname=m.nickname,
-                role=m.role,
-                signup_method=m.signup_method,
-                created_at=m.created_at,
-            )
-            for m in members
-        ],
+        items=[_admin_user_out(m) for m in members],
         total=total,
         page=pagination.page,
         size=pagination.size,
         total_pages=max(1, ceil(total / pagination.size)),
+    )
+
+
+@admin_router.post(
+    "/{user_id}/avatar-reset", response_model=AdminUserOut, summary="[관리자] 아바타 초기화 (본인에게 알림)"
+)
+async def reset_avatar(user_id: int, _admin: AdminUser, db: DbSession, body: AvatarResetRequest | None = None):
+    member = await AvatarResetService(MemberRepository(db), db).reset(user_id, body.memo if body else None)
+    return _admin_user_out(member)
+
+
+def _admin_user_out(m: MemberSummary) -> AdminUserOut:
+    return AdminUserOut(
+        id=m.id,
+        email=m.email,
+        nickname=m.nickname,
+        role=m.role,
+        signup_method=m.signup_method,
+        created_at=m.created_at,
+        avatar_url=m.avatar_url,
     )

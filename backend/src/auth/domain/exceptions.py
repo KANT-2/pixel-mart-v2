@@ -45,3 +45,10 @@ class LoginFailed(Exception):
 
     def __init__(self) -> None:
         super().__init__("이메일 또는 비밀번호가 맞지 않아요.")
+
+
+class MemberNotFound(Exception):
+    """관리자가 찾는 회원이 없을 때 발생한다."""
+
+    def __init__(self) -> None:
+        super().__init__("회원을 찾을 수 없어요.")
