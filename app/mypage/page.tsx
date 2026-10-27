@@ -4,6 +4,7 @@ import Link from "next/link";
 import AvatarShortcut from "@/components/avatar/AvatarShortcut";
 import NicknameEditor from "@/components/profile/NicknameEditor";
 import BadgeBook from "@/components/profile/BadgeBook";
+import WithdrawSection from "@/components/profile/WithdrawSection";
 import LoginRequiredNotice from "@/components/LoginRequiredNotice";
 
 export const metadata: Metadata = { title: "마이페이지 | PIXEL MART" };
@@ -36,5 +37,6 @@ export default function MyPage() {
       <span><span className="block font-bold">찜한 아이템 보기 →</span><span className="mt-1 block text-sm text-sub">마음에 드는 아이템을 한곳에 모아 보세요.</span></span>
     </Link>
     <Link href="/products" className="inline-block btn-pixel px-6 py-3 font-semibold">상품 둘러보기</Link>
+    <WithdrawSection />
   </section>;
 }
