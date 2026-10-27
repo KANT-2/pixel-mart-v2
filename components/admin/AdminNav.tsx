@@ -26,7 +26,7 @@ const MENU: AdminMenuItem[] = [
   { label: "문의", href: "/admin/questions", enabled: true },
   { label: "FAQ", href: "/admin/faqs", enabled: true },
   { label: "공지", href: "/admin/notices", enabled: true },
-  { label: "신고", href: "/admin/reports", enabled: false },
+  { label: "신고", href: "/admin/reports", enabled: true },
   { label: "거래글", href: "/admin/trades", enabled: false },
   { label: "사용자", href: "/admin/users", enabled: false },
   { label: "뱃지", href: "/admin/badges", enabled: false },
