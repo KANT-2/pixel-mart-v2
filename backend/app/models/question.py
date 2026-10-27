@@ -16,6 +16,7 @@ class ProductQuestion(Base):
     title: Mapped[str] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(String(500))
     is_secret: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     answer: Mapped[str | None] = mapped_column(Text)  # 아직 답변이 없으면 None
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

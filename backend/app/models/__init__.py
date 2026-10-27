@@ -1,15 +1,18 @@
 # 새 모델을 만들면 여기에 import 해야 Alembic이 테이블을 인식합니다.
 from app.models.activity import ActivityPoint
+from app.models.badge import BadgeDefinition, UserBadge
 from app.models.cancel_request import CancelRequest
 from app.models.cart import CartItem
 from app.models.compat import Keyboard, KeycapSpec
 from app.models.faq import Faq
 from app.models.gift import Gift
 from app.models.local import FandomSample, Interest, Region, TradePost, UserInterest, WishSample
+from app.models.notice import Notice
 from app.models.notification import Notification
 from app.models.order import Order, OrderItem, OrderStatusHistory
 from app.models.product import Category, Product
 from app.models.question import ProductQuestion
+from app.models.report import Report
 from app.models.review import Review
 from app.models.trade_request import TradeRequest
 from app.models.user import User
@@ -17,6 +20,7 @@ from app.models.wishlist import Wishlist
 
 __all__ = [
     "ActivityPoint",
+    "BadgeDefinition",
     "CancelRequest",
     "CartItem",
     "Category",
@@ -27,6 +31,7 @@ __all__ = [
     "Keyboard",
     "KeycapSpec",
     "Notification",
+    "Notice",
     "Order",
     "OrderItem",
     "OrderStatusHistory",
@@ -34,9 +39,11 @@ __all__ = [
     "ProductQuestion",
     "Region",
     "Review",
+    "Report",
     "TradePost",
     "TradeRequest",
     "User",
+    "UserBadge",
     "UserInterest",
     "Wishlist",
     "WishSample",
