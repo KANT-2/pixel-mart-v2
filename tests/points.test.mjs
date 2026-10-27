@@ -26,5 +26,5 @@ test("적립금 기록 표기", () => {
   assert.equal(formatPointAmount(1000), "+1,000P");
   assert.equal(formatPointAmount(-500), "-500P");
   assert.equal(POINT_KIND_LABEL.first_purchase, "첫 구매 보너스");
-  assert.equal(POINT_KIND_LABEL.order_refund, "주문 취소로 돌려받음");
+  assert.equal(POINT_KIND_LABEL.order_refund, "취소·반품으로 돌려받음");
 });

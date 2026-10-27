@@ -2,7 +2,7 @@ import { api, ApiError } from "@/lib/api";
 import type { ApiReview, ApiReviewPage } from "@/types/api";
 import { reviewPageAfterReload } from "@/utils/productFeedback";
 
-export interface ReviewInput { rating: number; content: string; }
+export interface ReviewInput { rating: number; content: string; imageUrls?: string[]; }
 
 function options(signal?: AbortSignal): RequestInit {
   const timeout = AbortSignal.timeout(10000);

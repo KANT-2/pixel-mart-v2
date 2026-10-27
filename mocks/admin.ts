@@ -30,7 +30,12 @@ const ORDER_LABEL: Record<AdminOrderStatus, string> = {
   delivered: "배송 완료", // 끝
   cancel_requested: "취소 요청", // 손님이 취소를 신청한 상태
   cancelled: "취소 완료", // 관리자가 취소를 승인한 상태
+  return_requested: "반품 요청",
+  returned: "반품 완료",
+  exchange_requested: "교환 요청",
 };
+// 반품·교환 흐름은 mock 주문에 없다 (건수 카드에도 칸이 없다)
+const AFTER_DELIVERY: AdminOrderStatus[] = ["return_requested", "returned", "exchange_requested"];
 const CANCEL_LABEL: Record<AdminCancelStatus, string> = {
   requested: "취소 요청중", // 대기
   approved: "취소 승인", // 승인됨
@@ -221,7 +226,7 @@ export async function orderCounts(): Promise<AdminOrderCounts> {
   for (const order of ORDERS) {
     const status = statusOf(order); // 이 주문의 지금 상태
     if (status === "cancel_requested") counts.cancelRequested += 1; // 쿼리 값(cancel_requested)과 필드 이름(camelCase)이 달라서 따로 처리
-    else counts[status] += 1; // 나머지는 상태 이름 그대로 키로 쓴다
+    else if (!AFTER_DELIVERY.includes(status)) counts[status as keyof typeof counts] += 1; // 나머지는 상태 이름 그대로 키로 쓴다
   }
   return counts;
 }
@@ -283,7 +288,7 @@ export async function summary(): Promise<AdminSummary> {
   for (const order of ORDERS) {
     const status = statusOf(order);
     if (status === "cancel_requested") orderStatusCounts.cancelRequested += 1; // 쿼리 값과 필드 이름이 달라서 따로 처리
-    else orderStatusCounts[status] += 1;
+    else if (!AFTER_DELIVERY.includes(status)) orderStatusCounts[status as keyof typeof orderStatusCounts] += 1;
   }
   return {
     ordersToday,

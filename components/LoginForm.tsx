@@ -64,7 +64,10 @@ export default function LoginForm({ next, devLoginEnabled }: LoginFormProps) {
       <label htmlFor="email" className="mb-2 block text-sm font-semibold">이메일</label>
       <input id="email" name="email" type="email" required maxLength={320} autoComplete="email" disabled={pending}
         className="mb-4 w-full pixel-input px-3 py-3 text-ink" placeholder="player@example.com" />
-      <label htmlFor="password" className="mb-2 block text-sm font-semibold">비밀번호</label>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <label htmlFor="password" className="text-sm font-semibold">비밀번호</label>
+        <Link href="/forgot-password" className="text-xs text-sub underline-offset-4 hover:text-ink hover:underline">비밀번호를 잊었나요?</Link>
+      </div>
       <input id="password" name="password" type="password" required minLength={8} autoComplete="current-password" disabled={pending}
         className="mb-5 w-full pixel-input px-3 py-3 text-ink" placeholder="8자 이상" />
       {error && <p role="alert" className="mb-4 text-sm text-pink">{error}</p>}

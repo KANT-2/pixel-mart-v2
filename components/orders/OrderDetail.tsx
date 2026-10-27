@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import AfterDelivery from "@/components/orders/AfterDelivery";
 import CancelRequestForm from "@/components/orders/CancelRequestForm";
 import OrderProgress from "@/components/orders/OrderProgress";
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
 import { OrderLoginPrompt, OrderNotFound, OrderSkeleton } from "@/components/orders/OrderStates";
+import TrackingInfo from "@/components/orders/TrackingInfo";
 import { useOrderResource } from "@/components/orders/useOrderResource";
 import { ApiError } from "@/lib/api";
 import { ordersApi } from "@/lib/orders";
@@ -153,6 +155,7 @@ function OrderDetailContents({ id, placed }: OrderDetailProps) {
           </section>
           {cancellationAccepted ? <div role="status" className="rounded-xl border border-mint/30 bg-panel p-5 text-sm leading-relaxed text-mint">취소 신청이 접수됐어요. 최신 주문 상태를 확인해 주세요.</div> :
             canCancelOrder(order.status) && <CancelRequestForm busy={blocked} onSubmit={(reason) => mutate("cancel", reason)} />}
+          <AfterDelivery order={order} disabled={blocked} onChanged={async () => { try { await refresh(); } catch { /* 조회 오류는 공통 상태에서 안내 */ } }} />
           {process.env.NODE_ENV === "development" && canAdvanceOrder(order.status) && !cancellationAccepted && <section className="rounded-xl border border-violet/30 bg-panel p-5">
             <p className="text-sm font-bold text-violet">개발용 · 배송 진행</p>
             <p className="mt-2 text-xs leading-relaxed text-sub">주문의 배송을 다음 단계로 진행해요.</p>
@@ -162,10 +165,20 @@ function OrderDetailContents({ id, placed }: OrderDetailProps) {
         <aside aria-label="주문 배송지와 합계" className="min-w-0 pixel-panel p-5 lg:sticky lg:top-28">
           <h2 className="text-lg font-extrabold">배송지</h2>
           <dl className="mt-5 space-y-4 text-sm">
-            <div><dt className="text-sub">받는 사람</dt><dd className="mt-1 break-words font-semibold">{order.recipientName}</dd></div>
-            <div><dt className="text-sub">주소</dt><dd className="mt-1 whitespace-pre-line break-words leading-relaxed">{order.address}</dd></div>
-            {order.pointsUsed > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5 text-sub"><dt>적립금 사용</dt><dd>-{formatPrice(order.pointsUsed)}</dd></div>}
-            <div className={`flex flex-wrap items-center justify-between gap-2 pt-5 ${order.pointsUsed > 0 ? "" : "border-t border-line"}`}><dt className="font-bold">{order.pointsUsed > 0 ? "결제 금액" : "주문 금액"}</dt><dd className="text-2xl font-extrabold text-mint">{formatPrice(order.totalPrice)}</dd></div>
+            <div><dt className="text-sub">받는 사람</dt><dd className="mt-1 break-words font-semibold">{order.recipientName}{order.phone && <span className="ml-2 font-normal text-sub">{order.phone}</span>}</dd></div>
+            <div><dt className="text-sub">주소</dt><dd className="mt-1 whitespace-pre-line break-words leading-relaxed">
+              {order.postalCode && <span className="text-sub">[{order.postalCode}] </span>}{order.address}{order.addressDetail && ` ${order.addressDetail}`}
+            </dd></div>
+            {order.deliveryMemo && <div><dt className="text-sub">배송 메모</dt><dd className="mt-1 break-words">{order.deliveryMemo}</dd></div>}
+            <TrackingInfo courier={order.courier} courierLabel={order.courierLabel} trackingNumber={order.trackingNumber} />
+          </dl>
+          <h2 className="mt-6 border-t border-line pt-5 text-lg font-extrabold">결제</h2>
+          <dl className="mt-4 space-y-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sub"><dt>결제수단</dt><dd>{order.paymentLabel}</dd></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sub"><dt>주문 금액</dt><dd>{formatPrice(order.totalPrice + order.pointsUsed + order.couponDiscount)}</dd></div>
+            {order.couponDiscount > 0 && <div className="flex flex-wrap items-center justify-between gap-2 text-sub"><dt>쿠폰 할인{order.couponName && <span className="block text-xs text-dim">{order.couponName}</span>}</dt><dd>-{formatPrice(order.couponDiscount)}</dd></div>}
+            {order.pointsUsed > 0 && <div className="flex flex-wrap items-center justify-between gap-2 text-sub"><dt>적립금 사용</dt><dd>-{formatPrice(order.pointsUsed)}</dd></div>}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3"><dt className="font-bold">결제 금액</dt><dd className="text-2xl font-extrabold text-mint">{formatPrice(order.totalPrice)}</dd></div>
           </dl>
         </aside>
       </div>

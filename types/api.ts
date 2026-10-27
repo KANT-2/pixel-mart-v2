@@ -34,6 +34,8 @@ export interface ApiUser {
   role?: "user" | "admin";
   /** 관리자가 이용을 정지한 계정 — 구경은 되고 글쓰기·리뷰·선물·교환 신청은 막힘 (#88) */
   suspended?: boolean;
+  /** 이메일 가입 계정 — 비밀번호 변경 화면을 보여 준다 (구글 가입자는 false) */
+  hasPassword?: boolean;
 }
 
 export interface ApiCartItem {
@@ -81,8 +83,59 @@ export interface ApiOrder {
   totalPrice: number;
   recipientName: string;
   address: string;
+  // 배송지 · 결제 (예전 주문은 빈 값)
+  phone: string;
+  postalCode: string;
+  addressDetail: string;
+  deliveryMemo: string;
+  paymentMethod: string;
+  paymentLabel: string;
+  couponDiscount: number;
+  couponName: string | null;
+  /** 관리자가 상품 준비중부터 넣는 택배사 · 운송장 */
+  courier: string | null;
+  courierLabel: string | null;
+  trackingNumber: string | null;
+  confirmedAt: string | null;
+  returnRequest: ApiReturnRequest | null;
   createdAt: string;
   items: ApiOrderItem[];
+}
+
+/** 배송 완료 뒤 반품·교환 신청 (가장 최근 것) */
+export interface ApiReturnRequest {
+  id: number;
+  kind: "return" | "exchange";
+  reason: string;
+  status: "requested" | "approved" | "rejected";
+  createdAt: string;
+}
+
+/** 내 배송지 — 기본 배송지는 하나 */
+export interface ApiAddress {
+  id: number;
+  label: string;
+  recipientName: string;
+  phone: string;
+  postalCode: string;
+  address: string;
+  addressDetail: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+/** 내 쿠폰 */
+export interface ApiUserCoupon {
+  id: number;
+  name: string;
+  discountType: "amount" | "percent";
+  discountValue: number;
+  minOrderPrice: number;
+  maxDiscount: number | null;
+  issuedAt: string;
+  expiresAt: string;
+  status: "available" | "used" | "expired";
+  usedOrderId: number | null;
 }
 
 export interface ApiOrderTimelineEntry {
@@ -126,6 +179,7 @@ export interface ApiReview {
   rating: number;
   content: string;
   nickname: string;
+  imageUrls?: string[]; // 포토 리뷰 (최대 3장)
   createdAt: string;
   isMine: boolean;
 }

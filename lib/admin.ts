@@ -28,7 +28,7 @@ const USE_MOCK = false;
 const COUNTS_CHANGED_EVENT = "admin-order-counts-changed";
 
 // 건수가 바뀌었을 때 이 함수를 불러서 이벤트를 쏴요.
-function notifyAdminOrderCountsChanged(): void {
+export function notifyAdminOrderCountsChanged(): void {
   window.dispatchEvent(new Event(COUNTS_CHANGED_EVENT));
 }
 
