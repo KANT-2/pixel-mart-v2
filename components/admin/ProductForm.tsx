@@ -15,9 +15,11 @@ import {
   RESTOCK_MAX,
   RESTOCK_MIN,
   buildProductUpdatePayload,
+  hasConflictingStockInput,
   validateProductCreate,
   validateProductEdit,
   validateRestockQty,
+  validateStockSetQty,
   type ProductFormErrors,
   type ProductFormValues,
 } from "@/utils/adminProducts";
@@ -32,8 +34,8 @@ interface ProductFormProps {
   onCancel: () => void;
 }
 
-// 등록 · 수정 공용 폼 — stock 필드가 PATCH에서 "더하기"로 동작하는 서버 규칙 때문에
-// 등록 폼은 "초기 재고", 수정 폼은 "현재 재고(읽기 전용) + 추가 입고 수량"으로 문구를 분리한다
+// 등록 · 수정 공용 폼 — 등록 폼은 "초기 재고", 수정 폼은 "재고 수량"(stockSet, 절대값 설정)과
+// "추가 입고(+N)"(stock, 더하기) 두 칸을 같이 둔다. 둘 다 바꾸면 서버가 거부하므로 미리 막는다(#125).
 export default function ProductForm({ mode, product, categories, focusRestock = false, onSaved, onCancel }: ProductFormProps) {
   const [values, setValues] = useState<ProductFormValues>({
     name: product?.name ?? "",
@@ -45,6 +47,7 @@ export default function ProductForm({ mode, product, categories, focusRestock = 
   });
   const [stockText, setStockText] = useState(""); // 등록: 초기 재고
   const [restockText, setRestockText] = useState(""); // 수정: 추가 입고 수량 (비우면 재고 그대로)
+  const [stockQtyText, setStockQtyText] = useState(product ? String(product.stock) : ""); // 수정: 재고 수량(절대값 설정), 현재 값으로 미리 채운다
   const [errors, setErrors] = useState<ProductFormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -86,8 +89,18 @@ export default function ProductForm({ mode, product, categories, focusRestock = 
     if (!product) return;
     const formResult = validateProductEdit(values);
     const restockResult = validateRestockQty(restockText);
-    setErrors({ ...formResult.errors, ...(restockResult.error ? { stock: restockResult.error } : {}) });
-    if (!formResult.valid || !restockResult.valid) return;
+    const stockQtyResult = validateStockSetQty(stockQtyText);
+    const conflict = restockResult.valid && stockQtyResult.valid && hasConflictingStockInput(stockQtyResult.qty, product.stock, restockResult.qty);
+    setErrors({
+      ...formResult.errors,
+      ...(stockQtyResult.error ? { stockQty: stockQtyResult.error } : {}),
+      ...(restockResult.error
+        ? { stock: restockResult.error }
+        : conflict
+          ? { stock: "재고 수량을 직접 바꿨다면 추가 입고는 비워 주세요. 한 번에 하나만 쓸 수 있어요." }
+          : {}),
+    });
+    if (!formResult.valid || !restockResult.valid || !stockQtyResult.valid || conflict) return;
 
     const payload = buildProductUpdatePayload(
       product,
@@ -100,6 +113,7 @@ export default function ProductForm({ mode, product, categories, focusRestock = 
         rarity: values.rarity,
       },
       restockResult.qty,
+      stockQtyResult.qty,
     );
     if (Object.keys(payload).length === 0) {
       setServerError("바뀐 내용이 없어요.");
@@ -201,19 +215,33 @@ export default function ProductForm({ mode, product, categories, focusRestock = 
           />
         </FormField>
       ) : (
-        <FormField label={`현재 재고 ${product?.stock ?? 0}개`} error={errors.stock} hint="재고를 줄이거나 덮어쓸 수는 없어요. 입고된 만큼만 더해 주세요.">
-          <input
-            ref={focusRestock ? (el) => { if (el && document.activeElement !== el) el.focus(); } : undefined}
-            type="number"
-            value={restockText}
-            min={RESTOCK_MIN}
-            max={RESTOCK_MAX}
-            step={1}
-            placeholder="추가 입고 수량 (+N)"
-            onChange={(event) => setRestockText(event.target.value)}
-            className="pixel-input h-11 w-full px-3 text-sm"
-          />
-        </FormField>
+        <>
+          <FormField label="재고 수량" error={errors.stockQty} hint="값을 바꾸면 그 수량으로 재고가 설정돼요(덮어쓰기).">
+            <input
+              type="number"
+              value={stockQtyText}
+              min={PRODUCT_STOCK_MIN}
+              max={PRODUCT_STOCK_MAX}
+              step={1}
+              onChange={(event) => setStockQtyText(event.target.value)}
+              className="pixel-input h-11 w-full px-3 text-sm"
+            />
+          </FormField>
+
+          <FormField label="추가 입고 (+N)" error={errors.stock} hint="입력하면 현재 재고에 더해요. 비워두면 재고를 그대로 둬요.">
+            <input
+              ref={focusRestock ? (el) => { if (el && document.activeElement !== el) el.focus(); } : undefined}
+              type="number"
+              value={restockText}
+              min={RESTOCK_MIN}
+              max={RESTOCK_MAX}
+              step={1}
+              placeholder="추가 입고 수량"
+              onChange={(event) => setRestockText(event.target.value)}
+              className="pixel-input h-11 w-full px-3 text-sm"
+            />
+          </FormField>
+        </>
       )}
 
       <div className="flex justify-end gap-2 pt-2">

@@ -158,7 +158,9 @@ export interface ProductCreateInput {
   rarity: Rarity;
 }
 
-// 상품 수정 입력(PATCH) — 보낸 필드만 반영된다. stock을 보내면 현재 재고에 "더해진다"(덮어쓰기 아님)
+// 상품 수정 입력(PATCH) — 보낸 필드만 반영된다.
+// stock을 보내면 현재 재고에 "더해지고"(덮어쓰기 아님), stockSet을 보내면 그 값으로 "절대 설정"된다(#125).
+// 서버가 stock·stockSet을 함께 보내면 422로 거부하므로 둘 중 하나만 넣어야 한다.
 export interface ProductUpdateInput {
   name?: string;
   price?: number;
@@ -167,6 +169,7 @@ export interface ProductUpdateInput {
   imageUrl?: string;
   isNew?: boolean;
   stock?: number;
+  stockSet?: number;
   rarity?: Rarity;
   isHidden?: boolean;
 }
