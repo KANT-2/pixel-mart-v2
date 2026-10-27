@@ -11,6 +11,8 @@ export interface Page<T> {
 export interface ApiProduct extends Product {
   categorySlug: string;
   isNew: boolean;
+  /** 남은 재고 — 서버 응답에만 있고, 정적 대체 데이터에는 없음 (#104) */
+  stock?: number;
 }
 
 export interface ApiCategory {

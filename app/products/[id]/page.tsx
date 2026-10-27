@@ -7,6 +7,7 @@ import WishButton from "@/components/WishButton";
 import ProductCard from "@/components/ProductCard";
 import { formatPrice } from "@/utils/formatPrice";
 import { rarityOf } from "@/utils/gameItem";
+import { stockLabel, stockStatus } from "@/utils/stock";
 import { getProduct, getProducts, getProductParams } from "@/lib/products";
 import { ProductFallbackNotice } from "@/components/products/ProductStates";
 import ProductDetailTabs from "@/components/products/ProductDetailTabs";
@@ -45,6 +46,8 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
   // 없는 id(/products/999, /products/abc) → 같은 폴더의 not-found.tsx 표시
   if (!product) notFound();
   const rarity = rarityOf(product.price);
+  const stock = stockStatus(product.stock); // 품절 · 'n개 남음' (#104)
+  const stockText = stockLabel(stock);
 
   const category = { slug: product.categorySlug, name: product.category };
   const relatedResult = await getProducts({ category: product.categorySlug, size: 5 });
@@ -89,6 +92,7 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
           <p className="mb-6 flex items-center gap-2 text-3xl font-extrabold text-lime">
             {/* eslint-disable-next-line @next/next/no-img-element -- 픽셀 코인 */}
             <img src="/images/hero-coin.svg" alt="" className="size-7 [image-rendering:pixelated]" />{formatPrice(product.price)}
+            {stockText && <span className={`ml-1 rounded px-2 py-0.5 text-sm font-bold ${stock.kind === "soldout" ? "border-2 border-ink/60 text-ink" : "bg-pink text-night"}`}>{stockText}</span>}
           </p>
           <p className="mb-8 leading-relaxed text-sub">{product.description}</p>
 
@@ -101,7 +105,7 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
           </dl>
 
           <div className="mt-auto flex flex-col gap-3">
-            <AddToCartButton productId={product.id} />
+            <AddToCartButton productId={product.id} stock={product.stock} />
             {/* 키캡은 내 키보드에 끼워 보고 어울림을 확인 */}
             {keycapByProduct(product.id) && (
               <Link href={`/products/${product.id}/fitting`} className="btn-pixel flex items-center justify-center gap-2 px-6 py-3 font-bold text-mint">
