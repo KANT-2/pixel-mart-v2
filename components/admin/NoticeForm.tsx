@@ -2,14 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api";
-import { createNotice, updateNotice } from "@/lib/notices";
-import type { Notice } from "@/types/notice";
-import { NOTICE_TITLE_MAX, validateNoticeForm, type NoticeFormErrors, type NoticeFormValues } from "@/utils/notices";
+import { createNotice, updateNotice } from "@/lib/adminNotices";
+import type { AdminNotice } from "@/types/notice";
+import { NOTICE_CONTENT_MAX, NOTICE_TITLE_MAX, validateNoticeForm, type NoticeFormErrors, type NoticeFormValues } from "@/utils/notices";
 
 interface NoticeFormProps {
   mode: "create" | "edit";
-  notice?: Notice; // edit일 때만 (현재 값으로 폼을 채운다)
-  onSaved: (notice: Notice) => void;
+  notice?: AdminNotice; // edit일 때만 (현재 값으로 폼을 채운다)
+  onSaved: (notice: AdminNotice) => void;
   onCancel: () => void;
 }
 
@@ -68,9 +68,13 @@ export default function NoticeForm({ mode, notice, onSaved, onCancel }: NoticeFo
       </label>
 
       <label className="block text-sm">
-        <span className="mb-1 block font-bold text-ink">내용</span>
+        <span className="mb-1 flex items-center justify-between font-bold text-ink">
+          <span>내용</span>
+          <span className="text-xs font-normal text-dim">{values.content.length}/{NOTICE_CONTENT_MAX}</span>
+        </span>
         <textarea
           value={values.content}
+          maxLength={NOTICE_CONTENT_MAX}
           onChange={(event) => field("content", event.target.value)}
           rows={6}
           className="pixel-input w-full px-3 py-2 text-sm"
