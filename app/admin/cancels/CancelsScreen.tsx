@@ -140,7 +140,8 @@ export default function CancelsScreen() {
     { header: "요청번호", render: (cancel) => <span className="font-bold text-ink">#{cancel.id}</span> },
     { header: "주문번호", render: (cancel) => <Link href={`/admin/orders/${cancel.orderId}`} className="font-bold text-mint hover:underline">#{cancel.orderId}</Link> },
     { header: "주문자", render: (cancel) => <div><p className="font-bold text-ink">{cancel.buyerNickname}</p><p className="text-xs text-dim">{formatDate(cancel.createdAt)}</p></div> },
-    { header: "취소 사유", render: (cancel) => <span className="break-words">{cancel.reason}</span> },
+    // 취소 사유 열: span의 max-width는 인라인 요소라 적용되지 않아 긴 글이 표를 늘렸다 — block + 고정 width로 칸 너비를 확정한다
+    { header: "취소 사유", render: (cancel) => <div className="line-clamp-2 w-72 break-words [overflow-wrap:anywhere]" title={cancel.reason}>{cancel.reason}</div> },
     { header: "금액", align: "right", render: (cancel) => <span className="font-bold">{formatPrice(cancel.totalPrice)}</span> },
     { header: "상태", render: (cancel) => <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-xs font-bold ${CANCEL_BADGE[cancel.status]}`}>{cancel.statusLabel}</span> },
     {
