@@ -8,18 +8,19 @@ from app.schemas.common import Page
 from src.orders.application.service import OrderService
 from src.orders.infrastructure.repositories import OrderRepository
 from src.orders.presentation.schemas import OrderCreate, OrderDetailOut, OrderOut, OrderStatus, OrderSummaryOut
+from src.points.infrastructure.repositories import PointRepository
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 def _service(db: DbSession) -> OrderService:
-    return OrderService(OrderRepository(db), db)
+    return OrderService(OrderRepository(db), db, PointRepository(db))
 
 
 @router.post("", response_model=OrderOut, status_code=status.HTTP_201_CREATED, summary="장바구니로 가상 주문")
 async def create_order(body: OrderCreate, user: CurrentUser, db: DbSession) -> OrderOut:
     service = _service(db)
-    order_id = await service.place_order(user.id, body.recipient_name, body.address)
+    order_id = await service.place_order(user.id, body.recipient_name, body.address, body.points_used)
     order = await service.get_order(user.id, order_id)
     if order is None:  # commit 직후 조회이므로 DB 이상 외에는 도달하지 않는다.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "주문을 찾을 수 없어요.")

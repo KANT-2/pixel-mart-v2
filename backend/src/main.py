@@ -54,6 +54,8 @@ from src.common.logging import log_requests
 from src.database import engine
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.presentation import router as orders_api
+from src.points.domain.rules import InvalidPointUse
+from src.points.presentation import router as points_api
 from src.questions.domain.exceptions import (
     AnsweredQuestionNotDeletable,
     InvalidQuestion,
@@ -104,7 +106,7 @@ app = FastAPI(
 
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
-for order_error in (EmptyCart, OutOfStock):
+for order_error in (EmptyCart, OutOfStock, InvalidPointUse):
     app.add_exception_handler(order_error, domain_error_handler)
 for admin_order_error in (InvalidTransition, AlreadyResolved, OrderNotFound, CancelRequestNotFound):
     app.add_exception_handler(admin_order_error, domain_error_handler)
@@ -199,6 +201,7 @@ app.include_router(admin_trades_api.router, prefix="/api")
 app.include_router(reports_api.router, prefix="/api")
 app.include_router(reports_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
+app.include_router(points_api.router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(admin_orders_api.router, prefix="/api")
 app.include_router(admin_summary_api.router, prefix="/api")

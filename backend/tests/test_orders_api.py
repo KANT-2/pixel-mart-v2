@@ -6,7 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy import delete, select, update
 
 from app.core.db import SessionLocal
-from app.models import CartItem, Notification, Order, Product, User
+from app.models import CartItem, Notification, Order, PointTransaction, Product, User
 from tests.conftest import headers, login, logout
 
 BODY = {"recipientName": "홍길동", "address": "서울시 마포구 픽셀로 8"}
@@ -59,6 +59,84 @@ async def test_create_order_returns_prices_and_status_label(client, order_api):
     assert (order["itemsPrice"], order["shippingFee"], order["totalPrice"]) == (12_000, 3_000, 15_000)
     assert order["recipientName"] == "홍길동"
     assert (await client.get("/api/cart")).json()["items"] == []
+
+
+async def test_first_purchase_bonus_and_point_spend(client, order_api):
+    await sign_in(client, order_api, "points")
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 0
+
+    first = await add_and_order(client, order_api.product_ids[0])
+    assert first["pointsUsed"] == 0
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 1_000
+
+    await client.post("/api/cart/items", json={"productId": order_api.product_ids[0], "quantity": 1})
+    second_response = await client.post("/api/orders", json={**BODY, "pointsUsed": 750})
+    assert second_response.status_code == 201, second_response.text
+    second = second_response.json()
+    assert (second["pointsUsed"], second["totalPrice"]) == (750, 14_250)
+    assert (await client.get(f"/api/orders/{second['id']}")).json()["pointsUsed"] == 750
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 250
+
+    history = (await client.get("/api/users/me/points/history")).json()
+    assert history["total"] == 2
+    assert [(row["kind"], row["amount"]) for row in history["items"]] == [
+        ("order_spend", -750), ("first_purchase", 1_000)
+    ]
+
+
+async def test_cannot_spend_more_than_balance_and_keeps_cart(client, order_api):
+    await sign_in(client, order_api, "point-limit")
+    await add_and_order(client, order_api.product_ids[0])
+    await client.post("/api/cart/items", json={"productId": order_api.product_ids[0], "quantity": 1})
+
+    response = await client.post("/api/orders", json={**BODY, "pointsUsed": 1_001})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "보유 포인트가 부족해요."
+    assert (await client.get("/api/cart")).json()["totalQuantity"] == 1
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 1_000
+    assert (await client.post("/api/orders", json={**BODY, "pointsUsed": -1})).status_code == 422
+
+
+async def test_approved_cancel_refunds_spent_points_once(client, order_api):
+    await sign_in(client, order_api, "point-refund")
+    await add_and_order(client, order_api.product_ids[0])
+    await client.post("/api/cart/items", json={"productId": order_api.product_ids[0], "quantity": 1})
+    order = (await client.post("/api/orders", json={**BODY, "pointsUsed": 600})).json()
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 400
+
+    request = await client.post(f"/api/orders/{order['id']}/cancel-requests", json={"reason": "단순 변심"})
+    assert request.status_code == 201, request.text
+    approval = await client.post(f"/api/dev/cancel-requests/{request.json()['id']}/approve")
+    assert approval.status_code == 200, approval.text
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 1_000
+    assert (await client.get("/api/users/me/points/history")).json()["total"] == 3
+    await client.post("/api/cart/items", json={"productId": order_api.product_ids[0], "quantity": 1})
+    third = await client.post("/api/orders", json=BODY)
+    assert third.status_code == 201, third.text
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 1_000
+
+
+async def test_point_history_is_private(client, order_api):
+    assert (await client.get("/api/users/me/points")).status_code == 401
+    assert (await client.get("/api/users/me/points/history")).status_code == 401
+    await sign_in(client, order_api, "point-owner")
+    await add_and_order(client, order_api.product_ids[0])
+    await sign_in(client, order_api, "point-other")
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 0
+    assert (await client.get("/api/users/me/points/history")).json()["total"] == 0
+
+
+async def test_existing_customer_does_not_receive_first_purchase_bonus(client, order_api):
+    await sign_in(client, order_api, "legacy-points")
+    first = await add_and_order(client, order_api.product_ids[0])
+    # 포인트 기능 도입 전 주문을 재현한다.
+    async with SessionLocal() as session:
+        await session.execute(delete(PointTransaction).where(PointTransaction.order_id == first["id"]))
+        await session.commit()
+
+    await add_and_order(client, order_api.product_ids[0])
+    assert (await client.get("/api/users/me/points")).json()["balance"] == 0
+    assert (await client.get("/api/users/me/points/history")).json()["total"] == 0
 
 
 async def test_create_order_validates_recipient_without_touching_cart(client, order_api):

@@ -19,6 +19,7 @@ from app.models.user import User
 from src.orders.application.service import OrderService
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.infrastructure.repositories import OrderRepository
+from src.points.infrastructure.repositories import PointRepository
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,7 @@ def service_for(session):
     return OrderService(
         OrderRepository(session),
         session,
+        PointRepository(session),
     )
 
 
@@ -387,6 +389,7 @@ async def test_concurrent_orders_only_one_succeeds(order_db):
             service = OrderService(
                 repository,
                 session,
+                PointRepository(session),
             )
 
             return await service.place_order(

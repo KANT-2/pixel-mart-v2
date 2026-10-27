@@ -17,6 +17,7 @@ from app.models.review import Review
 from app.models.trade_request import TradeRequest
 from app.models.user import User
 from app.models.wishlist import Wishlist
+from src.points.infrastructure.models import PointTransaction
 
 __all__ = [
     "ActivityPoint",
@@ -37,6 +38,7 @@ __all__ = [
     "OrderStatusHistory",
     "Product",
     "ProductQuestion",
+    "PointTransaction",
     "Region",
     "Review",
     "Report",

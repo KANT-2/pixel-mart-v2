@@ -2,6 +2,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart import CartItem
+from app.models.gift import Gift
 from app.models.order import Order as OrderModel
 from app.models.order import OrderItem as OrderItemModel
 from app.models.order import OrderStatusHistory
@@ -72,12 +73,22 @@ class OrderRepository:
 
         raise OutOfStock(remaining or 0)
 
+    async def has_previous_order(self, user_id: int) -> bool:
+        gift_order = select(Gift.id).where(Gift.order_id == OrderModel.id).exists()
+        return (
+            await self.session.scalar(
+                select(OrderModel.id).where(OrderModel.user_id == user_id, ~gift_order).limit(1)
+            )
+            is not None
+        )
+
     async def add(
         self,
         user_id: int,
         recipient_name: str,
         address: str,
         order: Order,
+        points_used: int,
     ) -> int:
         before = await notifications.snapshot(
             self.session,
@@ -88,7 +99,8 @@ class OrderRepository:
             user_id=user_id,
             status="paid",
             shipping_fee=order.shipping_fee,
-            total_price=order.total_price,
+            points_used=points_used,
+            total_price=order.total_price - points_used,
             recipient_name=recipient_name,
             address=address,
             items=[
