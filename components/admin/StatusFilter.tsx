@@ -32,7 +32,8 @@ export default function StatusFilter({ options, basePath, totalCount }: StatusFi
 
   return (
     // 칩 사이 간격이 있는 알약(pill) 모양 — 전역 .segmented(막대 모양)는 다른 화면도 같이 쓰므로 안 건드리고, 여기서만 모양을 새로 만든다
-    <div role="group" aria-label="상태 필터" className="flex flex-wrap gap-2">
+    // 모바일에서 칩이 많아 줄바꿈되면 지저분해 보여서, 줄바꿈 대신 가로 스크롤로 한 줄에 보여준다
+    <div role="group" aria-label="상태 필터" className="flex gap-2 overflow-x-auto pb-1">
       {/* 전체 버튼 — 값이 비어 있으면 선택된 상태 */}
       <PillButton pressed={current === ""} onClick={() => change("")} label="전체" count={totalCount} />
       {options.map((option) => (
@@ -49,7 +50,7 @@ function PillButton({ pressed, onClick, label, count }: { pressed: boolean; onCl
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 text-sm font-bold ${
+      className={`flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 text-sm font-bold ${
         pressed ? "border-lime bg-lime text-lime-ink" : "border-line text-sub hover:text-ink"
       }`}
     >

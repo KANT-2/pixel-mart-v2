@@ -141,14 +141,14 @@ export default function OrdersScreen() {
     const buttonLabel = NEXT_BUTTON_LABEL[order.status];
     if (buttonLabel) {
       return (
-        <button type="button" onClick={() => setConfirmOrder(order)} className="btn-pixel min-h-11 px-3 text-xs font-bold">
+        <button type="button" onClick={() => setConfirmOrder(order)} className="btn-pixel min-h-11 whitespace-nowrap px-3 text-xs font-bold">
           {buttonLabel}
         </button>
       );
     }
-    if (order.status === "delivered") return <span className="text-xs text-dim">모두 끝난 주문</span>;
-    if (order.status === "cancelled") return <span className="text-xs text-dim">취소된 주문</span>;
-    return <span className="text-xs text-pink">취소 요청에서 처리</span>; // cancel_requested
+    if (order.status === "delivered") return <span className="whitespace-nowrap text-xs text-dim">모두 끝난 주문</span>;
+    if (order.status === "cancelled") return <span className="whitespace-nowrap text-xs text-dim">취소된 주문</span>;
+    return <span className="whitespace-nowrap text-xs text-pink">취소 요청에서 처리</span>; // cancel_requested
   }
 
   const columns: AdminTableColumn<AdminOrderSummary>[] = [
