@@ -9,6 +9,8 @@
 
 **2차 프로젝트 (2026.10.23 ~ 10.28)**: 1차에서 인수한 PIXEL MART를 **FastAPI 4계층 백엔드**로 다시 세우고, 네 명이 각자 Use Case 하나를 화면부터 DB까지 끝까지 만들었어요.
 
+**배포**: https://pixel-mart-v2.vercel.app · API 문서 https://pixel-mart-v2.vercel.app/api/docs
+
 ## 목차
 1. [서비스 소개](#1-서비스-소개)
 2. [팀 · 역할](#2-팀--역할)
@@ -154,6 +156,7 @@ npm run dev
 | --- | --- | --- |
 | 프론트 | Vercel | 환경 변수 `BACKEND_URL` = 백엔드 주소 · `vercel.json` (싱가포르 리전) |
 | 백엔드 + DB | Render (Web Service + PostgreSQL) | `render.yaml` 블루프린트 · 시작 시 `backend/scripts/render_start.sh` |
+| 주소 | https://pixel-mart-v2.vercel.app | API는 같은 주소의 `/api/*` (Vercel이 Render로 전달) |
 
 1. Render → **New → Blueprint** → 이 저장소 선택 → `render.yaml`대로 API 서버와 DB가 만들어져요. 시작할 때마다 `alembic upgrade head` → `seed` → `seed_demo` (재실행 안전)
 2. Vercel → **Add New → Project** → 이 저장소 → 환경 변수 `BACKEND_URL` = `https://<Render 서비스 주소>` → Deploy
