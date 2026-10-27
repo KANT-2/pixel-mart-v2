@@ -352,8 +352,20 @@ flowchart LR
 - **인수 전후**: 개발자 API로만 처리 → 관리자 화면 + 허용된 상태 전이만
 
 ### 🔮 상품 문의 → 관리자 답변: 김예주
-- **흐름**: 상품 상세 Q&A 탭 → `POST /api/products/{id}/questions` → `Question`(제목 1~100자) → DB 저장 / 관리자 `POST /api/admin/questions/{id}/answer` → `answer_with()`(한 번만) → 작성자 알림
-- **관련 파일**: `backend/src/questions/` · (화면) `lib/questions.ts` · `components/products/Questions*` · `app/admin/questions/`
+- **UC 한 줄**: 로그인 사용자가 상품 상세 Q&A 탭에서 문의(비밀글 선택 가능)를 남기면, 관리자가 `/admin/questions`에서 **한 번만** 답변하고 작성자에게 알림이 갑니다.
+
+```mermaid
+flowchart LR
+  screen["화면<br/>상품 상세 Q&A 탭 · /admin/questions"] --> api["API<br/>POST /api/products/{id}/questions<br/>POST /api/admin/questions/{id}/answer"]
+  api --> service["Application<br/>QuestionService.ask() · answer()"]
+  service --> domain["Domain<br/>Question · can_be_read_by()<br/>answer_with() 한 번만"]
+  service --> repo["Infrastructure<br/>QuestionRepository"]
+  repo --> db["PostgreSQL<br/>product_questions · notifications"]
+  repo -->|"알림 저장 실패"| rollback["rollback<br/>답변도 저장 안 됨"]
+```
+
+- **관련 파일**: 화면 `components/products/QuestionsPanel.tsx` · `QuestionEntries.tsx` · `QuestionDeleteButton.tsx` · `app/admin/questions/` · 클라이언트 `lib/questions.ts` · API `backend/src/questions/presentation/` · 서비스 `backend/src/questions/application/` · 도메인 `backend/src/questions/domain/` · 저장소 `backend/src/questions/infrastructure/`
+- **업무 규칙**: 제목 1~100자 · 내용 1~500자 · 답변 1~500자 (앞뒤 공백 제외) · 비밀글은 작성자와 관리자만 내용을 보고, 다른 사람에게는 서버가 제목·내용·닉네임을 `null`로 가림 · 답변은 한 번만 (두 번째 409) · 답변이 달린 문의는 삭제할 수 없음 (409, 대화 기록 보존) · 남의 문의 삭제와 일반 사용자의 관리자 API는 404로 숨김 · 답변 저장과 작성자 알림은 한 트랜잭션
 - **API (기존 → 이번)**
 
   | API | 인수 당시 (`app/routers/questions.py`) | 이번 (`src/questions/`) |
@@ -363,14 +375,72 @@ flowchart LR
   | `DELETE /api/questions/{id}` | 없음 | **새로** · 본인만 · 답변 전에만 (남 404 · 답변 후 409) (#30) |
   | `GET /api/admin/questions?answered=&q=&page=` | 없음 | **새로** · 관리자만 · 답변 여부 필터 · 상품 이름/제목 검색 · 비밀글 내용도 보임 · `productName`·`authorNickname` (#31) |
   | `POST /api/admin/questions/{id}/answer` | `POST /api/dev/questions/{id}/answer` — 로컬에서 로그인한 누구나 · 두 번 답변 400 | **관리자만**(아니면 404) · 두 번 답변 **409** · 작성자 알림 · 개발용 API 삭제 (#31) |
-- **정상 / 실패**: (작성 예정: 남의 비밀글 내용 안 보임 · 두 번 답변 409 · 빈 제목 422 · 로그아웃 토큰 401)
-- **캡처**: (작성 예정)
-- **인수 전후**: 새로고침하면 사라지는 메모리 데이터 → DB 저장 · 비밀글은 서버에서 가림
+- **Swagger 정상 / 실패 증거**
+
+  <details>
+  <summary>문의 쓰기 201</summary>
+
+  ![문의 쓰기 201](docs/screenshots/issue-36/questions/questions-201.jpg)
+  </details>
+
+  <details>
+  <summary>빈 제목 422</summary>
+
+  ![빈 제목 422](docs/screenshots/issue-36/questions/questions-422.jpg)
+  </details>
+
+  <details>
+  <summary>없는 상품에 문의 404 — "상품을 찾을 수 없어요."</summary>
+
+  ![없는 상품 404](docs/screenshots/issue-36/questions/questions-404.jpg)
+  </details>
+
+  <details>
+  <summary>같은 문의에 두 번 답변 409 — "이미 답변한 문의예요."</summary>
+
+  ![두 번 답변 409](docs/screenshots/issue-36/questions/answer-409.jpg)
+  </details>
+
+- **로그인 → 내 API → 로그아웃 → 같은 토큰 401**
+
+  <details>
+  <summary>Bearer 로그인(관리자) 뒤 <code>GET /api/admin/questions</code> 200</summary>
+
+  ![관리자 문의 목록 200](docs/screenshots/issue-36/questions/admin-list-200.jpg)
+  </details>
+
+  <details>
+  <summary><code>POST /api/auth/logout</code> 200</summary>
+
+  ![로그아웃 200](docs/screenshots/issue-36/questions/auth-logout-200.jpg)
+  </details>
+
+  <details>
+  <summary>로그아웃한 같은 토큰으로 <code>GET /api/admin/questions</code> 401 — "다시 로그인해 주세요."</summary>
+
+  ![로그아웃 토큰 401](docs/screenshots/issue-36/questions/admin-list-after-logout-401.jpg)
+  </details>
+
+- **화면**
+
+  <details>
+  <summary>상품 상세 Q&A — 답변 완료 · 답변 대기 · 남의 비밀글은 자물쇠 (#32)</summary>
+
+  ![상품 상세 Q&A](docs/screenshots/issue-36/questions/screen-product-qna.jpg)
+  </details>
+
+  <details>
+  <summary>관리자 문의 답변 — 등록 전 확인창 (#33)</summary>
+
+  ![관리자 답변 확인창](docs/screenshots/issue-36/questions/screen-admin-answer.jpg)
+  </details>
+
+- **인수 전후**: 새로고침하면 사라지는 메모리 데이터 → DB 저장 · 비밀글은 화면이 아니라 서버에서 가림 · 로그인한 누구나 쓰던 개발용 답변 API → 관리자만 · 관리자 답변 화면 새로 · 함께 메인 하트·코인(#34)과 상품 카테고리 개수(#35)도 하드코딩 → API 값으로 연결
+- **트러블슈팅**: 동시에 `main.py`를 고친 팀원 PR과 충돌 → 두 `include_router` 줄을 모두 남겨 해결 · Windows 앱 제어가 `alembic.exe`를 막음 → `uv run python -m alembic`으로 실행 · 캡처 이미지가 `git add -A`에 섞여 커밋됨 → `git rm --cached` 후 `.git/info/exclude`에 등록 (PowerShell `echo`는 인코딩이 달라 `Set-Content -Encoding ascii` 사용) · 캡처에서는 Bearer 토큰이 보이는 Curl 영역을 제외
 
 ## 10. 미완료 · Mock 목록
 | 항목 | 지금 상태 | 담당 |
 | --- | --- | --- |
-| 상품 문의 화면 | `lib/questions.ts` 메모리 어댑터 (진짜 API 연결 전) | 🔮 |
 | 관리자 화면 | 백엔드 머지 전까지 `mocks/` 임시 데이터 (`USE_MOCK`) | 🏹 |
 | 결제 | 가상 주문 (실제 결제 없음) | |
 | 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
