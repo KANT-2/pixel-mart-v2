@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import HomeCarousel from "@/components/home/HomeCarousel";
+
+export const metadata: Metadata = { title: "내 퀘스트 | PIXEL MART" };
 
 export default function QuestsPage() {
   return <>

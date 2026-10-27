@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import ProductCard from "@/components/ProductCard";
@@ -5,6 +6,10 @@ import { ProductFallbackNotice, ProductSkeleton } from "@/components/products/Pr
 import { deskThemes } from "@/data/deskLookbook";
 import { getProduct } from "@/lib/products";
 
+export const metadata: Metadata = {
+  title: "데스크 테마 룩북 | PIXEL MART",
+  description: "테마별로 꾸민 픽셀 데스크와 그 테마의 키캡·데스크매트·소품을 한눈에",
+};
 async function ThemeProducts({ searchParams }: PageProps<"/lookbook">) {
   const params = await searchParams;
   const selected = deskThemes.find((theme) => theme.slug === params.theme) ?? deskThemes[0];

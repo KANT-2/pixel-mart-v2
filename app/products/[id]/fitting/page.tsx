@@ -14,7 +14,9 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/products/[id]/fitting">): Promise<Metadata> {
   const { id } = await params;
   const { data: product } = await getProduct(id);
-  return { title: product ? `키캡 피팅룸 · ${product.name} | PIXEL MART` : "상품을 찾을 수 없습니다 | PIXEL MART" };
+  return product
+    ? { title: `키캡 피팅룸 · ${product.name} | PIXEL MART`, description: `${product.name}을(를) 내 키보드에 끼워 보고 어울리는지 확인해요` }
+    : { title: "상품을 찾을 수 없습니다 | PIXEL MART" };
 }
 
 // 상세 페이지와 같은 방식: params는 Suspense 안쪽에서 기다린다

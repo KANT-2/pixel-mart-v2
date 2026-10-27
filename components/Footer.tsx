@@ -10,8 +10,8 @@ export default function Footer() {
             <span>게임 같은 하루, 픽셀아트의 상점.</span>
           </p>
           <ul className="flex gap-5">
-            <li>이용약관</li>
-            <li className="font-bold text-ink">개인정보처리방침</li>
+            <li><Link href="/terms" className="rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet">이용약관</Link></li>
+            <li><Link href="/privacy" className="rounded font-bold text-ink hover:text-mint focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet">개인정보처리방침</Link></li>
             <li><Link href="/help" className="rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet">고객센터</Link></li>
           </ul>
         </div>
