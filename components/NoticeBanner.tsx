@@ -55,13 +55,10 @@ export default function NoticeBanner() {
               <Link href={`/notices/${current.id}`} className="min-w-0 flex-1 truncate text-sm font-bold text-ink hover:text-mint">
                 {current.title}
               </Link>
-              <Link href={`/notices/${current.id}`} className="shrink-0 whitespace-nowrap text-sm font-semibold text-sub hover:text-ink">
-                자세히 →
-              </Link>
 
               {notices.length > 1 && (
-                // 좁은 화면에서는 w-full이 강제로 줄바꿈시켜 넘기기가 아래 줄로, 넓어지면 한 줄에 같이 선다
-                <div className="flex w-full shrink-0 items-center justify-end gap-1 sm:w-auto">
+                // 제목이 flex-1 min-w-0로 알아서 줄어드니, 375px에서도 따로 줄바꿈 없이 한 줄에 같이 선다
+                <div className="flex shrink-0 items-center gap-1">
                   <button type="button" aria-label="이전 공지" onClick={() => setIndex((value) => cycleIndex(value, notices.length, -1))} className={ARROW_CLASS}>‹</button>
                   <span className="whitespace-nowrap text-xs text-dim">{index + 1} / {notices.length}</span>
                   <button type="button" aria-label="다음 공지" onClick={() => setIndex((value) => cycleIndex(value, notices.length, 1))} className={ARROW_CLASS}>›</button>
