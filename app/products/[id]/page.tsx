@@ -116,11 +116,9 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
                 내 키보드에 끼워 보기
               </Link>
             )}
-            <Link
-              href="/products"
-              className="btn-pixel grid place-items-center px-6 py-3 font-bold text-sub hover:text-ink"
-            >
-              목록으로
+            {/* 주요 버튼(담기)과 경쟁하지 않게 글자 링크로 */}
+            <Link href="/products" className="self-center py-1 text-sm text-sub underline-offset-4 hover:text-ink hover:underline">
+              ← 상품 목록으로
             </Link>
           </div>
         </div>

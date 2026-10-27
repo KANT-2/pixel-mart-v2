@@ -6,10 +6,13 @@ import LowStockList from "@/components/admin/LowStockList";
 import OrderStatusChart from "@/components/admin/OrderStatusChart";
 import { ApiError } from "@/lib/api";
 import { getAdminSummary } from "@/lib/admin";
+import { getAdminReturnRequests } from "@/lib/adminReturns";
 import type { AdminSummary } from "@/types/admin";
 
 // 숫자 카드 4개의 키 — AdminSummary 중 숫자 필드만 (orderStatusCounts·lowStockProducts는 따로 그린다)
-type SummaryCardKey = "ordersToday" | "preparingOrders" | "pendingCancelRequests" | "unansweredQuestions";
+type SummaryCardKey = "ordersToday" | "preparingOrders" | "pendingCancelRequests" | "pendingReturnRequests" | "unansweredQuestions";
+// 반품·교환 대기는 요약 API에 없어서 따로 세어 붙인다
+type DashboardSummary = AdminSummary & { pendingReturnRequests: number };
 
 // 카드 4개 정의
 interface SummaryCard {
@@ -25,11 +28,12 @@ const CARDS: SummaryCard[] = [
   { key: "ordersToday", label: "오늘 들어온 주문", href: "/admin/orders", hint: "오늘 들어온 주문이에요.", emptyHint: "오늘 들어온 주문이 없어요." },
   { key: "preparingOrders", label: "배송 준비중", href: "/admin/orders?status=preparing", hint: "준비를 시작해 주세요.", emptyHint: "준비 중인 주문이 없어요." },
   { key: "pendingCancelRequests", label: "취소 요청 대기", href: "/admin/cancels?status=requested", hint: "승인·거절을 기다리고 있어요.", emptyHint: "처리할 취소 요청이 없어요." },
+  { key: "pendingReturnRequests", label: "반품·교환 대기", href: "/admin/returns", hint: "승인·거절을 기다리고 있어요.", emptyHint: "처리할 신청이 없어요." },
   { key: "unansweredQuestions", label: "미답변 문의", href: "/admin/questions", hint: "답변을 기다리고 있어요.", emptyHint: "답변할 문의가 없어요." },
 ];
 
 export default function AdminDashboardPage() {
-  const [summary, setSummary] = useState<AdminSummary | null>(null); // 숫자 4개
+  const [summary, setSummary] = useState<DashboardSummary | null>(null); // 숫자 4개
   const [loading, setLoading] = useState(true); // 처음 불러오는 중인지
   const [error, setError] = useState<string | null>(null); // 조회 실패 메시지
 
@@ -37,7 +41,8 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      setSummary(await getAdminSummary()); // 숫자 4개를 한 번에 받아온다
+      const [base, returns] = await Promise.all([getAdminSummary(), getAdminReturnRequests("requested", 1).catch(() => null)]);
+      setSummary({ ...base, pendingReturnRequests: returns?.total ?? 0 });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -66,7 +71,7 @@ export default function AdminDashboardPage() {
         <>
           {/* 숫자 4개가 올 자리를 뼈대로 먼저 보여준다 — 넓은 화면 4열, 1100px 이하 2×2, 480px 이하는 간격만 줄어든다 */}
           <div
-            className="mt-6 grid grid-cols-2 gap-3 min-[1100px]:grid-cols-4 max-[480px]:gap-2"
+            className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 max-[480px]:gap-2"
             role="status"
             aria-label="대시보드 숫자 불러오는 중"
           >
@@ -83,7 +88,7 @@ export default function AdminDashboardPage() {
 
       {!error && !loading && summary && (
         <>
-          <div className="mt-6 grid grid-cols-2 gap-3 min-[1100px]:grid-cols-4 max-[480px]:gap-2">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 max-[480px]:gap-2">
             {CARDS.map((card) => {
               const count = summary[card.key]; // 이 카드의 숫자
               return (

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import PixelIcon from "@/components/PixelIcon";
 import { giftApi } from "@/lib/gifts";
 import { localApi } from "@/lib/local";
 import { api } from "@/lib/api";
@@ -129,13 +130,13 @@ export default function HomeCarousel({ questOnly = false }: HomeCarouselProps) {
             {user && !loading && !busy && state.activity && <div className="mt-4 space-y-2">
               <h3 className="text-xs font-bold tracking-wide text-sub">활동 바로가기</h3>
               <Link href="/mypage/gifts" className="flex items-center justify-between gap-3 rounded border border-line bg-panel px-3 py-2 text-sm hover:border-mint focus-visible:outline-2 focus-visible:outline-mint">
-                <span>🎁 {state.activity.gifts > 0 ? `수락을 기다리는 선물 ${state.activity.gifts}개` : "수락 대기 중인 선물이 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
+                <span className="flex items-center gap-2"><PixelIcon name="gift" className="size-4" />{state.activity.gifts > 0 ? `수락을 기다리는 선물 ${state.activity.gifts}개` : "수락 대기 중인 선물이 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
               </Link>
               <Link href="/local/trades/mine" className="flex items-center justify-between gap-3 rounded border border-line bg-panel px-3 py-2 text-sm hover:border-mint focus-visible:outline-2 focus-visible:outline-mint">
-                <span>🤝 {state.activity.matches > 0 ? `현재 거래 매칭 ${state.activity.matches}개 확인하기` : "현재 연결된 거래 매칭이 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
+                <span className="flex items-center gap-2"><PixelIcon name="heart" className="size-4" />{state.activity.matches > 0 ? `현재 거래 매칭 ${state.activity.matches}개 확인하기` : "현재 연결된 거래 매칭이 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
               </Link>
               <Link href="/local/trades/mine" className="flex items-center justify-between gap-3 rounded border border-line bg-panel px-3 py-2 text-sm hover:border-mint focus-visible:outline-2 focus-visible:outline-mint">
-                <span>📋 {state.activity.trades > 0 ? `진행 중인 내 거래 ${state.activity.trades}개 관리하기` : "진행 중인 내 거래가 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
+                <span className="flex items-center gap-2"><PixelIcon name="sword" className="size-4" />{state.activity.trades > 0 ? `진행 중인 내 거래 ${state.activity.trades}개 관리하기` : "진행 중인 내 거래가 없어요"}</span><span aria-hidden="true" className="text-mint">→</span>
               </Link>
               {state.activity.gifts === 0 && state.activity.matches === 0 && state.activity.trades === 0 && <p className="pt-1 text-xs leading-relaxed text-sub">아직 진행 중인 퀘스트가 없어요. <Link href="/local/trades" className="text-mint underline underline-offset-4">동네 교환글 둘러보기 →</Link></p>}
             </div>}

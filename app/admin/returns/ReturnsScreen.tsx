@@ -12,11 +12,11 @@ import { formatDate } from "@/utils/formatDate";
 import { formatPrice } from "@/utils/formatPrice";
 import { RETURN_KIND_LABEL, RETURN_STATUS_LABEL } from "@/utils/shop";
 
-const TABS: { value: AdminCancelStatus | null; label: string }[] = [
-  { value: "requested", label: "처리 대기" },
-  { value: "approved", label: "승인" },
-  { value: "rejected", label: "거절" },
-  { value: null, label: "전체" },
+// 요약 카드 3개 — 취소 요청 화면과 같은 모양, 눌러서 그 상태로 거른다 (다시 누르면 전체)
+const CARDS: { status: AdminCancelStatus; label: string; hint: string }[] = [
+  { status: "requested", label: "처리 대기", hint: "승인 또는 거절이 필요해요" },
+  { status: "approved", label: "승인", hint: "환불 또는 재배송을 시작했어요" },
+  { status: "rejected", label: "거절", hint: "주문이 배송 완료로 돌아갔어요" },
 ];
 const BADGE: Record<AdminCancelStatus, string> = {
   requested: "border-pink/30 bg-pink/10 text-pink",
@@ -36,7 +36,16 @@ export default function ReturnsScreen() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [counts, setCounts] = useState<Record<AdminCancelStatus, number> | null>(null);
   const key = `${status}:${page}:${reloadKey}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(CARDS.map((card) => getAdminReturnRequests(card.status, 1)))
+      .then(([requested, approved, rejected]) => { if (!cancelled) setCounts({ requested: requested.total, approved: approved.total, rejected: rejected.total }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,18 +82,32 @@ export default function ReturnsScreen() {
     { header: "상태", render: (row) => <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-bold ${BADGE[row.status]}`}>{RETURN_STATUS_LABEL[row.status]}</span> },
     { header: "처리", render: (row) => row.status === "requested" ? <div className="flex gap-1.5">
       <button type="button" onClick={() => setAction({ request: row, approve: true })} className="btn-lime min-h-9 px-3 text-xs font-bold text-lime-ink">승인</button>
-      <button type="button" onClick={() => setAction({ request: row, approve: false })} className="btn-pixel min-h-9 px-3 text-xs font-bold">거절</button>
+      <button type="button" onClick={() => setAction({ request: row, approve: false })} className="btn-pixel min-h-9 border-pink/60 px-3 text-xs font-bold text-pink">거절</button>
     </div> : <span className="text-xs text-dim">처리됨</span> },
   ];
 
   return <div className="space-y-4">
     <header>
       <h1 className="text-xl font-bold text-ink">반품·교환</h1>
-      <p className="mt-1 text-sm text-sub">배송 완료 뒤 구매 확정 전에 들어온 신청이에요.</p>
+      <p className="mt-1 text-sm text-sub">배송 완료 뒤 구매 확정 전에 들어온 신청이에요. 반품을 승인하면 환불과 재고·적립금·쿠폰 복구가, 교환을 승인하면 재배송 준비가 시작돼요.</p>
     </header>
-    <div role="group" aria-label="신청 상태" className="segmented h-10 text-sm font-bold">
-      {TABS.map((tab) => <button key={tab.label} type="button" aria-pressed={status === tab.value} onClick={() => { setStatus(tab.value); setPage(1); }}>{tab.label}</button>)}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {CARDS.map((card) => {
+        const count = counts?.[card.status] ?? 0;
+        const active = status === card.status;
+        return <button key={card.status} type="button" aria-pressed={active} onClick={() => { setStatus(active ? null : card.status); setPage(1); }}
+          className={`pixel-panel p-3 text-left ${active ? "border-mint" : ""}`}>
+          <p className="text-xs text-dim">{card.label}</p>
+          <p className={`mt-1 text-2xl font-bold ${card.status === "requested" && count > 0 ? "text-pink" : "text-ink"}`}>{count}</p>
+          <p className="mt-1 text-xs text-dim">{card.hint}</p>
+        </button>;
+      })}
     </div>
+    <p className="text-xs text-dim">
+      {status ? `${CARDS.find((card) => card.status === status)?.label} 신청만 보는 중 · ` : "전체 신청 · "}
+      {status && <button type="button" onClick={() => { setStatus(null); setPage(1); }} className="text-mint underline underline-offset-2">전체 보기</button>}
+      {rows && !status && `총 ${rows.total}건`}
+    </p>
     {notice && <p role="status" className="rounded-lg border border-mint/30 bg-mint/10 p-3 text-sm text-mint">{notice}</p>}
     {error && <p role="alert" className="rounded-lg border border-pink/30 bg-panel p-3 text-sm text-pink">{error}</p>}
     {!rows ? <div role="status" aria-label="불러오는 중" className="h-48 animate-pulse rounded-xl bg-panel" />

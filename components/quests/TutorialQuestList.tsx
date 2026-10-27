@@ -34,7 +34,7 @@ export default function TutorialQuestList() {
     .sort((a, b) => (byCode.get(b.code)?.earnedAt ?? "").localeCompare(byCode.get(a.code)?.earnedAt ?? ""));
 
   return (
-    <section aria-labelledby="tutorial-quests" className="mx-auto max-w-6xl px-4 pt-6">
+    <section aria-labelledby="tutorial-quests">
       <div className="pixel-panel p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 id="tutorial-quests" className="font-bold">퀘스트</h2>

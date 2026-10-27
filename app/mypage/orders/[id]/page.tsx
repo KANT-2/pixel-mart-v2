@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import PageHeader from "@/components/PageHeader";
 import OrderDetail from "@/components/orders/OrderDetail";
 import { OrderSkeleton } from "@/components/orders/OrderStates";
 import { parseOrderId } from "@/utils/orders";
@@ -12,11 +12,7 @@ export const metadata: Metadata = { title: "주문 상세 | PIXEL MART" };
 export default function OrderDetailPage({ params, searchParams }: PageProps<"/mypage/orders/[id]">) {
   return (
     <section className="mx-auto max-w-5xl px-4 py-10 md:px-8 md:py-14">
-      <header className="mb-8">
-        <Link href="/mypage/orders" className="mb-6 inline-block text-sm text-sub hover:text-ink">← 주문 내역</Link>
-        <p className="stage-kicker mb-2 font-pixel text-sm text-mint">ORDER LOG</p>
-        <h1 className="text-3xl font-extrabold">주문 상세</h1>
-      </header>
+      <PageHeader back={{ href: "/mypage/orders", label: "주문 내역" }} kicker="ORDER LOG" title="주문 상세" />
       <Suspense fallback={<OrderSkeleton />}>
         <OrderQuery params={params} searchParams={searchParams} />
       </Suspense>

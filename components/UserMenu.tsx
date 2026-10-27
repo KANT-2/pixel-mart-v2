@@ -72,16 +72,21 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
       {open && user && (
         <div id={panelId} className="absolute right-0 top-12 z-50 w-60 pixel-panel p-2 shadow-lg">
           {user.role === "admin" && <Link href="/admin" onClick={() => setOpen(false)} className="mb-1 block rounded-lg border border-violet/40 px-3 py-3 text-sm font-bold text-violet hover:bg-panel-2">관리자 페이지</Link>}
-          <Link href="/mypage" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">마이페이지</Link>
-          <Link href="/mypage/orders" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">주문 내역</Link>
-          <Link href="/mypage/points" onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-3 py-3 text-sm hover:bg-panel-2">
+          <Link href="/mypage" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-bold hover:bg-panel-2">마이페이지</Link>
+          {/* 쇼핑 · 활동 · 도움말을 줄로 나눠 길어진 메뉴를 한눈에 */}
+          <p className="mt-1 border-t border-line px-3 pb-1 pt-2 font-pixel text-[10px] text-dim" aria-hidden="true">SHOP</p>
+          <Link href="/mypage/orders" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-panel-2">주문 내역</Link>
+          <Link href="/mypage/points" onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-panel-2">
             적립금{balance !== null && <span className="font-bold text-lime">{balance.toLocaleString("ko-KR")}P</span>}
           </Link>
-          <Link href="/mypage/coupons" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">쿠폰함</Link>
-          <Link href="/local/trades/mine#trade-requests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">교환 신청함</Link>
-          <Link href="/mypage/quests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">내 퀘스트</Link>
-          <Link href="/help" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">고객센터</Link>
-          <button type="button" disabled={pending} onClick={handleLogout} className="w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-panel-2 disabled:opacity-50">{pending ? "로그아웃 중…" : "로그아웃"}</button>
+          <Link href="/mypage/coupons" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-panel-2">쿠폰함</Link>
+          <p className="mt-1 border-t border-line px-3 pb-1 pt-2 font-pixel text-[10px] text-dim" aria-hidden="true">PIXEL LOCAL</p>
+          <Link href="/mypage/quests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-panel-2">퀘스트 · 뱃지</Link>
+          <Link href="/local/trades/mine#trade-requests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-panel-2">내 글 · 교환 신청</Link>
+          <div className="mt-1 border-t border-line pt-1">
+            <Link href="/help" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-sub hover:bg-panel-2">고객센터</Link>
+          </div>
+          <button type="button" disabled={pending} onClick={handleLogout} className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-sub hover:bg-panel-2 disabled:opacity-50">{pending ? "로그아웃 중…" : "로그아웃"}</button>
           {logoutError && <p role="alert" className="px-3 py-2 text-sm text-pink">{logoutError}</p>}
         </div>
       )}

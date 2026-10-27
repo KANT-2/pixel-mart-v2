@@ -38,8 +38,8 @@ export default function WithdrawSection() {
   }
 
   return <section aria-labelledby={`${id}-title`} className="mt-10 border-t border-line pt-8 text-left">
-    <h2 id={`${id}-title`} className="text-sm font-bold text-sub">회원 탈퇴</h2>
-    {!open ? <button type="button" onClick={() => setOpen(true)} className="mt-3 min-h-11 btn-pixel border-pink/50 px-4 text-sm font-bold text-pink">회원 탈퇴</button>
+    <h2 id={`${id}-title`} className="sr-only">회원 탈퇴</h2>
+    {!open ? <button type="button" onClick={() => setOpen(true)} className="min-h-11 text-sm text-dim underline-offset-4 hover:text-pink hover:underline">회원 탈퇴</button>
       : <form onSubmit={submit} noValidate className="mt-3 rounded-lg border border-pink/40 bg-panel p-5">
         <p className="text-sm font-bold text-pink">탈퇴하면 되돌릴 수 없어요.</p>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-sub marker:text-dim">
