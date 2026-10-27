@@ -13,8 +13,12 @@ import type {
   AdminOrderQuery,
   AdminOrderStatus,
   AdminOrderSummary,
+  AdminProduct,
+  AdminProductQuery,
   AdminSummary,
   Page,
+  ProductCreateInput,
+  ProductUpdateInput,
 } from "@/types/admin";
 
 // 스위치예요. true = 가짜 서버, false = 진짜 서버. 주문·취소 요청 API가 머지되어 false로 바꿨어요.
@@ -121,4 +125,21 @@ export async function getAdminCancelCounts(): Promise<AdminCancelCounts> {
 export function getAdminSummary(): Promise<AdminSummary> {
   if (USE_MOCK) return mock.summary();
   return api.get("/admin/summary");
+}
+
+// 상품 목록(#101) — 숨김·품절 포함, 검색어·상태·등급으로 거른다.
+// 상품 API(#93·#94)는 이미 머지돼 있어서 다른 함수들과 달리 mock 분기를 두지 않고 항상 실제 서버만 부른다.
+export function getAdminProducts(query: AdminProductQuery = {}): Promise<Page<AdminProduct>> {
+  const { hidden, soldOut, ...rest } = query;
+  return api.get(`/admin/products${toQuery({ ...rest, hidden: hidden === undefined ? undefined : String(hidden), soldOut: soldOut === undefined ? undefined : String(soldOut) })}`);
+}
+
+// 상품 등록
+export function createAdminProduct(input: ProductCreateInput): Promise<AdminProduct> {
+  return api.post("/admin/products", input);
+}
+
+// 상품 수정 · 숨김/다시 보이기 · 재고 조정 — body의 stock은 서버에서 "더하기"로 동작한다
+export function updateAdminProduct(id: number, changes: ProductUpdateInput): Promise<AdminProduct> {
+  return api.patch(`/admin/products/${id}`, changes);
 }

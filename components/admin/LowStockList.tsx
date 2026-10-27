@@ -1,3 +1,4 @@
+import Link from "next/link"; // 화면 이동은 next/link의 Link만 쓴다
 import type { AdminLowStockProduct } from "@/types/admin";
 import { rarityInfo, type Rarity } from "@/utils/gameItem"; // 등급 라벨·색은 기존 유틸을 읽기만 한다
 
@@ -56,15 +57,13 @@ export default function LowStockList({ products }: LowStockListProps) {
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panel-2">
                 <div className="h-full bg-pink" style={{ width: `${barPercent}%` }} />
               </div>
-              {/* /admin/products가 아직 없어 눌러도 갈 곳이 없다 — 비활성 + 준비 중 표기 */}
-              <button
-                type="button"
-                disabled
-                title="상품 관리 화면이 아직 준비 중이에요"
-                className="btn-pixel mt-2 min-h-9 w-full px-3 text-xs font-bold opacity-50"
+              {/* 상품 번호로 바로 여는 API가 없어서, 상품명으로 미리 검색된 상품 관리 목록으로 이동한다 */}
+              <Link
+                href={`/admin/products?q=${encodeURIComponent(product.name)}`}
+                className="btn-pixel mt-2 flex min-h-9 w-full items-center justify-center px-3 text-xs font-bold"
               >
-                입고하기 (준비 중)
-              </button>
+                입고하기
+              </Link>
             </div>
           );
         })}
@@ -72,8 +71,9 @@ export default function LowStockList({ products }: LowStockListProps) {
 
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-dim">
         <span>총 {products.length}개</span>
-        {/* 상품 관리 화면이 아직 없어 링크 대신 비활성 문구만 둔다 */}
-        <span className="opacity-50">상품 관리에서 전체 보기 → (준비 중)</span>
+        <Link href="/admin/products" className="font-bold text-mint hover:underline">
+          상품 관리에서 전체 보기 →
+        </Link>
       </div>
     </section>
   );
