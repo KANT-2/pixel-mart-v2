@@ -26,6 +26,10 @@ export default function MyPage() {
       <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2 font-pixel text-mint">BOX</span>
       <span><span className="block font-bold">주문 내역 보기 →</span><span className="mt-1 block text-sm text-sub">주문한 아이템과 배송 진행 상황을 확인하세요.</span></span>
     </Link>
+    <Link href="/mypage/points" className="mb-6 flex items-center gap-4 pixel-panel p-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">
+      <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2"><PixelIcon name="coin" className="size-9" /></span>
+      <span><span className="block font-bold">적립금 →</span><span className="mt-1 block text-sm text-sub">보유 적립금과 적립·사용 기록을 확인하세요. 주문서에서 1P = 1원으로 써요.</span></span>
+    </Link>
     <Link href="/mypage/gifts" className="mb-6 flex items-center gap-4 pixel-panel p-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">
       <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2"><PixelIcon name="chest" className="size-9" /></span>
       <span><span className="block font-bold">선물함 →</span><span className="mt-1 block text-sm text-sub">이웃에게 받은 선물을 받거나, 보낸 선물 상태를 확인하세요.</span></span>

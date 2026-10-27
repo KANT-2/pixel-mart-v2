@@ -8,9 +8,11 @@ import { useCart } from "@/components/CartProvider";
 import CartPriceSummary from "@/components/cart/CartPriceSummary";
 import { ApiError } from "@/lib/api";
 import { ordersApi } from "@/lib/orders";
+import { pointsApi } from "@/lib/points";
 import type { ApiOrder } from "@/types/api";
 import { formatPrice } from "@/utils/formatPrice";
 import { validateOrderForm } from "@/utils/orders";
+import { clampPoints, maxUsablePoints } from "@/utils/points";
 
 export default function CheckoutContents() {
   const { user, loading } = useAuth();
@@ -35,6 +37,8 @@ function CheckoutForm() {
   const [createdOrder, setCreatedOrder] = useState<ApiOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [pointBalance, setPointBalance] = useState<number | null>(null); // 못 불러오면 적립금 칸을 숨긴다
+  const [pointsInput, setPointsInput] = useState("");
   const locked = useRef(false);
   const confirmed = useRef(false);
   const sequence = useRef(0);
@@ -52,6 +56,13 @@ function CheckoutForm() {
       setBusy(false);
     };
   }, [authPending]);
+
+  // 보유 적립금 — 주문서를 열 때 한 번 (주문하면 서버가 다시 검사)
+  useEffect(() => {
+    const controller = new AbortController();
+    pointsApi.balance(controller.signal).then((points) => setPointBalance(points.balance)).catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   function isCurrent(controller: AbortController, request: number) {
     return !controller.signal.aborted && sequence.current === request;
@@ -93,7 +104,7 @@ function CheckoutForm() {
     locked.current = true;
     setBusy(true);
     try {
-      const order = await ordersApi.create(validation.values, controller.signal);
+      const order = await ordersApi.create({ ...validation.values, pointsUsed }, controller.signal);
       if (!isCurrent(controller, request)) return;
       // 다른 탭에서 장바구니가 바뀌었어도 확정된 품목·금액은 서버 응답만 씁니다.
       confirmed.current = true;
@@ -141,7 +152,7 @@ function CheckoutForm() {
       <p className="mt-2 text-sm text-sub">주문번호 #{createdOrder.id}</p>
       <p className="mt-3 text-sm text-sub">{busy ? "장바구니를 갱신한 뒤 주문 상세로 이동해요." : "아래는 서버에서 확정한 주문 내용이에요."}</p>
     </div>
-    <CheckoutSummary items={createdOrder.items} itemsPrice={createdOrder.itemsPrice} shippingFee={createdOrder.shippingFee} totalPrice={createdOrder.totalPrice} confirmed />
+    <CheckoutSummary items={createdOrder.items} itemsPrice={createdOrder.itemsPrice} shippingFee={createdOrder.shippingFee} totalPrice={createdOrder.totalPrice} pointsUsed={createdOrder.pointsUsed} confirmed />
     {refreshError && <p role="alert" className="rounded-xl border border-pink/30 bg-panel p-5 text-sm text-pink">주문은 완료됐지만 장바구니 갱신에 실패했어요. {refreshError}</p>}
     {!busy && <div className="flex flex-wrap items-center gap-4">
       <button type="button" disabled={authPending} onClick={() => void retryCartRefresh()}
@@ -164,6 +175,8 @@ function CheckoutForm() {
   </div>;
 
   const disabled = busy || authPending;
+  const usablePoints = maxUsablePoints(pointBalance ?? 0, cart.totalPrice);
+  const pointsUsed = clampPoints(pointsInput, usablePoints);
   const cartPending = loading || pendingIds.length > 0;
   const stockBlocked = errorStatus === 409 || cartErrorStatus === 409;
   return <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -191,7 +204,29 @@ function CheckoutForm() {
             placeholder="주소와 상세 주소" className="w-full min-w-0 resize-y pixel-input px-3 py-3 text-ink focus-visible:outline-2 focus-visible:outline-violet" />
           {fieldErrors.address && <p id="address-error" className="mt-2 text-sm text-pink">{fieldErrors.address}</p>}
         </div>
+        {pointBalance !== null && <div className="border-t border-line pt-5">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <label htmlFor="pointsUsed" className="text-sm font-semibold">적립금 사용</label>
+            <span className="text-xs text-sub">보유 <b className="text-lime">{pointBalance.toLocaleString("ko-KR")}P</b></span>
+          </div>
+          <div className="flex gap-2">
+            <input id="pointsUsed" name="pointsUsed" inputMode="numeric" autoComplete="off" value={pointsInput}
+              onChange={(event) => setPointsInput(event.target.value.replace(/[^0-9]/g, ""))}
+              onBlur={() => setPointsInput(pointsUsed ? String(pointsUsed) : "")}
+              disabled={usablePoints === 0} placeholder="0" aria-describedby="pointsUsed-help"
+              className="min-w-0 flex-1 pixel-input px-3 py-3 text-right text-ink focus-visible:outline-2 focus-visible:outline-violet disabled:opacity-50" />
+            <button type="button" disabled={usablePoints === 0} onClick={() => setPointsInput(pointsUsed === usablePoints ? "" : String(usablePoints))}
+              className="btn-pixel shrink-0 px-3 text-sm font-bold disabled:opacity-50">{pointsUsed === usablePoints && usablePoints > 0 ? "사용 취소" : "전액 사용"}</button>
+          </div>
+          <p id="pointsUsed-help" className="mt-2 text-xs text-dim">
+            {usablePoints === 0 ? "쓸 수 있는 적립금이 없어요. 첫 구매를 하면 1,000P를 받아요." : `최대 ${usablePoints.toLocaleString("ko-KR")}P까지 1P = 1원으로 쓸 수 있어요.`}
+          </p>
+        </div>}
       </fieldset>
+      <dl className="mt-5 space-y-1.5 border-t border-line pt-4 text-sm">
+        {pointsUsed > 0 && <div className="flex justify-between text-sub"><dt>적립금 사용</dt><dd>-{formatPrice(pointsUsed)}</dd></div>}
+        <div className="flex items-baseline justify-between"><dt className="font-bold">결제 금액</dt><dd className="text-xl font-extrabold text-lime">{formatPrice(cart.totalPrice - pointsUsed)}</dd></div>
+      </dl>
       {(error || cartError) && <div role="alert" className="mt-5 text-sm text-pink">
         <p>{error ?? cartError}</p>
         {error && <Link href="/mypage/orders" className="mt-2 inline-flex text-sub underline underline-offset-4">주문 내역 확인</Link>}
@@ -211,10 +246,11 @@ interface CheckoutSummaryProps {
   shippingFee: number;
   totalPrice: number;
   freeShippingLeft?: number;
+  pointsUsed?: number; // 확정된 주문에 쓴 적립금 (totalPrice는 이미 뺀 금액)
   confirmed?: boolean;
 }
 
-function CheckoutSummary({ items, itemsPrice, shippingFee, totalPrice, freeShippingLeft, confirmed = false }: CheckoutSummaryProps) {
+function CheckoutSummary({ items, itemsPrice, shippingFee, totalPrice, freeShippingLeft, pointsUsed = 0, confirmed = false }: CheckoutSummaryProps) {
   return <section aria-label={confirmed ? "확정된 주문 내용" : "주문 상품 요약"} className="min-w-0 pixel-panel p-5 sm:p-6">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-xl font-extrabold">{confirmed ? "확정된 주문 상품" : "주문 상품"}</h2>
@@ -234,7 +270,11 @@ function CheckoutSummary({ items, itemsPrice, shippingFee, totalPrice, freeShipp
       </li>)}
     </ul>
     <div className="mt-2 border-t border-line pt-5">
-      <CartPriceSummary itemsPrice={itemsPrice} shippingFee={shippingFee} totalPrice={totalPrice} freeShippingLeft={freeShippingLeft} totalLabel="총 주문 금액" />
+      <CartPriceSummary itemsPrice={itemsPrice} shippingFee={shippingFee} totalPrice={totalPrice + pointsUsed} freeShippingLeft={freeShippingLeft} totalLabel="총 주문 금액" />
+      {pointsUsed > 0 && <dl className="mt-3 space-y-1.5 border-t border-line pt-3 text-sm">
+        <div className="flex justify-between text-sub"><dt>적립금 사용</dt><dd>-{formatPrice(pointsUsed)}</dd></div>
+        <div className="flex justify-between font-bold"><dt>결제 금액</dt><dd className="text-lime">{formatPrice(totalPrice)}</dd></div>
+      </dl>}
     </div>
   </section>;
 }

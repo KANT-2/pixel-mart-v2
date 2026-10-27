@@ -164,7 +164,8 @@ function OrderDetailContents({ id, placed }: OrderDetailProps) {
           <dl className="mt-5 space-y-4 text-sm">
             <div><dt className="text-sub">받는 사람</dt><dd className="mt-1 break-words font-semibold">{order.recipientName}</dd></div>
             <div><dt className="text-sub">주소</dt><dd className="mt-1 whitespace-pre-line break-words leading-relaxed">{order.address}</dd></div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5"><dt className="font-bold">주문 금액</dt><dd className="text-2xl font-extrabold text-mint">{formatPrice(order.totalPrice)}</dd></div>
+            {order.pointsUsed > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-5 text-sub"><dt>적립금 사용</dt><dd>-{formatPrice(order.pointsUsed)}</dd></div>}
+            <div className={`flex flex-wrap items-center justify-between gap-2 pt-5 ${order.pointsUsed > 0 ? "" : "border-t border-line"}`}><dt className="font-bold">{order.pointsUsed > 0 ? "결제 금액" : "주문 금액"}</dt><dd className="text-2xl font-extrabold text-mint">{formatPrice(order.totalPrice)}</dd></div>
           </dl>
         </aside>
       </div>
