@@ -68,6 +68,17 @@ async def test_admin_changes_product_rarity_and_public_response_reflects_it(clie
     assert (public.status_code, public.json()["rarity"]) == (200, "unique")
 
 
+async def test_admin_restocks_by_adding_to_existing_stock(client, created_product_ids):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, stock=4)
+
+    restocked = await client.patch(f"{URL}/{product['id']}", json={"stock": 3}, headers=headers(admin))
+
+    assert (restocked.status_code, restocked.json()["stock"]) == (200, 7)
+    public = await client.get(f"/api/products/{product['id']}")
+    assert (public.status_code, public.json()["stock"]) == (200, 7)
+
+
 async def test_admin_hides_lists_and_restocks_product(client, created_product_ids):
     admin = await login(client, ADMIN, admin=True)
     product = await create(

@@ -56,8 +56,12 @@ class AdminProductService:
     async def update_product(self, product_id: int, changes: dict[str, object]) -> AdminProduct:
         if "category_slug" in changes:
             await self._ensure_category(str(changes["category_slug"]))
-        if await self.products.get(product_id) is None:
+        product = await self.products.get(product_id)
+        if product is None:
             raise AdminProductNotFound()
+        if "stock" in changes:
+            # 재입고 수량은 현재 재고에 더한다. 0은 다른 필드만 함께 바꿀 때 허용한다.
+            changes = {**changes, "stock": product.stock + int(changes["stock"])}
         try:
             await self.products.update(product_id, changes)
             await self.tx.commit()

@@ -54,7 +54,7 @@
 | --- | --- | --- | --- |
 | GET | /api/admin/products?q=&category=&rarity=&hidden=&soldOut=&page= 🔒 | 숨김·품절을 포함한 관리자 상품 목록 | ✅ |
 | POST | /api/admin/products 🔒 | 상품 등록 (`/images/...` 내부 이미지 경로만 허용) | ✅ |
-| PATCH | /api/admin/products/{id} 🔒 | 상품 정보·등급·숨김·재고 조정 | ✅ |
+| PATCH | /api/admin/products/{id} 🔒 | 상품 정보·등급·숨김·재고 조정 (`stock`은 현재 재고에 더함) | ✅ |
 
 ## PIXEL LOCAL
 | 메서드 | 경로 | 설명 | 상태 |
