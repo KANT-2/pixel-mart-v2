@@ -4,6 +4,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import Order, ProductQuestion, Report, Review, TradePost
 from app.models.user import User
 from app.services import notifications
 from app.services.search import LIKE_ESCAPE, like_pattern
@@ -58,7 +59,9 @@ class MemberRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def search(self, q: str | None, role: str | None, offset: int, limit: int) -> tuple[list[MemberSummary], int]:
+    async def search(
+        self, q: str | None, role: str | None, suspended: bool | None, offset: int, limit: int
+    ) -> tuple[list[MemberSummary], int]:
         conditions = []
         if q:
             pattern = like_pattern(q)
@@ -67,20 +70,33 @@ class MemberRepository:
             )
         if role:
             conditions.append(User.role == role)
+        if suspended is not None:
+            conditions.append(User.suspended.is_(suspended))
         total = await self.session.scalar(select(func.count()).select_from(User).where(*conditions))
-        rows = await self.session.scalars(
-            select(User).where(*conditions).order_by(User.created_at.desc(), User.id.desc()).offset(offset).limit(limit)
+        rows = await self.session.execute(
+            _with_counts()
+            .where(*conditions)
+            .order_by(User.created_at.desc(), User.id.desc())
+            .offset(offset)
+            .limit(limit)
         )
-        return [_to_summary(u) for u in rows], total or 0
+        return [_to_summary(u, orders, reports) for u, orders, reports in rows], total or 0
 
     async def get(self, user_id: int) -> MemberSummary | None:
-        user = await self.session.get(User, user_id)
-        return _to_summary(user) if user else None
+        row = (await self.session.execute(_with_counts().where(User.id == user_id))).first()
+        return _to_summary(*row) if row else None
+
+    async def set_suspended(self, user_id: int, suspended: bool) -> MemberSummary:
+        await self.session.execute(update(User).where(User.id == user_id).values(suspended=suspended))
+        await self.session.flush()
+        self.session.expire_all()
+        return await self.get(user_id)
 
     async def clear_avatar(self, user_id: int) -> MemberSummary:
         await self.session.execute(update(User).where(User.id == user_id).values(avatar_url=None))
-        user = await self.session.get(User, user_id, populate_existing=True)
-        return _to_summary(user)
+        await self.session.flush()
+        self.session.expire_all()
+        return await self.get(user_id)
 
     async def notify_avatar_reset(self, user_id: int, ref_key: str, memo: str | None) -> None:
         """본인에게 알림 (ADMIN_API.md 8장 — 같은 아바타는 한 번만)"""
@@ -90,7 +106,22 @@ class MemberRepository:
         )
 
 
-def _to_summary(user: User) -> MemberSummary:
+def _with_counts():
+    """회원 한 줄 + 주문 수 + 그 회원 콘텐츠(아바타 · 거래글 · 리뷰 · 문의)에 걸린 열린 신고 수"""
+    order_count = select(func.count()).where(Order.user_id == User.id).correlate(User).scalar_subquery()
+    owned = or_(
+        (Report.target_type == "avatar") & (Report.target_id == User.id),
+        (Report.target_type == "trade")
+        & Report.target_id.in_(select(TradePost.id).where(TradePost.user_id == User.id)),
+        (Report.target_type == "review") & Report.target_id.in_(select(Review.id).where(Review.user_id == User.id)),
+        (Report.target_type == "question")
+        & Report.target_id.in_(select(ProductQuestion.id).where(ProductQuestion.user_id == User.id)),
+    )
+    report_count = select(func.count()).where(Report.status == "open", owned).correlate(User).scalar_subquery()
+    return select(User, order_count, report_count)
+
+
+def _to_summary(user: User, order_count: int = 0, report_count: int = 0) -> MemberSummary:
     return MemberSummary(
         id=user.id,
         email=user.email,
@@ -99,6 +130,10 @@ def _to_summary(user: User) -> MemberSummary:
         google_linked=user.google_sub is not None,
         created_at=user.created_at,
         avatar_url=user.avatar_url,
+        suspended=user.suspended,
+        withdrawn=user.deleted_at is not None,
+        order_count=order_count or 0,
+        report_count=report_count or 0,
     )
 
 

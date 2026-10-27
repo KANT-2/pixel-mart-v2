@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from app.deps import CurrentUser, DbSession
+from app.deps import ActiveUser, CurrentUser, DbSession
 from app.models import TradePost, TradeRequest
 from app.routers.local_trades import post_out
 from app.schemas.local import TradeAuthorOut, TradeRequestIn, TradeRequestOut
@@ -88,7 +88,7 @@ async def _notify_decided(db: DbSession, req: TradeRequest) -> None:
 @router.post(
     "", response_model=TradeRequestOut, status_code=status.HTTP_201_CREATED, summary="이웃의 거래글에 교환 신청"
 )
-async def create_request(body: TradeRequestIn, user: CurrentUser, db: DbSession):
+async def create_request(body: TradeRequestIn, user: ActiveUser, db: DbSession):
     post = await db.get(TradePost, body.post_id)
     if post is None or post.status == "hidden":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "거래글을 찾을 수 없습니다.")

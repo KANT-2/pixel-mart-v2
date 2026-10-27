@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
+from src.auth.domain.exceptions import CannotSuspend
+
 ROLES = ("user", "admin")
 
 SignupMethod = Literal["email", "google"]
@@ -19,6 +21,10 @@ class MemberSummary:
     google_linked: bool
     created_at: datetime
     avatar_url: str | None = None
+    suspended: bool = False
+    withdrawn: bool = False
+    order_count: int = 0
+    report_count: int = 0
 
     @property
     def signup_method(self) -> SignupMethod:
@@ -28,3 +34,13 @@ class MemberSummary:
 def avatar_reset_key(avatar_url: str) -> str:
     """같은 아바타를 두 번 초기화해도 알림은 한 번만 쌓이게 하는 ref_key"""
     return "avatar-reset:" + hashlib.sha256(avatar_url.encode()).hexdigest()[:16]
+
+
+def check_can_suspend(member: MemberSummary, admin_id: int) -> None:
+    """정지할 수 없는 계정이면 CannotSuspend(400). 정지 해제는 언제나 된다."""
+    if member.id == admin_id:
+        raise CannotSuspend("자기 자신은 정지할 수 없어요.")
+    if member.role == "admin":
+        raise CannotSuspend("관리자 계정은 정지할 수 없어요.")
+    if member.withdrawn:
+        raise CannotSuspend("탈퇴한 계정은 정지할 수 없어요.")

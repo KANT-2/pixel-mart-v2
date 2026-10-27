@@ -1,12 +1,12 @@
 from typing import Protocol
 
 from src.auth.domain.exceptions import MemberNotFound
-from src.auth.domain.member import MemberSummary, avatar_reset_key
+from src.auth.domain.member import MemberSummary, avatar_reset_key, check_can_suspend
 
 
 class MemberSearch(Protocol):
     async def search(
-        self, q: str | None, role: str | None, offset: int, limit: int
+        self, q: str | None, role: str | None, suspended: bool | None, offset: int, limit: int
     ) -> tuple[list[MemberSummary], int]: ...
 
 
@@ -26,10 +26,10 @@ class AdminUserService:
         self.members = members
 
     async def list_members(
-        self, q: str | None, role: str | None, page: int, size: int
+        self, q: str | None, role: str | None, page: int, size: int, suspended: bool | None = None
     ) -> tuple[list[MemberSummary], int]:
         keyword = q.strip() if q else None  # 공백만 친 검색어는 검색 안 함
-        return await self.members.search(keyword or None, role, (page - 1) * size, size)
+        return await self.members.search(keyword or None, role, suspended, (page - 1) * size, size)
 
 
 class AvatarResetService:
@@ -48,6 +48,33 @@ class AvatarResetService:
         try:
             updated = await self.members.clear_avatar(user_id)
             await self.members.notify_avatar_reset(user_id, avatar_reset_key(member.avatar_url), memo)
+            await self.tx.commit()
+        except Exception:
+            await self.tx.rollback()
+            raise
+        return updated
+
+
+class MemberStatus(Protocol):
+    async def get(self, user_id: int) -> MemberSummary | None: ...
+    async def set_suspended(self, user_id: int, suspended: bool) -> MemberSummary: ...
+
+
+class SuspendService:
+    """관리자가 사용자를 정지 · 해제한다. 정지되면 구경 · 로그인은 되고 글쓰기류만 403."""
+
+    def __init__(self, members: MemberStatus, tx: Transaction) -> None:
+        self.members = members
+        self.tx = tx
+
+    async def set_suspended(self, user_id: int, suspended: bool, admin_id: int) -> MemberSummary:
+        member = await self.members.get(user_id)
+        if member is None:
+            raise MemberNotFound()
+        if suspended:
+            check_can_suspend(member, admin_id)
+        try:
+            updated = await self.members.set_suspended(user_id, suspended)
             await self.tx.commit()
         except Exception:
             await self.tx.rollback()

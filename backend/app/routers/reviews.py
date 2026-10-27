@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.deps import CurrentUser, DbSession, OptionalUser
+from app.deps import ActiveUser, CurrentUser, DbSession, OptionalUser
 from app.models import Product
 from app.schemas.common import Message
 from app.schemas.review import ReviewIn, ReviewOut, ReviewPage
@@ -45,7 +45,7 @@ async def get_reviews(
 
 
 @router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED, summary="리뷰 작성 (배송 완료 상품만)")
-async def post_review(product_id: int, body: ReviewIn, user: CurrentUser, db: DbSession):
+async def post_review(product_id: int, body: ReviewIn, user: ActiveUser, db: DbSession):
     await _require_product(db, product_id)
     try:
         review = await create_review(db, user, product_id, body)

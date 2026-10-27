@@ -2,7 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.deps import CurrentUser, DbSession
+from app.deps import ActiveUser, CurrentUser, DbSession
 from app.schemas.gift import GiftIn, GiftOut
 from app.schemas.order import OrderCreate
 from app.services import gifts
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/gifts", tags=["gifts"])
 @router.post(
     "", response_model=GiftOut, status_code=status.HTTP_201_CREATED, summary="거래글 이웃에게 선물 (데모 결제)"
 )
-async def send_gift(body: GiftIn, user: CurrentUser, db: DbSession):
+async def send_gift(body: GiftIn, user: ActiveUser, db: DbSession):
     try:
         gift = await gifts.send_gift(db, user, body.trade_post_id, body.product_id, body.quantity, body.message)
     except gifts.GiftError as error:

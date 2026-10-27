@@ -73,6 +73,14 @@ async def get_admin_user(user: Annotated[User, Depends(get_current_user)]) -> Us
     return user
 
 
+async def get_active_user(user: Annotated[User, Depends(get_current_user)]) -> User:
+    # 정지된 계정은 로그인 · 구경은 되지만 글쓰기 · 교환 신청 · 선물 · 리뷰 · 문의 · 신고는 막는다
+    if user.suspended:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "이용이 정지된 계정이에요.")
+    return user
+
+
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+ActiveUser = Annotated[User, Depends(get_active_user)]
 AdminUser = Annotated[User, Depends(get_admin_user)]
