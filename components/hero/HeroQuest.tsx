@@ -10,10 +10,10 @@ import styles from "./HeroStage.module.css";
 interface QuestProgress {
   userId: number;
   ordered: boolean; // 주문을 한 번이라도 했으면 첫 구매 퀘스트 완료
-  balance: number; // 보유 구매 포인트
+  balance: number; // 보유 적립금(구매 포인트)
 }
 
-/** 무대 아래 퀘스트 카드 — 비로그인이면 로그인 유도, 첫 구매 전이면 쇼핑 유도, 첫 구매 후엔 완료 + 보유 포인트 */
+/** 무대 아래 퀘스트 카드 — 비로그인이면 로그인 유도, 첫 구매 전이면 쇼핑 유도, 첫 구매 후엔 완료 + 보유 적립금 */
 export default function HeroQuest() {
   const { user } = useAuth();
   const [progress, setProgress] = useState<QuestProgress | null>(null);
@@ -42,11 +42,11 @@ export default function HeroQuest() {
         <p className="font-pixel text-[11px] tracking-wider text-dim">PLAYER 1 · {cleared ? "QUEST CLEAR" : "QUEST 0/1"}</p>
         <p className="truncate text-sm font-semibold text-ink">
           {!user ? <>로그인하고 첫 구매 시 <b className="text-lime">1,000P</b> 받기</>
-            : cleared ? <>첫 구매 완료! 보유 포인트 <b className="text-lime">{mine.balance.toLocaleString()}P</b></>
+            : cleared ? <>첫 구매 완료! 보유 적립금 <b className="text-lime">{mine.balance.toLocaleString()}P</b></>
               : <>첫 구매 완료 시 <b className="text-lime">1,000P</b> 받기</>}
         </p>
       </div>
-      <Link href={user ? "/products" : "/login?next=/"} className={styles.questBtn}>{user ? "쇼핑하기" : "로그인"}</Link>
+      <Link href={!user ? "/login?next=/" : cleared ? "/mypage/points" : "/products"} className={styles.questBtn}>{!user ? "로그인" : cleared ? "적립금 보기" : "쇼핑하기"}</Link>
     </aside>
   );
 }

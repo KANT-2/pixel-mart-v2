@@ -105,7 +105,7 @@ test("UTC 주문 시각을 로컬 YYYY.MM.DD HH:mm으로 표시하고 잘못된 
   }
 });
 
-test("주문 API는 수령 정보만 전송하고 서버 상품·금액 응답을 그대로 반환", async (t) => {
+test("주문 API는 수령 정보와 쓸 적립금만 전송하고 서버 상품·금액 응답을 그대로 반환", async (t) => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   const serverOrder = { id: 42, status: "paid", statusLabel: "주문 완료", itemsPrice: 98763, shippingFee: 2, totalPrice: 98765, items: [{ product: { id: 17 }, quantity: 3, unitPrice: 32921, subtotal: 98763 }] };
@@ -116,12 +116,14 @@ test("주문 API는 수령 정보만 전송하고 서버 상품·금액 응답�
   t.after(() => { globalThis.fetch = originalFetch; });
   const controller = new AbortController();
   assert.deepEqual(await ordersApi.create({ recipientName: "수령인", address: "주소", items: [{ productId: 1 }], totalPrice: 1000 }, controller.signal), serverOrder);
+  await ordersApi.create({ recipientName: "수령인", address: "주소", pointsUsed: 500 }, controller.signal);
   await ordersApi.list(2, controller.signal);
   await ordersApi.detail(42, controller.signal);
   await ordersApi.cancel(42, "취소 사유", controller.signal);
   await ordersApi.advance(42, controller.signal);
   assert.deepEqual(calls.map(({ url, method, body }) => ({ url, method, body })), [
-    { url: "/api/orders", method: "POST", body: { recipientName: "수령인", address: "주소" } },
+    { url: "/api/orders", method: "POST", body: { recipientName: "수령인", address: "주소", pointsUsed: 0 } },
+    { url: "/api/orders", method: "POST", body: { recipientName: "수령인", address: "주소", pointsUsed: 500 } },
     { url: "/api/orders?page=2&size=10", method: "GET", body: undefined },
     { url: "/api/orders/42", method: "GET", body: undefined },
     { url: "/api/orders/42/cancel-requests", method: "POST", body: { reason: "취소 사유" } },

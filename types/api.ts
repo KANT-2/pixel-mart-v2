@@ -75,6 +75,7 @@ export interface ApiOrder {
   statusLabel: string;
   itemsPrice: number;
   shippingFee: number;
+  pointsUsed: number; // 이 주문에 쓴 구매 포인트 (totalPrice는 포인트를 뺀 금액)
   totalPrice: number;
   recipientName: string;
   address: string;
@@ -91,6 +92,11 @@ export interface ApiOrderTimelineEntry {
 export interface ApiOrderDetail extends ApiOrder {
   timeline: ApiOrderTimelineEntry[];
 }
+
+/** 구매 포인트 (#97) — 첫 구매 보너스 · 주문에 사용 · 취소로 돌려받음 */
+export interface ApiPointBalance { balance: number; }
+export type PointKind = "first_purchase" | "order_spend" | "order_refund";
+export interface ApiPointTransaction { id: number; orderId: number; kind: PointKind | string; amount: number; createdAt: string; }
 
 export interface ApiOrderSummary {
   id: number;
