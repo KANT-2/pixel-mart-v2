@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
+from app.services import notifications
 from app.services.search import LIKE_ESCAPE, like_pattern
 from src.auth.domain.account import Account
 from src.auth.domain.member import MemberSummary
@@ -70,18 +71,35 @@ class MemberRepository:
         rows = await self.session.scalars(
             select(User).where(*conditions).order_by(User.created_at.desc(), User.id.desc()).offset(offset).limit(limit)
         )
-        members = [
-            MemberSummary(
-                id=u.id,
-                email=u.email,
-                nickname=u.nickname,
-                role=u.role,
-                google_linked=u.google_sub is not None,
-                created_at=u.created_at,
-            )
-            for u in rows
-        ]
-        return members, total or 0
+        return [_to_summary(u) for u in rows], total or 0
+
+    async def get(self, user_id: int) -> MemberSummary | None:
+        user = await self.session.get(User, user_id)
+        return _to_summary(user) if user else None
+
+    async def clear_avatar(self, user_id: int) -> MemberSummary:
+        await self.session.execute(update(User).where(User.id == user_id).values(avatar_url=None))
+        user = await self.session.get(User, user_id, populate_existing=True)
+        return _to_summary(user)
+
+    async def notify_avatar_reset(self, user_id: int, ref_key: str, memo: str | None) -> None:
+        """본인에게 알림 (ADMIN_API.md 8장 — 같은 아바타는 한 번만)"""
+        body = f"사유: {memo}" if memo else "운영 정책에 맞지 않아 기본 모습으로 바꿨어요."
+        await notifications.notify(
+            self.session, user_id, "avatar_reset", "아바타가 기본 모습으로 바뀌었어요", body, "/mypage/avatar", ref_key
+        )
+
+
+def _to_summary(user: User) -> MemberSummary:
+    return MemberSummary(
+        id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        role=user.role,
+        google_linked=user.google_sub is not None,
+        created_at=user.created_at,
+        avatar_url=user.avatar_url,
+    )
 
 
 class TokenBlacklistRepository:

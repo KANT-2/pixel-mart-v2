@@ -5,6 +5,7 @@ import pytest
 
 from src.auth.domain.account import Account, check_password, normalize_email
 from src.auth.domain.exceptions import InvalidEmail, InvalidNickname, InvalidToken, WeakPassword
+from src.auth.domain.member import avatar_reset_key
 from src.auth.domain.token import IssuedToken, can_forget_blacklisted
 from src.auth.infrastructure.hasher import hash_password, verify_password
 from src.auth.infrastructure.jwt import decode_token, issue_token
@@ -143,3 +144,9 @@ def test_blacklist_row_is_forgettable_only_after_expiry():
     assert can_forget_blacklisted(now - timedelta(seconds=1), now)
     assert not can_forget_blacklisted(now, now)  # 만료 시각과 같은 순간엔 JWT가 아직 유효
     assert not can_forget_blacklisted(now + timedelta(days=7), now)
+
+
+def test_avatar_reset_key_is_same_for_same_avatar():
+    assert avatar_reset_key("data:a") == avatar_reset_key("data:a")
+    assert avatar_reset_key("data:a") != avatar_reset_key("data:b")
+    assert avatar_reset_key("data:a").startswith("avatar-reset:")

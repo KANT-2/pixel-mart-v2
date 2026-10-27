@@ -9,6 +9,7 @@ from src.auth.domain.exceptions import (
     InvalidNickname,
     InvalidToken,
     LoginFailed,
+    MemberNotFound,
     NicknameTaken,
     WeakPassword,
 )
@@ -52,6 +53,7 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     LoginFailed: status.HTTP_401_UNAUTHORIZED,
     EmailTaken: status.HTTP_409_CONFLICT,
     NicknameTaken: status.HTTP_409_CONFLICT,
+    MemberNotFound: status.HTTP_404_NOT_FOUND,
     QuestionNotFound: status.HTTP_404_NOT_FOUND,
     ProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidQuestion: status.HTTP_422_UNPROCESSABLE_CONTENT,

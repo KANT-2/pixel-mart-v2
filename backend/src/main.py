@@ -38,6 +38,7 @@ from src.auth.domain.exceptions import (
     InvalidNickname,
     InvalidToken,
     LoginFailed,
+    MemberNotFound,
     NicknameTaken,
     WeakPassword,
 )
@@ -93,7 +94,16 @@ for order_error in (EmptyCart, OutOfStock):
     app.add_exception_handler(order_error, domain_error_handler)
 for admin_order_error in (InvalidTransition, AlreadyResolved, OrderNotFound, CancelRequestNotFound):
     app.add_exception_handler(admin_order_error, domain_error_handler)
-for auth_error in (InvalidEmail, WeakPassword, InvalidNickname, InvalidToken, LoginFailed, EmailTaken, NicknameTaken):
+for auth_error in (
+    InvalidEmail,
+    WeakPassword,
+    InvalidNickname,
+    InvalidToken,
+    LoginFailed,
+    EmailTaken,
+    NicknameTaken,
+    MemberNotFound,
+):
     app.add_exception_handler(auth_error, domain_error_handler)
 for question_error in (
     QuestionNotFound,
