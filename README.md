@@ -170,6 +170,7 @@ npm run dev
 | (프론트) `BACKEND_URL` | Render 주소 | `/api/*` 전달이 안 돼요 |
 
 - production에서는 로그인 쿠키가 `secure`(https 전용), 로그인 화면의 개발용 로그인 칸도 숨겨져요.
+- API 문서(`/api/docs` · `/api/openapi.json`)는 production에서 **관리자로 로그인한 사람만** 열려요. 그 외에는 404
 - 실제 키(구글 · Cloudflare)는 배포 서비스의 환경 변수 화면에만 넣어요. 비우면 그 기능만 꺼져요.
 - Render 무료 서버는 15분 동안 요청이 없으면 잠들어요. 첫 요청은 30초 정도 걸려요.
 

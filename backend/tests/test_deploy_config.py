@@ -5,6 +5,7 @@ from fastapi import Response
 
 from app.core import security
 from app.core.config import DEFAULT_JWT_SECRET, Settings, settings
+from tests.conftest import headers, login
 
 REAL_SECRET = "deploy-only-secret-for-test-0123456789abcdef"
 
@@ -47,5 +48,25 @@ def test_cloud_database_url_uses_async_driver():
 
 
 def test_frontend_host_becomes_https_url():
-    assert Settings(frontend_url="pixel-mart.vercel.app", _env_file=None).frontend_url == "https://pixel-mart.vercel.app"
+    assert (
+        Settings(frontend_url="pixel-mart.vercel.app", _env_file=None).frontend_url == "https://pixel-mart.vercel.app"
+    )
     assert Settings(frontend_url="http://localhost:3000/", _env_file=None).frontend_url == "http://localhost:3000"
+
+
+async def test_api_docs_open_locally(client):
+    assert (await client.get("/api/docs")).status_code == 200
+    assert (await client.get("/api/openapi.json")).json()["info"]["title"] == "PIXEL MART API"
+
+
+async def test_api_docs_admin_only_in_production(client, production):
+    # 비로그인 · 일반 사용자 404, 관리자 200 — 개발용 로그인은 production에서 닫히므로 로컬에서 먼저 받아 둔다
+    settings.env = "local"
+    user = await login(client, "docs-user@pixelmart.test")
+    admin = await login(client, "docs-admin@pixelmart.test", admin=True)
+    settings.env = "production"
+    client.cookies.clear()
+    for path in ("/api/docs", "/api/openapi.json"):
+        assert (await client.get(path)).status_code == 404
+        assert (await client.get(path, headers=headers(user))).status_code == 404
+        assert (await client.get(path, headers=headers(admin))).status_code == 200
