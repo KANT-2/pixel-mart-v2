@@ -221,6 +221,7 @@ class TradePostOut(CamelModel):
     author: TradeAuthorOut | None = Field(
         default=None, description="작성자가 닉네임 공개에 동의했을 때만 (샘플 글 제외)"
     )
+    hidden_by_admin: bool = Field(default=False, description="관리자가 운영 정책으로 숨긴 글 (작성자도 못 바꿈)")
 
 
 class WishWantsOut(CamelModel):

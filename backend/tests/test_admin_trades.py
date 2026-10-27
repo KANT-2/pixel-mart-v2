@@ -86,6 +86,8 @@ async def test_admin_hides_and_reopens_trade(client, tag):
     mine = await client.patch(f"/api/local/trades/{post_id}", json={"status": "done"}, headers=headers(writer))
     assert mine.status_code == 403
     assert mine.json()["detail"] == "운영 정책으로 숨겨진 글이에요."
+    listed_mine = (await client.get("/api/local/trades/mine", headers=headers(writer))).json()
+    assert [(p["id"], p["hiddenByAdmin"]) for p in listed_mine if p["id"] == post_id] == [(post_id, True)]
 
     only_hidden = await client.get("/api/admin/trades", params={"status": "hidden", "q": tag}, headers=headers(admin))
     assert [r["id"] for r in only_hidden.json()["items"]] == [post_id]

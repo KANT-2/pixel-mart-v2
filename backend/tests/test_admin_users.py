@@ -178,7 +178,8 @@ async def test_suspended_user_can_look_but_not_write(client, tag):
     assert res.status_code == 200
     assert res.json()["suspended"] is True
 
-    assert (await client.get("/api/auth/me", headers=headers(member))).status_code == 200  # 로그인 · 구경은 됨
+    me = await client.get("/api/auth/me", headers=headers(member))
+    assert me.status_code == 200 and me.json()["suspended"] is True  # 구경은 되고 화면이 정지 안내
     blocked = await ask(client, member)
     assert blocked.status_code == 403
     assert blocked.json()["detail"] == "이용이 정지된 계정이에요."
@@ -188,6 +189,7 @@ async def test_suspended_user_can_look_but_not_write(client, tag):
 
     res = await client.patch(f"/api/admin/users/{uid}", json={"suspended": False}, headers=headers(token))
     assert res.json()["suspended"] is False
+    assert (await client.get("/api/auth/me", headers=headers(member))).json()["suspended"] is False
     created = await ask(client, member)
     assert created.status_code == 201
     async with SessionLocal() as session:  # 이 테스트가 쓴 문의 정리
