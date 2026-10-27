@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items = [{ href: "/", label: "홈" }, { href: "/products", label: "전체 상품" }, { href: "/local", label: "PIXEL LOCAL" }];
+const items = [{ href: "/", label: "홈" }, { href: "/products", label: "전체 상품" }, { href: "/local", label: "PIXEL LOCAL" }, { href: "/notices", label: "NOTICE" }];
 interface NavLinksProps { pathname?: string; }
 
 function NavLinks({ pathname }: NavLinksProps) {
