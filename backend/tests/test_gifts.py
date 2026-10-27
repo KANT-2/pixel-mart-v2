@@ -25,8 +25,11 @@ ADDRESS = {"recipientName": "받는이", "address": "서울시 픽셀구 선물�
 
 @pytest.fixture
 async def users():
+    original_stock = None
     try:
         async with engine.begin() as conn:
+            original_stock = await conn.scalar(text("SELECT stock FROM products WHERE id = :id"), {"id": PRODUCT})
+            await conn.execute(text("UPDATE products SET stock = 10 WHERE id = :id"), {"id": PRODUCT})
             for code, level, parent, name in TEST_REGIONS:
                 await conn.execute(
                     text(
@@ -61,6 +64,10 @@ async def users():
         await conn.execute(text(f"DELETE FROM activity_points WHERE user_id IN ({ids})"))
         await conn.execute(text("DELETE FROM trade_posts WHERE region_code LIKE 'GFT%'"))
         await conn.execute(text("UPDATE users SET region_code = NULL WHERE region_code LIKE 'GFT%'"))
+        await conn.execute(
+            text("UPDATE products SET stock = :stock WHERE id = :id"),
+            {"stock": original_stock, "id": PRODUCT},
+        )
         for level in ("zone", "sigungu", "sido"):
             await conn.execute(text("DELETE FROM regions WHERE code LIKE 'GFT%' AND level = :l"), {"l": level})
 
@@ -138,6 +145,8 @@ async def test_accept_creates_recipients_order_and_hides_address_from_sender(use
     sender = await users("gift-sender@pixelmart.test")
     stranger = await users("gift-stranger@pixelmart.test")
     gift_id = (await sender.post("/api/gifts", json=gift(await want_post(recipient)))).json()["id"]
+    async with engine.connect() as conn:
+        stock_before = await conn.scalar(text("SELECT stock FROM products WHERE id = :id"), {"id": PRODUCT})
 
     assert (await stranger.post(f"/api/gifts/{gift_id}/accept", json=ADDRESS)).status_code == 404  # 남의 선물
     assert (await sender.post(f"/api/gifts/{gift_id}/accept", json=ADDRESS)).status_code == 404  # 보낸 사람도 못 받음
@@ -149,7 +158,10 @@ async def test_accept_creates_recipients_order_and_hides_address_from_sender(use
 
     order = (await recipient.get(f"/api/orders/{accepted['orderId']}")).json()
     assert order["address"] == ADDRESS["address"] and order["status"] == "paid"
+    assert order["shippingFee"] == 0
     assert [(i["product"]["id"], i["quantity"]) for i in order["items"]] == [(PRODUCT, 1)]
+    async with engine.connect() as conn:
+        assert await conn.scalar(text("SELECT stock FROM products WHERE id = :id"), {"id": PRODUCT}) == stock_before - 1
 
     sent = (await sender.get("/api/gifts", params={"box": "sent"})).json()
     assert sent[0]["statusLabel"] == "받았어요" and sent[0]["orderId"] is None
@@ -178,3 +190,21 @@ async def test_accept_validates_address(users):
     assert (
         await recipient.post(f"/api/gifts/{gift_id}/accept", json={"recipientName": "", "address": "x"})
     ).status_code == 422
+
+
+async def test_accept_out_of_stock_keeps_gift_pending(users):
+    recipient = await users("gift-recipient@pixelmart.test")
+    sender = await users("gift-sender@pixelmart.test")
+    gift_id = (await sender.post("/api/gifts", json=gift(await want_post(recipient)))).json()["id"]
+
+    async with engine.begin() as conn:
+        await conn.execute(text("UPDATE products SET stock = 0 WHERE id = :id"), {"id": PRODUCT})
+
+    response = await recipient.post(f"/api/gifts/{gift_id}/accept", json=ADDRESS)
+    assert response.status_code == 409
+    assert response.json()["detail"] == "품절된 상품이에요."
+
+    received = (await recipient.get("/api/gifts", params={"box": "received"})).json()
+    assert [(item["id"], item["status"], item["orderId"]) for item in received] == [(gift_id, "pending", None)]
+    async with engine.connect() as conn:
+        assert await conn.scalar(text("SELECT stock FROM products WHERE id = :id"), {"id": PRODUCT}) == 0

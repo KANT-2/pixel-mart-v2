@@ -5,13 +5,14 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Gift, Order, OrderItem, OrderStatusHistory, Product, TradePost, User
 from app.schemas.order import OrderCreate
 from app.services import activity, notifications
 from app.services.trade_rules import contains_private_info
+from src.orders.domain.exceptions import OutOfStock
 
 
 class GiftError(Exception):
@@ -99,27 +100,42 @@ async def _received(db: AsyncSession, user: User, gift_id: int) -> Gift:
 async def accept_gift(db: AsyncSession, user: User, gift_id: int, body: OrderCreate) -> Gift:
     """받는 사람이 직접 입력한 주소로 그 사람의 주문을 만든다 (보낸 사람에게는 주소가 보이지 않음)"""
     gift = await _received(db, user, gift_id)
-    # 첫 장착·소원 성취 같은 뱃지를 알리려고 바꾸기 전 기록
-    before = await notifications.snapshot(db, user.id)
-    order = Order(
-        user_id=user.id,
-        status="paid",
-        total_price=gift.unit_price * gift.quantity,
-        recipient_name=body.recipient_name,
-        address=body.address,
-        items=[OrderItem(product_id=gift.product_id, quantity=gift.quantity, unit_price=gift.unit_price)],
-        history=[OrderStatusHistory(status="paid")],
-    )
-    db.add(order)
-    await db.flush()
-    gift.order_id = order.id
-    gift.status = "accepted"
-    gift.responded_at = datetime.now(UTC)
-    # 선물 보내기 완료 — 받는 사람이 받았을 때 보낸 사람에게 (거절된 선물은 적립 안 함)
-    await activity.award(db, gift.sender_id, "gift_sent", gift.id)
-    await _notify_sender(db, gift)
-    await notifications.notify_progress(db, user.id, before)
-    await db.commit()
+    try:
+        # 일반 주문과 같은 조건부 UPDATE로 동시에 받아도 재고가 음수가 되지 않게 한다.
+        result = await db.execute(
+            update(Product)
+            .where(Product.id == gift.product_id, Product.stock >= gift.quantity)
+            .values(stock=Product.stock - gift.quantity)
+        )
+        if result.rowcount != 1:
+            remaining = await db.scalar(select(Product.stock).where(Product.id == gift.product_id))
+            raise OutOfStock(remaining or 0)
+
+        # 첫 장착·소원 성취 같은 뱃지를 알리려고 바꾸기 전 기록
+        before = await notifications.snapshot(db, user.id)
+        order = Order(
+            user_id=user.id,
+            status="paid",
+            shipping_fee=0,
+            total_price=gift.unit_price * gift.quantity,
+            recipient_name=body.recipient_name,
+            address=body.address,
+            items=[OrderItem(product_id=gift.product_id, quantity=gift.quantity, unit_price=gift.unit_price)],
+            history=[OrderStatusHistory(status="paid")],
+        )
+        db.add(order)
+        await db.flush()
+        gift.order_id = order.id
+        gift.status = "accepted"
+        gift.responded_at = datetime.now(UTC)
+        # 선물 보내기 완료 — 받는 사람이 받았을 때 보낸 사람에게 (거절된 선물은 적립 안 함)
+        await activity.award(db, gift.sender_id, "gift_sent", gift.id)
+        await _notify_sender(db, gift)
+        await notifications.notify_progress(db, user.id, before)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return await get_gift(db, gift.id)
 
 
