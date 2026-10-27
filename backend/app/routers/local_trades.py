@@ -25,6 +25,7 @@ from app.services.local_stats import MIN_GROUP_SIZE, rollup
 from app.services.regions import RegionTree, load_tree
 from app.services.search import like_pattern
 from app.services.trade_rules import DEMO_EMAIL_DOMAIN, contains_private_info, normalize, same_item
+from src.admin_trades.domain.moderation import HIDDEN_BY_ADMIN_MESSAGE
 
 router = APIRouter(prefix="/local", tags=["local"])
 
@@ -188,6 +189,8 @@ async def update_trade_status(post_id: int, body: TradeStatusIn, user: CurrentUs
     post = await db.get(TradePost, post_id)
     if post is None or post.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "거래글을 찾을 수 없습니다.")
+    if post.hidden_by_admin:  # 관리자가 숨긴 글은 글쓴이가 다시 열 수 없다
+        raise HTTPException(status.HTTP_403_FORBIDDEN, HIDDEN_BY_ADMIN_MESSAGE)
     before = await notifications.snapshot(db, user.id) if body.status == "done" else None
     post.status = body.status
     if body.status == "done":
