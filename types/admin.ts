@@ -90,3 +90,11 @@ export interface AdminCancelQuery {
   page?: number; // 몇 쪽 (1부터)
   size?: number; // 한 쪽에 몇 건 (기본 5건)
 }
+
+// 대시보드 숫자 카드 4개 — #98 백엔드 응답(AdminSummaryOut)과 이름을 똑같이 맞춘다
+export interface AdminSummary {
+  ordersToday: number; // 오늘 들어온 주문 수 (상태 무관, 취소 포함)
+  preparingOrders: number; // 배송 준비중(preparing) 주문 수
+  pendingCancelRequests: number; // 취소 요청 대기(requested) 수
+  unansweredQuestions: number; // 미답변 문의 수
+}

@@ -29,6 +29,7 @@ from app.routers import (
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.admin_orders.presentation import router as admin_orders_api
+from src.admin_summary.presentation import router as admin_summary_api
 from src.auth.domain.exceptions import (
     EmailTaken,
     InvalidEmail,
@@ -160,5 +161,6 @@ app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(admin_orders_api.router, prefix="/api")
+app.include_router(admin_summary_api.router, prefix="/api")
 app.include_router(questions_api.router, prefix="/api")
 app.include_router(questions_api.admin_router, prefix="/api")

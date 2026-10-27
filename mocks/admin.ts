@@ -11,6 +11,7 @@ import type {
   AdminOrderQuery,
   AdminOrderStatus,
   AdminOrderSummary,
+  AdminSummary,
   Page,
 } from "@/types/admin"; // 관리자 화면 타입
 import type { ApiProduct } from "@/types/api"; // 기존 상품 타입
@@ -254,4 +255,18 @@ export async function rejectCancel(id: number): Promise<void> {
   if (cancel.status !== "requested") throw new ApiError("이미 처리된 요청이에요.", 409); // 두 번 처리 금지
   cancel.status = "rejected"; // 요청을 거절로
   findOrder(cancel.orderId).history.push({ status: cancel.prevStatus, changedAt: new Date().toISOString() }); // 주문은 신청 직전 상태로 돌아간다
+}
+
+// 대시보드 숫자 카드 4개(#98) — 주문·취소 요청은 기존 가짜 데이터로 세고, 문의는 목업이 없어 고정값을 쓴다
+export async function summary(): Promise<AdminSummary> {
+  await wait();
+  // 날짜가 제일 늦은(가장 최근) 주문의 날짜를 "오늘"로 보고, 같은 날짜의 주문 수를 센다
+  const latestDate = ORDERS.reduce((latest, order) => {
+    const day = order.history[0].changedAt.slice(0, 10); // "YYYY-MM-DD"만 비교
+    return day > latest ? day : latest;
+  }, "");
+  const ordersToday = ORDERS.filter((order) => order.history[0].changedAt.slice(0, 10) === latestDate).length;
+  const preparingOrders = ORDERS.filter((order) => statusOf(order) === "preparing").length;
+  const pendingCancelRequests = CANCELS.filter((cancel) => cancel.status === "requested").length;
+  return { ordersToday, preparingOrders, pendingCancelRequests, unansweredQuestions: 3 }; // 문의 목업 데이터가 없어 고정값
 }
