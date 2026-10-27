@@ -9,7 +9,7 @@ async function moduleUrl(path) {
   return `data:text/javascript;base64,${Buffer.from(output).toString("base64")}`;
 }
 
-const { validateNoticeForm, isRecentNotice, formatNoticeDate, sortNotices, adjacentNotices } =
+const { validateNoticeForm, isRecentNotice, formatNoticeDate, sortNotices, adjacentNotices, pinnedPublishedNotices, cycleIndex } =
   await import(await moduleUrl("../utils/notices.ts"));
 
 test("폼 검증: 제목·내용이 비어 있으면 에러", () => {
@@ -55,4 +55,16 @@ test("이전/다음 글: sortNotices 결과 기준으로 앞뒤를 찾는다", (
   assert.deepEqual(adjacentNotices(sorted, 2), { older: sorted[1], newer: null });
   assert.deepEqual(adjacentNotices(sorted, 1), { older: null, newer: sorted[1] });
   assert.deepEqual(adjacentNotices(sorted, 999), { older: null, newer: null });
+});
+
+test("배너 대상: 고정이면서 게시중인 공지만, 정렬은 유지한다", () => {
+  const withHiddenPin = [...NOTICES, { id: 4, title: "D", content: "", isPinned: true, isPublished: false, createdAt: "2026-10-26T00:00:00Z", updatedAt: "2026-10-26T00:00:00Z" }];
+  assert.deepEqual(pinnedPublishedNotices(withHiddenPin).map((n) => n.id), [2]); // 4는 고정이지만 숨김이라 제외
+});
+
+test("배너 인덱스 순환: 양 끝에서 반대쪽으로 넘어간다", () => {
+  assert.equal(cycleIndex(0, 3, 1), 1);
+  assert.equal(cycleIndex(2, 3, 1), 0); // 마지막에서 다음 → 처음
+  assert.equal(cycleIndex(0, 3, -1), 2); // 처음에서 이전 → 마지막
+  assert.equal(cycleIndex(0, 0, 1), 0); // 대상이 없으면 항상 0
 });
