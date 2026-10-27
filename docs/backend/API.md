@@ -49,6 +49,13 @@
 | GET | /api/keyboards?maker=&q= | 키보드 모델 검색 (Mock) | ✅ |
 | GET | /api/compatibility?keyboardId=&productId= | 키캡 호환 결과 (키별 호환/일부/불가) | ✅ |
 
+## 관리자 상품 관리
+| 메서드 | 경로 | 설명 | 상태 |
+| --- | --- | --- | --- |
+| GET | /api/admin/products?q=&category=&rarity=&hidden=&soldOut=&page= 🔒 | 숨김·품절을 포함한 관리자 상품 목록 | ✅ |
+| POST | /api/admin/products 🔒 | 상품 등록 (`/images/...` 내부 이미지 경로만 허용) | ✅ |
+| PATCH | /api/admin/products/{id} 🔒 | 상품 정보·등급·숨김·재고 조정 (`stock`은 현재 재고에 더함) | ✅ |
+
 ## PIXEL LOCAL
 | 메서드 | 경로 | 설명 | 상태 |
 | --- | --- | --- | --- |

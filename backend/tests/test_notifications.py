@@ -226,9 +226,11 @@ async def test_gift_decline_notifies_sender(users):
     assert kinds(await inbox(sender)) == ["gift_declined", "gift_sent"]
 
 
-async def test_order_notifies_buyer(users):
+async def test_order_notifies_buyer(users, test_products):
     me = await users("ntf-me@pixelmart.test")
-    await me.post("/api/cart/items", json={"productId": PRODUCT, "quantity": 2})
+    product_id = test_products[0]
+    cart = await me.post("/api/cart/items", json={"productId": product_id, "quantity": 2})
+    assert cart.status_code == 200, cart.text
     order = await me.post("/api/orders", json=ADDRESS)
     assert order.status_code == 201, order.text
     order_id = order.json()["id"]

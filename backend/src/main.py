@@ -29,6 +29,8 @@ from app.routers import (
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.admin_orders.presentation import router as admin_orders_api
+from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
+from src.admin_products.presentation import router as admin_products_api
 from src.admin_summary.presentation import router as admin_summary_api
 from src.auth.domain.exceptions import (
     EmailTaken,
@@ -101,6 +103,8 @@ for question_error in (
     AnsweredQuestionNotDeletable,
 ):
     app.add_exception_handler(question_error, domain_error_handler)
+for admin_product_error in (AdminProductNotFound, InvalidProductCategory):
+    app.add_exception_handler(admin_product_error, domain_error_handler)
 
 
 # 프론트엔드의 직접 API 호출을 위한 CORS 설정
@@ -164,3 +168,4 @@ app.include_router(admin_orders_api.router, prefix="/api")
 app.include_router(admin_summary_api.router, prefix="/api")
 app.include_router(questions_api.router, prefix="/api")
 app.include_router(questions_api.admin_router, prefix="/api")
+app.include_router(admin_products_api.router, prefix="/api")
