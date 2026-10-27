@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import ProductCard from "@/components/ProductCard";
 import HomeCarousel from "@/components/home/HomeCarousel";
+import NoticeBanner from "@/components/NoticeBanner";
 import { getProducts } from "@/lib/products";
 import { EmptyProducts, ProductFallbackNotice, ProductSkeleton } from "@/components/products/ProductStates";
 
@@ -36,12 +37,15 @@ function SectionTitle({ quest, title, href }: { quest: string; title: string; hr
 export default function Home() {
   return (
     <>
+      {/* 공지 배너 — 고정 공지가 있을 때만, 헤더 아래·히어로 위 */}
+      <NoticeBanner />
+
       {/* 히어로 배너 */}
       <HomeCarousel />
 
       {/* 추천 상품 */}
       <section className="mx-auto max-w-6xl px-4 pb-14 md:px-8">
-        <SectionTitle quest="QUEST · RECOMMENDED" title="추천 아이템" href="/products" />
+        <SectionTitle quest="RECOMMENDED" title="추천 아이템" href="/products" />
 
         <Suspense fallback={<ProductSkeleton />}>
           <RecommendedProducts />

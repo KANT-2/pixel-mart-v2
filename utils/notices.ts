@@ -41,6 +41,17 @@ export function sortNotices(notices: Notice[]): Notice[] {
   });
 }
 
+// 메인 배너 대상 — 고정(isPinned)이고 게시중(isPublished)인 공지만, 정렬은 sortNotices와 같다
+export function pinnedPublishedNotices(notices: Notice[]): Notice[] {
+  return sortNotices(notices).filter((notice) => notice.isPinned && notice.isPublished);
+}
+
+// 배너 캐러셀의 다음/이전 인덱스 — length가 0이면 0, 양 끝에서는 반대쪽 끝으로 순환한다
+export function cycleIndex(current: number, length: number, direction: 1 | -1): number {
+  if (length <= 0) return 0;
+  return (current + direction + length) % length;
+}
+
 // 상세 화면의 "이전 글(더 오래된 글)·다음 글(더 최신 글)" — sorted는 sortNotices() 결과를 그대로 넘긴다
 export function adjacentNotices(sorted: Notice[], currentId: number): { older: Notice | null; newer: Notice | null } {
   const index = sorted.findIndex((notice) => notice.id === currentId);
