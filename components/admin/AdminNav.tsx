@@ -25,7 +25,7 @@ const MENU: AdminMenuItem[] = [
   { label: "취소 요청", href: "/admin/cancels", enabled: true, badgeKey: "cancelRequested" },
   { label: "문의", href: "/admin/questions", enabled: true },
   { label: "FAQ", href: "/admin/faqs", enabled: false },
-  { label: "공지", href: "/admin/notices", enabled: false },
+  { label: "공지", href: "/admin/notices", enabled: true },
   { label: "신고", href: "/admin/reports", enabled: false },
   { label: "거래글", href: "/admin/trades", enabled: false },
   { label: "사용자", href: "/admin/users", enabled: false },
