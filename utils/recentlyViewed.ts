@@ -89,3 +89,16 @@ export function groupByDay(list: RecentItem[], now: Date): RecentGroup[] {
   if (unknown.length > 0) groups.push({ label: "이전 기록", items: unknown });
   return groups;
 }
+
+// "/products/2", "/products/2/fitting", "/products/2/"는 2를 돌려주고, 숫자가 아니거나(/products/abc)
+// 상품 상세가 아니면(/products, /admin/products/2) null — 관리자 경로는 "/products"로 시작하지 않아 자연히 걸러진다
+export function currentProductIdFromPath(pathname: string | null): number | null {
+  if (!pathname) return null;
+  const match = pathname.match(/^\/products\/(\d+)(?:\/|$)/);
+  return match ? Number(match[1]) : null;
+}
+
+// 퀵메뉴용 — 지금 보고 있는 상품은 빼고 보여준다(currentId가 없으면 전체 그대로)
+export function excludeCurrentProduct(items: RecentItem[], currentId: number | null): RecentItem[] {
+  return currentId === null ? items : items.filter((item) => item.id !== currentId);
+}

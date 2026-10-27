@@ -51,7 +51,7 @@ async function NoticeDetailContent({ params }: { params: PageProps<"/notices/[id
       <div className="pixel-panel mt-6 p-5 sm:p-6">
         {notice.isPinned && (
           <span className="mb-2 flex items-center gap-1.5 text-xs font-bold text-lime">
-            <PixelStar className="size-4" withLabel={false} />
+            <PixelStar className="h-4 w-auto" withLabel={false} />
             중요 공지
           </span>
         )}

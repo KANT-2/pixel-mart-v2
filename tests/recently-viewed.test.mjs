@@ -53,3 +53,20 @@ test("groupByDay: KST 자정 경계 — 23:59와 00:01은 서로 다른 날로 �
   assert.deepEqual(groups[0].items.map((x) => x.id), [6]);
   assert.deepEqual(groups[1].items.map((x) => x.id), [5]);
 });
+
+test("currentProductIdFromPath: 상품 상세 경로에서만 id를 뽑는다", () => {
+  assert.equal(r.currentProductIdFromPath("/products/2"), 2);
+  assert.equal(r.currentProductIdFromPath("/products/2/fitting"), 2);
+  assert.equal(r.currentProductIdFromPath("/products/2/"), 2);
+  assert.equal(r.currentProductIdFromPath("/products"), null);
+  assert.equal(r.currentProductIdFromPath("/products/abc"), null);
+  assert.equal(r.currentProductIdFromPath("/admin/products/2"), null);
+  assert.equal(r.currentProductIdFromPath(null), null);
+});
+
+test("excludeCurrentProduct: 지금 보는 상품만 빼고, currentId가 없거나 목록에 없으면 전체 그대로", () => {
+  const list = [item(3), item(2), item(1)];
+  assert.deepEqual(r.excludeCurrentProduct(list, 2).map((x) => x.id), [3, 1]);
+  assert.deepEqual(r.excludeCurrentProduct(list, null).map((x) => x.id), [3, 2, 1]);
+  assert.deepEqual(r.excludeCurrentProduct(list, 999).map((x) => x.id), [3, 2, 1]);
+});
