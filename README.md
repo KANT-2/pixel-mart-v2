@@ -63,7 +63,7 @@
 | 가입 · 로그인 | 구글 · 개발용 로그인만 | **이메일 가입(bcrypt 해싱)** · **OAuth2 로그인(`/api/auth/token`, Swagger Authorize)** | 🧭 | ✅ |
 | 로그아웃 | 쿠키만 삭제 (복사한 토큰은 7일간 유효) | 토큰 `jti`를 **블랙리스트**에 → 같은 토큰은 **401** (구글·개발용 로그인 포함) | 🧭 | ✅ |
 | 권한 | 로그인 확인만 | `CurrentUser`(Bearer · 쿠키) · `AdminUser`(관리자 아니면 **404**). 기존 API도 같은 검사 | 🧭 | ✅ |
-| 관리자 회원 | 없음 | 회원 목록 (검색 · 역할 필터 · 페이지) | 🧭 | 🚧 |
+| 관리자 회원 | 없음 | 회원 목록 (검색 · 역할 필터 · 페이지) | 🧭 | ✅ |
 | 주문 | `app/` 서비스가 재고·배송비 없이 주문 저장 | `src/orders/` 4계층으로 재고 차감(품절·부족 **409**) · 3만 원 이상 무료 배송 · 생성 전체 트랜잭션 · 상태/검색/페이지 목록 | 🛡️ | ✅ |
 | 관리자 주문 | 개발자 API(`/api/dev/...`) | `/api/admin/orders` · 배송 단계 한 칸씩 · 취소 승인(재고 복구)/거절 + `/admin` 화면 | 🏹 | 🚧 |
 | 상품 문의 | 화면은 **새로고침하면 사라지는 메모리 데이터** | DB 저장 · 비밀글은 서버에서 가림 · 관리자 답변 1회 · 답변 알림 | 🔮 | 🚧 |
@@ -256,20 +256,92 @@ flowchart LR
 - **트러블슈팅**: 공유 시드 상품 재고를 바꾸지 않도록 문서 검수 전용 상품·계정을 사용했고, 캡처에서는 Swagger의 Bearer 토큰이 보이는 Curl 영역을 제외했습니다.
 
 ### 🧭 가입 · 로그인 · 로그아웃: 채희주
-- **흐름**: `/signup` 이메일 가입 → `POST /api/auth/signup`(bcrypt 해시만 저장) → `POST /api/auth/token`(OAuth2 form) → JWT(`sub` · `exp` · **`jti`**) + `pm_session` 쿠키 → 보호 API마다 `CurrentUser`가 서명 · 만료 · 블랙리스트 확인 → `POST /api/auth/logout`이 `jti`를 `token_blacklist`에 → 같은 토큰 **401 "다시 로그인해 주세요."**
-- **관련 파일**: `backend/src/auth/` (domain `account.py` · `token.py` / infrastructure `hasher.py` · `jwt.py` · `repositories.py` / application `service.py` / presentation `router.py`) · `backend/src/common/auth.py` · (화면) `components/LoginForm.tsx` · `components/EmailSignupForm.tsx` · `components/AuthProvider.tsx`
+- **UC 한 줄**: 이메일로 가입한 사용자가 로그인해 토큰을 받고, 로그아웃하면 그 토큰의 고유번호(`jti`)를 블랙리스트에 적어 **같은 토큰으로는 다시 들어올 수 없게** 합니다. 팀원 모두가 쓰는 로그인 확인 부품(`CurrentUser` · `AdminUser`)도 이 UC에서 만들었습니다.
+
+```mermaid
+flowchart LR
+  screen["화면<br/>/signup · /login"] --> api["API<br/>POST /api/auth/signup · token · logout"]
+  api --> service["Application<br/>AuthService"]
+  service --> domain["Domain<br/>Account · IssuedToken<br/>check_password() · normalize_email()"]
+  service --> infra["Infrastructure<br/>bcrypt hasher · JWT(jti)<br/>UserRepository · TokenBlacklistRepository"]
+  infra --> db["PostgreSQL<br/>users · token_blacklist"]
+  guard["common/auth.py<br/>CurrentUser · AdminUser"] -->|"서명 · 만료 · 블랙리스트 확인"| infra
+  other["다른 팀원 API<br/>주문 · 관리자 · 문의"] --> guard
+```
+
+- **관련 파일**: 화면 `components/EmailSignupForm.tsx` · `components/LoginForm.tsx` · `components/AuthProvider.tsx` · `components/LoginRequiredNotice.tsx` · 클라이언트 `lib/api.ts` · API `backend/src/auth/presentation/` · 서비스 `backend/src/auth/application/` · 도메인 `backend/src/auth/domain/` · 저장소·도구 `backend/src/auth/infrastructure/` (`hasher.py` · `jwt.py` · `repositories.py`) · 공용 의존성 `backend/src/common/auth.py`
+- **업무 규칙**: 비밀번호는 8자 이상 · 72바이트 이하(bcrypt 한계)이고 해시로만 저장 · 이메일은 앞뒤 공백 제거 + 소문자로 비교 · 로그인 실패는 "없는 이메일"과 "틀린 비밀번호"를 구분하지 않음 · 토큰은 Bearer 헤더를 먼저, 없으면 `pm_session` 쿠키 확인 · 로그아웃한 `jti`는 만료 시각까지 블랙리스트에 보관(같은 토큰 401, 두 번 로그아웃해도 한 줄) · 관리자가 아니면 관리자 API는 404로 숨김
 - **API**
 
-  | 메서드 · 경로 | 설명 | 실패 |
+  | 메서드 · 경로 | 정상 | 주요 실패 |
   | --- | --- | --- |
-  | `POST /api/auth/signup` | `{email, password, nickname}` → 201 | 중복 이메일 · 닉네임 409, 비밀번호 8자 미만 422 |
-  | `POST /api/auth/token` | form `username`=이메일 · `password` → `{access_token, token_type}` + 쿠키 | 401 "이메일 또는 비밀번호가 맞지 않아요." |
-  | `POST /api/auth/logout` | `jti` → 블랙리스트, 쿠키 삭제 | 없음 (두 번 해도 200) |
-  | `GET /api/auth/me` | 내 정보 + `role` | 401 |
-  | `GET /api/admin/users?q=&role=&page=&size=` | 관리자 회원 목록 (검색 · 필터 · 페이지) | 일반 사용자 404 |
-- **정상 / 실패**: `tests/test_auth_api.py`: Bearer · 쿠키 모두 로그아웃 후 401, 개발용 로그인 토큰도 401, 관리자 API 404 / 200
-- **캡처**: (Swagger 로그인 · `/me` 200 · 로그아웃 후 401, 추가 예정)
-- **인수 전후**: 로그아웃이 쿠키 삭제뿐이라 복사한 토큰이 7일간 유효 → `jti` 블랙리스트로 즉시 무효
+  | `POST /api/auth/signup` | `{email, password, nickname}` 가입 201 | 비밀번호 8자 미만 422 · 중복 이메일/닉네임 409 |
+  | `POST /api/auth/token` | OAuth2 form(`username`=이메일 · `password`) → `{access_token, token_type}` + 쿠키 200 | 틀린 이메일·비밀번호 401 "이메일 또는 비밀번호가 맞지 않아요." |
+  | `GET /api/auth/me` | 내 정보 + `role` 200 | 로그아웃 토큰 401 "다시 로그인해 주세요." |
+  | `POST /api/auth/logout` | `jti`를 블랙리스트에 · 쿠키 삭제 200 | 없음 (두 번 해도 200) |
+  | `GET /api/admin/users?q=&role=&page=&size=` | 관리자 회원 목록(검색 · 역할 필터 · 페이지) 200 | 일반 사용자 404 · 로그아웃 토큰 401 |
+
+- **Swagger 정상 / 실패 증거**
+
+  <details>
+  <summary>이메일 가입 201 — 응답에 비밀번호·해시 없음</summary>
+
+  ![가입 201](docs/screenshots/issue-36/auth/signup-201.jpg)
+  </details>
+
+  <details>
+  <summary>비밀번호 7자 422</summary>
+
+  ![가입 422](docs/screenshots/issue-36/auth/signup-422.jpg)
+  </details>
+
+  <details>
+  <summary>이미 가입한 이메일 409</summary>
+
+  ![가입 409](docs/screenshots/issue-36/auth/signup-409.jpg)
+  </details>
+
+  <details>
+  <summary>틀린 비밀번호 로그인 401 — 이메일 존재 여부를 알려 주지 않음</summary>
+
+  ![로그인 401](docs/screenshots/issue-36/auth/token-401.jpg)
+  </details>
+
+  <details>
+  <summary>OAuth2 form 로그인 200 (토큰 값은 가림)</summary>
+
+  ![로그인 200](docs/screenshots/issue-36/auth/token-200.jpg)
+  </details>
+
+  <details>
+  <summary>일반 사용자의 관리자 회원 목록 404</summary>
+
+  ![관리자 API 404](docs/screenshots/issue-36/auth/admin-users-404.jpg)
+  </details>
+
+- **로그인 → 내 API → 로그아웃 → 같은 토큰 401** (Swagger **Authorize**로 Bearer 토큰을 붙이고, 브라우저 쿠키는 지운 상태)
+
+  <details>
+  <summary><code>GET /api/auth/me</code> 200</summary>
+
+  ![내 정보 200](docs/screenshots/issue-36/auth/me-200.jpg)
+  </details>
+
+  <details>
+  <summary><code>POST /api/auth/logout</code> 200</summary>
+
+  ![로그아웃 200](docs/screenshots/issue-36/auth/logout-200.jpg)
+  </details>
+
+  <details>
+  <summary>로그아웃한 같은 Bearer 토큰으로 <code>GET /api/auth/me</code> 401</summary>
+
+  ![로그아웃 토큰 401](docs/screenshots/issue-36/auth/me-after-logout-401.jpg)
+  </details>
+
+- **테스트**: `tests/test_auth_domain.py`(규칙, DB 없음) · `tests/test_auth_service.py`(가짜 저장소로 commit/rollback, 실제 DB로 블랙리스트 중복·정리) · `tests/test_auth_api.py`(Bearer · 쿠키 · 개발용 로그인 토큰 모두 로그아웃 후 401, 관리자 API 404/200) · `tests/test_admin_users.py`
+- **인수 전후**: 구글 · 개발용 로그인만 있고 로그아웃은 쿠키 삭제뿐이라 복사해 둔 토큰이 7일간 유효 → 이메일 가입(bcrypt) · OAuth2 로그인 · `jti` 블랙리스트로 **로그아웃 즉시 같은 토큰 401**. 구글 · 개발용 로그인 토큰과 기존 `app/` API도 같은 검사를 받습니다.
+- **트러블슈팅**: OAuth2 form 로그인은 `python-multipart`가 있어야 동작 → `uv add`로 추가 · bcrypt 5.0이 72바이트 넘는 비밀번호에서 오류 → 요청 검사에서 72바이트 제한 · `/api/auth/signup` 경로가 기존 구글 닉네임 가입과 겹침 → 구글 쪽을 `/api/auth/google/signup`으로 이동 · 캡처는 테스트 전용 계정(`*@pixelmart.test`)으로 찍고 비밀번호·토큰 값은 가렸습니다.
 
 ### 🏹 관리자 주문 관리: 우동현
 - **흐름**: `/admin/orders` → `POST /api/admin/orders/{id}/advance` → `OrderProgress.advance()`(한 칸씩) → 상태 · 기록 저장 + 구매자 알림 / 취소 요청 → `CancelRequest.approve()` → 주문 취소 + `StockItem.restore()`
