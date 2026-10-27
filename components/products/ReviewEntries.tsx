@@ -13,6 +13,12 @@ export default function ReviewEntries({ items, actions }: ReviewEntriesProps) {
       </div>
       <p className="mt-3 break-words text-sm font-bold">{review.nickname}</p>
       <p className="mt-3 whitespace-pre-line break-words text-sm leading-relaxed text-sub">{review.content}</p>
+      {review.imageUrls && review.imageUrls.length > 0 && <ul aria-label="리뷰 사진" className="mt-3 flex flex-wrap gap-2">
+        {review.imageUrls.map((url, index) => <li key={index}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 리뷰 사진은 서버가 준 작은 data URL */}
+          <img src={url} alt={`${review.nickname}님의 리뷰 사진 ${index + 1}`} loading="lazy" className="size-24 rounded-lg border border-line object-cover sm:size-32" />
+        </li>)}
+      </ul>}
       {actions?.(review)}
     </li>)}
   </ul>;

@@ -6,7 +6,14 @@ from src.auth.domain.exceptions import CannotWithdraw
 WITHDRAW_CONFIRM = "탈퇴"
 WITHDRAWN_NAME = "탈퇴한 모험가"
 # 배송이 끝나기 전 주문 — 이 상태가 하나라도 있으면 탈퇴를 막는다 (ADMIN_API.md 5-1장)
-ACTIVE_ORDER_STATUSES = ("paid", "preparing", "shipping", "cancel_requested")
+ACTIVE_ORDER_STATUSES = (
+    "paid",
+    "preparing",
+    "shipping",
+    "cancel_requested",
+    "return_requested",
+    "exchange_requested",
+)
 
 
 @dataclass(frozen=True)

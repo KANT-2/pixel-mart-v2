@@ -77,6 +77,7 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
           <Link href="/mypage/points" onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-3 py-3 text-sm hover:bg-panel-2">
             적립금{balance !== null && <span className="font-bold text-lime">{balance.toLocaleString("ko-KR")}P</span>}
           </Link>
+          <Link href="/mypage/coupons" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">쿠폰함</Link>
           <Link href="/local/trades/mine#trade-requests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">교환 신청함</Link>
           <Link href="/mypage/quests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">내 퀘스트</Link>
           <Link href="/help" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">고객센터</Link>

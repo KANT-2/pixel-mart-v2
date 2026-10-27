@@ -1,13 +1,33 @@
 # 관리자 주문 API 응답 모양 — orders/presentation/schemas.py의 OrderOut/OrderDetailOut을 그대로 본뜬다
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
+
+from pydantic import StringConstraints
 
 from app.schemas.common import CamelModel
 from src.admin_orders.infrastructure.repositories import AdminOrderRow
 from src.orders.domain.order import STATUS_LABELS  # 한글 라벨 — 읽기만 한다(수정 금지 파일)
+from src.orders.domain.shipping import COURIER_LABELS, PAYMENT_LABELS
 
 # 목록 ?status= 쿼리로 받을 수 있는 값 — 주문 상태 6종
-AdminOrderStatus = Literal["paid", "preparing", "shipping", "delivered", "cancel_requested", "cancelled"]
+AdminOrderStatus = Literal[
+    "paid",
+    "preparing",
+    "shipping",
+    "delivered",
+    "cancel_requested",
+    "cancelled",
+    "return_requested",
+    "returned",
+    "exchange_requested",
+]
+
+
+class TrackingIn(CamelModel):
+    """운송장 입력 — 상품 준비중·배송중·배송 완료 주문에 넣거나 고친다"""
+
+    courier: Literal["cj", "post", "hanjin", "lotte", "logen"]
+    tracking_number: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{9,14}$")]
 
 
 class AdminOrderSummaryOut(CamelModel):
@@ -61,6 +81,17 @@ class AdminOrderDetailOut(AdminOrderSummaryOut):
 
     recipient_name: str
     address: str
+    phone: str
+    postal_code: str
+    address_detail: str
+    delivery_memo: str
+    payment_label: str
+    coupon_discount: int
+    points_used: int
+    courier: str | None
+    courier_label: str | None
+    tracking_number: str | None
+    confirmed_at: datetime | None
     items: list[AdminOrderItemOut]
     timeline: list[AdminOrderStatusEntryOut]
 
@@ -71,6 +102,17 @@ class AdminOrderDetailOut(AdminOrderSummaryOut):
             **AdminOrderSummaryOut.from_row(row).model_dump(),
             recipient_name=order.recipient_name,
             address=order.address,
+            phone=order.phone,
+            postal_code=order.postal_code,
+            address_detail=order.address_detail,
+            delivery_memo=order.delivery_memo,
+            payment_label=PAYMENT_LABELS.get(order.payment_method, order.payment_method),
+            coupon_discount=order.coupon_discount,
+            points_used=order.points_used,
+            courier=order.courier,
+            courier_label=COURIER_LABELS.get(order.courier) if order.courier else None,
+            tracking_number=order.tracking_number,
+            confirmed_at=order.confirmed_at,
             items=[
                 AdminOrderItemOut(product_name=item.product.name, quantity=item.quantity, unit_price=item.unit_price)
                 for item in order.items

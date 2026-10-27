@@ -10,6 +10,7 @@ from app.models.order import Order, OrderStatusHistory
 from app.models.product import Product
 from app.models.user import User
 from app.services import notifications  # 구매자 알림은 기존 알림 서비스를 그대로 쓴다
+from src.coupons.infrastructure.repositories import CouponRepository
 from src.orders.domain.stock import StockItem  # 재고 복구 규칙(성용님 파일) — 호출만 하고 고치지 않는다
 from src.points.infrastructure.repositories import PointRepository
 
@@ -67,6 +68,7 @@ class AdminOrderRepository:
 
     async def refund_points(self, order: Order) -> None:
         PointRepository(self.session).refund_order(order.user_id, order.id, order.points_used)
+        await CouponRepository(self.session).release_for_order(order.id)  # 쓴 쿠폰도 함께 돌려준다
 
     async def notify_buyer(self, user_id: int, kind: str, title: str, body: str, href: str, ref_key: str) -> None:
         # 주문 주인(구매자)에게 보내는 알림 — 기존 notifications.notify를 그대로 호출한다

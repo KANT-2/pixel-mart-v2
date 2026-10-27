@@ -23,6 +23,7 @@ const MENU: AdminMenuItem[] = [
   { label: "대시보드", href: "/admin", exact: true, enabled: true },
   { label: "주문", href: "/admin/orders", enabled: true, badgeKey: "paid" },
   { label: "취소 요청", href: "/admin/cancels", enabled: true, badgeKey: "cancelRequested" },
+  { label: "반품·교환", href: "/admin/returns", enabled: true },
   { label: "문의", href: "/admin/questions", enabled: true },
   { label: "FAQ", href: "/admin/faqs", enabled: true },
   { label: "공지", href: "/admin/notices", enabled: true },

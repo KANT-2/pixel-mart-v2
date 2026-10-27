@@ -23,7 +23,7 @@ export default function OrderProgress({ order }: OrderProgressProps) {
       </li>)}
     </ol> : <div className="border-l-4 border-pink bg-panel-2 p-4">
       <p className="font-bold text-pink">{order.statusLabel}</p>
-      <p className="mt-2 text-sm leading-relaxed text-sub">취소 진행 상황은 아래 주문 기록에서 확인해 주세요.</p>
+      <p className="mt-2 text-sm leading-relaxed text-sub">취소·반품·교환 진행 상황은 아래 주문 기록에서 확인해 주세요.</p>
     </div>}
     <h3 className="mb-5 mt-8 text-sm font-bold">주문 타임라인</h3>
     <ol aria-label="주문 상태 변경 기록" className="ml-2 border-l-2 border-line">

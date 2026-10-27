@@ -7,8 +7,14 @@ from fastapi import APIRouter, Query
 from app.deps import DbSession
 from app.schemas.common import Page
 from src.admin_orders.application.service import AdminOrderService
+from src.admin_orders.domain.exceptions import InvalidTransition, OrderNotFound
 from src.admin_orders.infrastructure.repositories import AdminOrderRepository
-from src.admin_orders.presentation.schemas import AdminOrderDetailOut, AdminOrderStatus, AdminOrderSummaryOut
+from src.admin_orders.presentation.schemas import (
+    AdminOrderDetailOut,
+    AdminOrderStatus,
+    AdminOrderSummaryOut,
+    TrackingIn,
+)
 from src.common.auth import AdminUser  # 관리자가 아니면 404, 로그인 안 했으면 401 (의존성이 알아서 처리)
 
 # 이슈 #22 경로 그대로 — /api/admin/orders
@@ -55,3 +61,21 @@ async def advance_order(order_id: int, admin: AdminUser, db: DbSession) -> Admin
     await service.advance_order(order_id)
     row = await service.get_order(order_id)  # 바뀐 상세를 다시 읽어 돌려준다
     return AdminOrderDetailOut.from_row(row)
+
+
+# 운송장을 넣을 수 있는 상태 — 상품을 보낼 준비가 됐거나 이미 보낸 주문
+TRACKABLE = ("preparing", "shipping", "delivered")
+
+
+@router.put("/{order_id}/tracking", response_model=AdminOrderDetailOut, summary="[관리자] 택배사·운송장 번호 입력")
+async def set_tracking(order_id: int, body: TrackingIn, admin: AdminUser, db: DbSession) -> AdminOrderDetailOut:
+    repo = AdminOrderRepository(db)
+    order = await repo.get_order_for_update(order_id)
+    if order is None:
+        raise OrderNotFound()
+    if order.status not in TRACKABLE:
+        await db.rollback()
+        raise InvalidTransition("상품 준비중부터 운송장을 넣을 수 있어요.")
+    order.courier, order.tracking_number = body.courier, body.tracking_number
+    await db.commit()
+    return AdminOrderDetailOut.from_row(await _service(db).get_order(order_id))

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, Field, StringConstraints
+from pydantic import AfterValidator, AliasChoices, Field, StringConstraints, field_validator
 
 from app.schemas.common import CamelModel
 from app.services.avatar import validate_avatar_data_url
@@ -15,6 +15,13 @@ class UserOut(CamelModel):
     created_at: datetime
     role: str = "user"  # 관리자 화면 문지기용 (user | admin)
     suspended: bool = False  # 관리자가 이용을 정지한 계정 — 화면에서 글쓰기 전에 안내 (#88)
+    # 이메일 가입 계정만 비밀번호 변경 화면을 보여 준다 (모델의 password_hash 유무로 채움)
+    has_password: bool = Field(default=False, validation_alias=AliasChoices("has_password", "password_hash"))
+
+    @field_validator("has_password", mode="before")
+    @classmethod
+    def _has_password(cls, value: object) -> bool:
+        return bool(value)
 
 
 class DevLoginIn(CamelModel):

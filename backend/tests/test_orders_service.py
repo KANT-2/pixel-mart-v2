@@ -18,6 +18,7 @@ from app.models.product import Category, Product
 from app.models.user import User
 from src.orders.application.service import OrderService
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
+from src.orders.domain.shipping import ShippingInfo
 from src.orders.infrastructure.repositories import OrderRepository
 from src.points.infrastructure.repositories import PointRepository
 
@@ -183,8 +184,7 @@ async def test_success_decreases_stock_creates_order_and_clears_cart(order_db):
     async with sessions() as session:
         order_id = await service_for(session).place_order(
             scenario.user_id,
-            "홍길동",
-            "서울시 픽셀로 8",
+            ShippingInfo(recipient_name="홍길동", address="서울시 픽셀로 8"),
         )
 
     async with sessions() as session:
@@ -258,8 +258,7 @@ async def test_out_of_stock_rolls_back_order_other_stock_and_cart(order_db):
         ):
             await service_for(session).place_order(
                 scenario.user_id,
-                "홍길동",
-                "서울시픽셀로 8",
+                ShippingInfo(recipient_name="홍길동", address="서울시픽셀로 8"),
             )
 
     async with sessions() as session:
@@ -313,8 +312,7 @@ async def test_empty_cart_rolls_back_and_uses_contract_message(order_db):
         ):
             await service_for(session).place_order(
                 scenario.user_id,
-                "홍길동",
-                "서울시픽셀로 8",
+                ShippingInfo(recipient_name="홍길동", address="서울시픽셀로 8"),
             )
 
 
@@ -394,8 +392,7 @@ async def test_concurrent_orders_only_one_succeeds(order_db):
 
             return await service.place_order(
                 user_id,
-                "홍길동",
-                "서울시 픽셀로 8",
+                ShippingInfo(recipient_name="홍길동", address="서울시 픽셀로 8"),
             )
 
     # 두 주문을 병렬로 실행한다.

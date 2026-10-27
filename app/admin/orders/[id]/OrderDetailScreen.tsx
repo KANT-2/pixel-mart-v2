@@ -10,6 +10,7 @@ import { advanceAdminOrder, getAdminOrder } from "@/lib/admin";
 import type { AdminOrderDetail, AdminOrderItem, AdminOrderStatus } from "@/types/admin";
 import { formatDate } from "@/utils/formatDate";
 import { formatPrice } from "@/utils/formatPrice";
+import TrackingEditor from "./TrackingEditor";
 
 interface OrderDetailScreenProps { id: number }
 
@@ -17,6 +18,16 @@ interface OrderDetailScreenProps { id: number }
 const FLOW: AdminOrderStatus[] = ["paid", "preparing", "shipping", "delivered"];
 const NEXT_BUTTON_LABEL: Partial<Record<AdminOrderStatus, string>> = { paid: "준비 시작", preparing: "배송 시작", shipping: "배송 완료" };
 const NEXT_STATUS_LABEL: Partial<Record<AdminOrderStatus, string>> = { paid: "상품 준비중", preparing: "배송중", shipping: "배송 완료" };
+// 운송장을 넣거나 고칠 수 있는 상태
+const TRACKABLE: AdminOrderStatus[] = ["preparing", "shipping", "delivered"];
+// 배송 흐름 밖(취소·반품·교환) 상태 안내
+const OFF_FLOW_NOTICE: Partial<Record<AdminOrderStatus, string>> = {
+  cancel_requested: "취소 요청이 들어온 주문이에요. 배송 단계는 멈춰 있고, 취소 요청 화면에서 처리해요.",
+  cancelled: "취소가 승인된 주문이에요. 더 진행되지 않아요.",
+  return_requested: "반품 신청이 들어온 주문이에요. 반품·교환 화면에서 처리해요.",
+  exchange_requested: "교환 신청이 들어온 주문이에요. 반품·교환 화면에서 처리해요.",
+  returned: "반품이 끝난 주문이에요. 재고와 적립금·쿠폰을 돌려줬어요.",
+};
 
 export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
@@ -128,11 +139,10 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
       )}
 
       {/* 배송 진행 막대 — 취소 요청/취소된 주문은 안내 박스로 대신한다 */}
-      {order.status === "cancel_requested" || order.status === "cancelled" ? (
+      {OFF_FLOW_NOTICE[order.status] ? (
         <div className="pixel-panel p-4 text-sm text-sub">
-          {order.status === "cancel_requested"
-            ? "취소 요청이 들어온 주문이에요. 배송 단계는 멈춰 있고, 취소 요청 화면에서 처리해요."
-            : "취소가 승인된 주문이에요. 더 진행되지 않아요."}
+          {OFF_FLOW_NOTICE[order.status]}
+          {(order.status === "return_requested" || order.status === "exchange_requested") && <Link href="/admin/returns" className="ml-2 font-bold text-mint underline underline-offset-2">반품·교환 처리</Link>}
         </div>
       ) : (
         <ol aria-label="배송 진행 단계" className="flex items-center gap-1">
@@ -159,8 +169,9 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
         <section className="pixel-panel p-4">
           <h2 className="text-sm font-bold text-ink">받는 사람</h2>
           <dl className="mt-3 space-y-2 text-sm">
-            <div><dt className="text-dim">이름</dt><dd>{order.recipientName}</dd></div>
-            <div><dt className="text-dim">주소</dt><dd className="whitespace-pre-line break-words">{order.address}</dd></div>
+            <div><dt className="text-dim">이름</dt><dd>{order.recipientName}{order.phone && <span className="ml-2 text-sub">{order.phone}</span>}</dd></div>
+            <div><dt className="text-dim">주소</dt><dd className="whitespace-pre-line break-words">{order.postalCode && `[${order.postalCode}] `}{order.address}{order.addressDetail && ` ${order.addressDetail}`}</dd></div>
+            {order.deliveryMemo && <div><dt className="text-dim">배송 메모</dt><dd className="break-words">{order.deliveryMemo}</dd></div>}
             <div><dt className="text-dim">주문자</dt><dd>{order.buyerNickname} · {order.buyerEmail}</dd></div>
           </dl>
         </section>
@@ -168,8 +179,15 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
           <h2 className="text-sm font-bold text-ink">결제 금액</h2>
           <p className="mt-3 text-2xl font-bold text-lime">{formatPrice(order.totalPrice)}</p>
           <p className="mt-1 text-xs text-dim">상품 {order.items.length}종 · 총 {totalQuantity}개</p>
+          {order.paymentLabel && <p className="mt-2 text-xs text-sub">
+            {order.paymentLabel}
+            {(order.couponDiscount ?? 0) > 0 && ` · 쿠폰 -${formatPrice(order.couponDiscount ?? 0)}`}
+            {(order.pointsUsed ?? 0) > 0 && ` · 적립금 -${formatPrice(order.pointsUsed ?? 0)}`}
+            {order.confirmedAt && " · 구매 확정"}
+          </p>}
         </section>
       </div>
+      {TRACKABLE.includes(order.status) && <TrackingEditor key={order.id} order={order} onSaved={setOrder} />}
 
       <section>
         <h2 className="mb-3 text-sm font-bold text-ink">주문 상품</h2>
@@ -180,7 +198,7 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
         <h2 className="mb-3 text-sm font-bold text-ink">상태 이력</h2>
         <ul className="space-y-2">
           {order.timeline.map((entry, index) => {
-            const isCancelRelated = entry.status === "cancel_requested" || entry.status === "cancelled";
+            const isCancelRelated = Boolean(OFF_FLOW_NOTICE[entry.status]);
             return (
               <li key={`${entry.status}-${index}`} className="flex items-center gap-2 text-sm">
                 <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${isCancelRelated ? "bg-pink" : "bg-mint"}`} />
@@ -196,8 +214,10 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
       <div className="sticky bottom-0 -mx-4 border-t border-line bg-panel p-4 md:-mx-6">
         {nextButtonLabel ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-sub">다음 단계: {NEXT_STATUS_LABEL[order.status]} · 넘기면 구매자에게 알림이 가요.</p>
-            <button type="button" onClick={() => setConfirmOpen(true)} className="btn-lime min-h-11 px-5 text-sm font-bold text-lime-ink">
+            <p className="text-sm text-sub">다음 단계: {NEXT_STATUS_LABEL[order.status]} · 넘기면 구매자에게 알림이 가요.{order.status === "preparing" && !order.trackingNumber && order.paymentLabel !== undefined && <span className="ml-1 text-pink">운송장을 먼저 넣어 주세요.</span>}</p>
+            <button type="button" onClick={() => setConfirmOpen(true)} disabled={order.status === "preparing" && !order.trackingNumber && order.paymentLabel !== undefined}
+              title={order.status === "preparing" && !order.trackingNumber ? "운송장을 먼저 넣어 주세요" : undefined}
+              className="btn-lime min-h-11 px-5 text-sm font-bold text-lime-ink disabled:opacity-50">
               {nextButtonLabel} →
             </button>
           </div>
@@ -206,6 +226,8 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
             {order.status === "delivered" && "모두 끝난 주문이에요."}
             {order.status === "cancelled" && "취소된 주문이에요."}
             {order.status === "cancel_requested" && "취소 요청에서 처리해요."}
+            {(order.status === "return_requested" || order.status === "exchange_requested") && "반품·교환 화면에서 처리해요."}
+            {order.status === "returned" && "반품이 끝난 주문이에요."}
           </p>
         )}
       </div>

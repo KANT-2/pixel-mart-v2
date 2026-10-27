@@ -5,8 +5,9 @@ import type { Rarity } from "@/utils/gameItem"; // 등급 값 — 기존 유틸 
 // 목록 응답 모양({ items, total, page, size, totalPages })은 기존 Page<T>를 그대로 다시 내보낸다.
 export type { Page }; // 관리자 화면은 "@/types/admin" 한 곳에서만 타입을 가져다 쓰게 한다.
 
-// 주문 상태 6종 — 서버(orders.status)와 똑같은 영어 값이다.
-export type AdminOrderStatus = "paid" | "preparing" | "shipping" | "delivered" | "cancel_requested" | "cancelled";
+// 주문 상태 — 서버(orders.status)와 똑같은 영어 값이다. (반품·교환 3종은 배송 완료 뒤 흐름)
+export type AdminOrderStatus = "paid" | "preparing" | "shipping" | "delivered" | "cancel_requested" | "cancelled"
+  | "return_requested" | "returned" | "exchange_requested";
 
 // 취소 요청 상태 3종 — 서버(cancel_requests.status)와 똑같은 영어 값이다.
 export type AdminCancelStatus = "requested" | "approved" | "rejected";
@@ -43,6 +44,31 @@ export interface AdminOrderDetail extends AdminOrderSummary {
   address: string; // 받는 주소
   items: AdminOrderItem[]; // 주문한 상품들
   timeline: AdminOrderTimelineEntry[]; // 상태 기록 (맨 마지막이 지금 상태)
+  // 배송지 상세·결제·운송장 (mock 데이터에는 없을 수 있다)
+  phone?: string;
+  postalCode?: string;
+  addressDetail?: string;
+  deliveryMemo?: string;
+  paymentLabel?: string;
+  couponDiscount?: number;
+  pointsUsed?: number;
+  courier?: string | null;
+  courierLabel?: string | null;
+  trackingNumber?: string | null;
+  confirmedAt?: string | null;
+}
+
+// 반품·교환 신청 한 장 — 백엔드 AdminReturnRequestOut과 같은 이름
+export interface AdminReturnRequest {
+  id: number;
+  orderId: number;
+  kind: "return" | "exchange";
+  reason: string;
+  status: AdminCancelStatus;
+  createdAt: string;
+  orderStatus: AdminOrderStatus;
+  buyerNickname: string;
+  totalPrice: number;
 }
 
 // 카드·탭·메뉴 배지가 함께 쓰는 상태별 건수

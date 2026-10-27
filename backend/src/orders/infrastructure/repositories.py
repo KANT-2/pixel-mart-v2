@@ -9,8 +9,10 @@ from app.models.order import OrderStatusHistory
 from app.models.product import Product
 from app.models.user import User
 from app.services import notifications
+from src.coupons.domain.rules import AppliedCoupon
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.domain.order import Order, OrderItem
+from src.orders.domain.shipping import ShippingInfo
 
 
 class OrderRepository:
@@ -85,10 +87,10 @@ class OrderRepository:
     async def add(
         self,
         user_id: int,
-        recipient_name: str,
-        address: str,
+        shipping: ShippingInfo,
         order: Order,
         points_used: int,
+        coupon: AppliedCoupon | None = None,
     ) -> int:
         before = await notifications.snapshot(
             self.session,
@@ -100,9 +102,16 @@ class OrderRepository:
             status="paid",
             shipping_fee=order.shipping_fee,
             points_used=points_used,
-            total_price=order.total_price - points_used,
-            recipient_name=recipient_name,
-            address=address,
+            coupon_discount=coupon.discount if coupon else 0,
+            coupon_name=coupon.name if coupon else None,
+            total_price=order.total_price - (coupon.discount if coupon else 0) - points_used,
+            recipient_name=shipping.recipient_name,
+            address=shipping.address,
+            phone=shipping.phone,
+            postal_code=shipping.postal_code,
+            address_detail=shipping.address_detail,
+            delivery_memo=shipping.delivery_memo,
+            payment_method=shipping.payment_method,
             items=[
                 OrderItemModel(
                     product_id=item.product_id,

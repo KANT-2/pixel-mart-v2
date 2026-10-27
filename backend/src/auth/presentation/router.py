@@ -2,14 +2,16 @@ from datetime import UTC, datetime
 from math import ceil
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.core.config import settings
 from app.core.security import clear_session_cookie, set_session_token
 from app.models import User
 from app.schemas.common import Message, Page
 from app.schemas.user import UserOut
 from src.auth.application.admin_users import AdminUserService, AvatarResetService, SuspendService
+from src.auth.application.password import PasswordError, change_password, request_reset, reset_password
 from src.auth.application.service import AuthService
 from src.auth.application.withdrawal import WithdrawService
 from src.auth.domain.exceptions import InvalidToken
@@ -19,6 +21,10 @@ from src.auth.infrastructure.withdrawal import WithdrawRepository
 from src.auth.presentation.schemas import (
     AdminUserOut,
     AvatarResetRequest,
+    PasswordChangeRequest,
+    PasswordResetConfirm,
+    PasswordResetOut,
+    PasswordResetRequest,
     SignupRequest,
     SuspendRequest,
     TokenResponse,
@@ -140,3 +146,32 @@ async def withdraw(_body: WithdrawRequest, response: Response, user: CurrentUser
     await service.withdraw(user.id, token, datetime.now(UTC))
     clear_session_cookie(response)
     return Message(message="탈퇴했어요. 그동안 함께해 줘서 고마워요.")
+
+
+@router.post("/password", response_model=Message, summary="비밀번호 변경 (이메일 가입 계정 · 지금 비밀번호 확인)")
+async def update_password(body: PasswordChangeRequest, user: CurrentUser, db: DbSession) -> Message:
+    try:
+        await change_password(db, user, body.current_password, body.new_password)
+    except PasswordError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from None
+    return Message(message="비밀번호를 바꿨어요.")
+
+
+RESET_SENT = "가입한 이메일이면 비밀번호 재설정 링크를 보냈어요. 30분 안에 열어 주세요."
+
+
+@router.post("/password-reset", response_model=PasswordResetOut, summary="비밀번호 재설정 링크 요청")
+async def ask_password_reset(body: PasswordResetRequest, db: DbSession) -> PasswordResetOut:
+    token = await request_reset(db, body.email)
+    # 가입 여부를 드러내지 않도록 항상 같은 안내 — 메일 서버가 없는 로컬에서만 링크를 응답에 담는다
+    reset_url = f"{settings.frontend_url}/reset-password?token={token}" if token and settings.is_local else None
+    return PasswordResetOut(message=RESET_SENT, reset_url=reset_url)
+
+
+@router.post("/password-reset/confirm", response_model=Message, summary="재설정 링크로 새 비밀번호 저장")
+async def confirm_password_reset(body: PasswordResetConfirm, db: DbSession) -> Message:
+    try:
+        await reset_password(db, body.token, body.new_password)
+    except PasswordError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from None
+    return Message(message="새 비밀번호로 바꿨어요. 다시 로그인해 주세요.")

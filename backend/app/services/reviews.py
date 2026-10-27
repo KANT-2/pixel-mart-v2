@@ -40,7 +40,9 @@ async def create_review(db: AsyncSession, user: User, product_id: int, body: Rev
         raise AlreadyReviewedError
 
     review = Review(
-        user_id=user.id, product_id=product_id, order_item_id=item.id, rating=body.rating, content=body.content
+        user_id=user.id, product_id=product_id, order_item_id=item.id, rating=body.rating,
+        content=body.content,
+        image_urls=body.image_urls,
     )
     db.add(review)
     try:

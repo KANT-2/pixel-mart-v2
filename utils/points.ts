@@ -4,7 +4,8 @@
 export const POINT_KIND_LABEL: Record<string, string> = {
   first_purchase: "첫 구매 보너스",
   order_spend: "주문에 사용",
-  order_refund: "주문 취소로 돌려받음",
+  order_refund: "취소·반품으로 돌려받음",
+  purchase_reward: "구매 확정 적립",
 };
 
 /** 주문서에서 쓸 수 있는 최대 적립금 — 보유 적립금과 주문 금액 중 작은 쪽 */

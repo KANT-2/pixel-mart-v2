@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { FeedbackLogin, FeedbackSkeleton } from "@/components/products/FeedbackStates";
+import ReviewPhotoPicker from "@/components/products/ReviewPhotoPicker";
 import { ApiError } from "@/lib/api";
 import { reviewsApi } from "@/lib/reviews";
 import { validateReview } from "@/utils/productFeedback";
@@ -21,6 +22,7 @@ function AccountReviewForm({ productId, onCreated, deleting = false }: ReviewFor
   const id = useId();
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ rating?: string; content?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,11 +48,12 @@ function AccountReviewForm({ productId, onCreated, deleting = false }: ReviewFor
     lock.current = true;
     setBusy(true);
     try {
-      await reviewsApi.create(productId, validation.values, signal);
+      await reviewsApi.create(productId, { ...validation.values, imageUrls: photos }, signal);
       if (signal.aborted) return;
       // POST 성공은 유지하고, 이후 목록 오류는 GET 재시도로만 복구합니다.
       setSubmitted(true);
       setContent("");
+      setPhotos([]);
       await onCreated();
     } catch (cause) {
       if (signal.aborted) return;
@@ -81,6 +84,7 @@ function AccountReviewForm({ productId, onCreated, deleting = false }: ReviewFor
     <textarea id={`${id}-content`} rows={4} maxLength={500} value={content} disabled={disabled} onChange={(event) => { setContent(event.target.value); setErrors((current) => ({ ...current, content: undefined })); }} aria-invalid={Boolean(errors.content)} aria-describedby={`${id}-count${errors.content ? ` ${id}-content-error` : ""}`} placeholder="사용해 본 느낌을 남겨 주세요." className="w-full min-w-0 resize-y pixel-input p-3 text-sm focus-visible:outline-2 focus-visible:outline-mint" />
     <p id={`${id}-count`} className="mt-1 text-right text-xs text-dim">{Array.from(content).length} / 500자</p>
     {errors.content && <p id={`${id}-content-error`} role="alert" className="mt-2 text-sm text-pink">{errors.content}</p>}
+    <ReviewPhotoPicker photos={photos} onChange={setPhotos} disabled={disabled} />
     {error && <p role="alert" className="mt-3 text-sm text-pink">{error}</p>}
     <button disabled={disabled} type="submit" className="mt-4 min-h-11 btn-lime px-5 py-3 text-sm font-bold text-lime-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">{busy ? "등록 중…" : "리뷰 등록"}</button>
   </form>;

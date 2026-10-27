@@ -9,7 +9,8 @@ export const DELIVERY_STEPS = [
 ] as const;
 
 export function getDeliverySteps(order: Pick<ApiOrderDetail, "status" | "timeline">) {
-  if (order.status === "cancel_requested" || order.status === "cancelled") return [];
+  // 취소·반품·교환 흐름은 단계 대신 상태 안내와 타임라인으로 보여 줍니다.
+  if (!DELIVERY_STEPS.some((step) => step.status === order.status)) return [];
   const currentIndex = DELIVERY_STEPS.findIndex((step) => step.status === order.status);
   return DELIVERY_STEPS.map((step, index) => {
     const reached = currentIndex >= index;

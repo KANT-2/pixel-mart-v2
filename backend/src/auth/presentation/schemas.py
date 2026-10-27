@@ -53,3 +53,22 @@ class SuspendRequest(CamelModel):
 
     suspended: bool
     memo: str | None = Field(default=None, max_length=200)
+
+
+class PasswordChangeRequest(CamelModel):
+    current_password: str = Field(max_length=200)
+    new_password: str = Field(max_length=200)
+
+
+class PasswordResetRequest(CamelModel):
+    email: str = Field(max_length=320)
+
+
+class PasswordResetOut(CamelModel):
+    message: str
+    reset_url: str | None = None  # 메일 서버가 없는 로컬에서만 링크를 바로 돌려준다
+
+
+class PasswordResetConfirm(CamelModel):
+    token: str = Field(max_length=1000)
+    new_password: str = Field(max_length=200)

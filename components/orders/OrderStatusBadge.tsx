@@ -10,6 +10,9 @@ const statusColors: Record<string, string> = {
   delivered: "border-line bg-panel-2 text-ink",
   cancel_requested: "border-pink/30 bg-pink/10 text-pink",
   cancelled: "border-line bg-panel-2 text-dim",
+  return_requested: "border-pink/30 bg-pink/10 text-pink",
+  exchange_requested: "border-pink/30 bg-pink/10 text-pink",
+  returned: "border-line bg-panel-2 text-dim",
 };
 
 export default function OrderStatusBadge({ status, label }: OrderStatusBadgeProps) {
