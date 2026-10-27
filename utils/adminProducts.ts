@@ -27,7 +27,8 @@ export interface ProductFormErrors {
   categorySlug?: string;
   description?: string;
   imageUrl?: string;
-  stock?: string;
+  stock?: string; // 등록 폼의 초기 재고 / 수정 폼의 "추가 입고(+N)" 에러
+  stockQty?: string; // 수정 폼의 "재고 수량"(절대값 설정) 에러
 }
 
 function validateCommonFields(values: ProductFormValues): ProductFormErrors {
@@ -71,13 +72,28 @@ export function validateRestockQty(restockText: string): { valid: boolean; qty: 
   return { valid: true, qty };
 }
 
+// "재고 수량"(절대값 설정) 검증 — 항상 값이 채워져 있어야 한다(비워두는 건 허용 안 함)
+export function validateStockSetQty(stockText: string): { valid: boolean; qty: number; error?: string } {
+  const qty = Number(stockText);
+  if (stockText.trim() === "" || !Number.isInteger(qty) || qty < PRODUCT_STOCK_MIN || qty > PRODUCT_STOCK_MAX) {
+    return { valid: false, qty: 0, error: `재고 수량은 ${PRODUCT_STOCK_MIN}~${PRODUCT_STOCK_MAX} 사이 정수로 입력해 주세요.` };
+  }
+  return { valid: true, qty };
+}
+
+// "재고 수량"(절대값)과 "추가 입고(+N)"를 동시에 바꾸면 서버가 422로 거부하므로, 저장 전에 미리 막는다
+export function hasConflictingStockInput(stockQty: number, originalStock: number, restockQty: number): boolean {
+  return stockQty !== originalStock && restockQty >= RESTOCK_MIN;
+}
+
 // 수정 PATCH payload — 바뀐 필드만 담는다.
-// 서버의 stock 필드는 PATCH에서 "덮어쓰기"가 아니라 "더하기"로 동작하므로,
-// 추가 입고 수량(restockQty)이 1 이상일 때만 stock을 넣는다(0이면 재고를 아예 건드리지 않는다).
+// stockQty(재고 수량 칸의 현재 값)가 원래 재고와 다를 때만 "stockSet"(절대값 설정)을 넣고,
+// 그렇지 않을 때만 기존처럼 restockQty(1 이상)를 "stock"(더하기)으로 넣는다 — 안 바꾸면 둘 다 안 보낸다.
 export function buildProductUpdatePayload(
   original: AdminProduct,
   edited: { name: string; price: number; categorySlug: string; description: string; imageUrl: string; rarity: Rarity },
   restockQty: number,
+  stockQty: number,
 ): ProductUpdateInput {
   const changes: ProductUpdateInput = {};
   if (edited.name !== original.name) changes.name = edited.name;
@@ -86,7 +102,8 @@ export function buildProductUpdatePayload(
   if (edited.description !== original.description) changes.description = edited.description;
   if (edited.imageUrl !== original.imageUrl) changes.imageUrl = edited.imageUrl;
   if (edited.rarity !== original.rarity) changes.rarity = edited.rarity;
-  if (restockQty >= RESTOCK_MIN) changes.stock = restockQty;
+  if (stockQty !== original.stock) changes.stockSet = stockQty;
+  else if (restockQty >= RESTOCK_MIN) changes.stock = restockQty;
   return changes;
 }
 
