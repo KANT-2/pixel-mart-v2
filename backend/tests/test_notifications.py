@@ -34,8 +34,11 @@ async def cleanup() -> None:
 @pytest.fixture
 async def users():
     """users(email) → 로그인된 클라이언트 (지역만 설정, 취향 없음 → 점수 없음)"""
+    original_stock = None
     try:
         async with engine.begin() as conn:
+            original_stock = await conn.scalar(text("SELECT stock FROM products WHERE id = :id"), {"id": PRODUCT})
+            await conn.execute(text("UPDATE products SET stock = 10 WHERE id = :id"), {"id": PRODUCT})
             for code, level, parent, name in TEST_REGIONS:
                 await conn.execute(
                     text(
@@ -59,8 +62,12 @@ async def users():
         yield make
 
     await cleanup()
-    for level in ("zone", "sigungu", "sido"):
-        async with engine.begin() as conn:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE products SET stock = :stock WHERE id = :id"),
+            {"stock": original_stock, "id": PRODUCT},
+        )
+        for level in ("zone", "sigungu", "sido"):
             await conn.execute(text("DELETE FROM regions WHERE code LIKE 'NTF%' AND level = :l"), {"l": level})
 
 
