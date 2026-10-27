@@ -14,8 +14,8 @@
 | GET | /api/auth/providers | 사용 가능한 로그인 방법 `{google, devLogin}` — 구글 키가 있으면 `google: true` (로그인 버튼 활성화용) | ✅ |
 | GET | /api/auth/google/login | 구글 로그인 시작 (키 없으면 503) | ✅ |
 | GET | /api/auth/google/callback | 구글 로그인 완료 → 기존 회원은 세션 쿠키·메인 이동, **새 사용자는 계정을 만들지 않고** 15분 가입 대기 쿠키(`pm_signup`)·`/signup` 이동 (실패 시 `/?loginError=google`) | ✅ |
-| GET | /api/auth/signup | 가입 대기 정보 `{email, googleName}` (대기 쿠키 없으면 404) | ✅ |
-| POST | /api/auth/signup | 닉네임을 골라 가입 완료 `{nickname}` → 201·세션 쿠키. 겹치면 409 "이미 사용 중인 닉네임입니다." (자동으로 바꾸지 않음), 대기 쿠키 없으면 404 | ✅ |
+| GET | /api/auth/google/signup | 구글 가입 대기 정보 `{email, googleName}` (대기 쿠키 없으면 404) | ✅ |
+| POST | /api/auth/google/signup | 구글: 닉네임을 골라 가입 완료 `{nickname}` → 201·세션 쿠키. 겹치면 409 "이미 사용 중인 닉네임입니다." (자동으로 바꾸지 않음), 대기 쿠키 없으면 404 | ✅ |
 | PATCH | /api/users/me 🔒 | 닉네임 변경 (앞뒤 공백 제거 후 1~30자, 대소문자 구분 없이 남이 쓰는 닉네임이면 409) | ✅ |
 | GET | /api/users/nickname-check?nickname= | 닉네임 사용 가능 여부 `{nickname, available, suggestions}` — 겹치면 지금 쓸 수 있는 추천 3개(예: `슬라임킹0421`, `슬라임킹_1`), 내 닉네임은 available | ✅ |
 | PUT | /api/users/me/avatar 🔒 | 픽셀 아바타 저장 (PNG data URL, 최대 200KB, 아니면 422) | ✅ |
@@ -44,9 +44,8 @@
 | GET | /api/products/{id}/reviews | 공개 리뷰 목록 + 리뷰 수·평균 별점 (`is_hidden=true` 제외, 숨긴 상품 404) | ✅ |
 | POST | /api/products/{id}/reviews 🔒 | 리뷰 작성 (배송 완료 상품만) | ✅ |
 | DELETE | /api/products/{id}/reviews/{reviewId} 🔒 | 내 리뷰 삭제 (남의 리뷰는 404, 삭제 후 다시 작성 가능) | ✅ |
-| GET | /api/products/{id}/questions | 공개 상품 문의 목록 (`is_hidden=true` 제외, 비밀글은 내용 가림, 숨긴 상품 404) — ⚠️ 프론트는 아직 미연결(`lib/questions.ts` 인메모리) | ✅ |
+| GET | /api/products/{id}/questions | 공개 상품 문의 목록 (`is_hidden=true` 제외, 비밀글은 내용 가림, 숨긴 상품 404) | ✅ |
 | POST | /api/products/{id}/questions 🔒 | 문의 작성 | ✅ |
-| POST | /api/dev/questions/{id}/answer 🔒 | [로컬 전용] 문의에 답변 달기 (비밀글 내용은 작성자 외에는 응답에서도 가림) | ✅ |
 | GET | /api/faqs?category= | FAQ | ✅ |
 | GET | /api/notices?page=&size=&pinned= | 게시된 공지 목록 `Page<{id, title, isPinned, createdAt}>` — 고정 글 먼저, 최신순. `pinned`로 고정 여부 필터 | ✅ |
 | GET | /api/notices/{id} | 게시된 공지 상세 `{id, title, content, isPinned, createdAt, updatedAt}` — 미게시·없는 글 404 | ✅ |

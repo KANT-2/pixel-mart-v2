@@ -1,10 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -56,6 +57,7 @@ from src.auth.domain.exceptions import (
 from src.auth.presentation import router as auth_api
 from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, NotHolder
 from src.badges.presentation import router as badges_api
+from src.common.auth import OptionalUser
 from src.common.errors import DomainError, domain_error_handler, validation_error_handler
 from src.common.logging import log_requests
 from src.coupons.domain.rules import InvalidCoupon
@@ -110,9 +112,9 @@ app = FastAPI(
     title="PIXEL MART API",
     version="0.1.0",
     lifespan=lifespan,
-    # 프론트(3000)의 /api 프록시에서도 문서를 볼 수 있도록 설정
-    docs_url=None,  # 아래에서 Swagger UI 버전을 고정해 직접 연다
-    openapi_url="/api/openapi.json",
+    # 문서는 아래에서 직접 연다 — 프론트(3000)의 /api 프록시로도 열리고, 배포에서는 관리자만
+    docs_url=None,
+    openapi_url=None,
 )
 
 
@@ -121,7 +123,19 @@ SWAGGER_UI_CDN = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14"
 SWAGGER_OAUTH2_REDIRECT = "/api/docs/oauth2-redirect"
 
 
-@app.get("/api/docs", include_in_schema=False)
+async def docs_access(user: OptionalUser) -> None:
+    """로컬은 누구나, 배포에서는 관리자로 로그인한 사람만 — 아니면 문서가 있다는 것도 404로 숨긴다"""
+    if settings.is_local or (user is not None and user.role == "admin"):
+        return
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "페이지를 찾을 수 없어요.")
+
+
+@app.get("/api/openapi.json", include_in_schema=False, dependencies=[Depends(docs_access)])
+async def openapi_json() -> JSONResponse:
+    return JSONResponse(app.openapi())
+
+
+@app.get("/api/docs", include_in_schema=False, dependencies=[Depends(docs_access)])
 async def swagger_ui():
     return get_swagger_ui_html(
         openapi_url="/api/openapi.json",

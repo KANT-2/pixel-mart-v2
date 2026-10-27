@@ -1,6 +1,6 @@
 # DB 스키마
 
-> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`·`backend/src/points/infrastructure/models.py`, 마이그레이션 head `3a91c55ca1ee`).
+> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`·`backend/src/points/infrastructure/models.py`, 마이그레이션 head `b3f1c2d4e5a6`).
 > 컬럼 이름은 snake_case, 모든 시간은 `timestamptz`. 새 테이블을 만들면 이 문서도 같이 고쳐 주세요.
 > 데스크 꾸미기·토너먼트 테이블은 범위에서 빠져 만들지 않았습니다.
 
