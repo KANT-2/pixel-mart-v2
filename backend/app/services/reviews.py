@@ -69,17 +69,17 @@ async def delete_review(db: AsyncSession, review: Review) -> None:
 async def list_reviews(
     db: AsyncSession, product_id: int, page: int, size: int
 ) -> tuple[list[Review], int, float | None]:
-    """(이번 페이지 리뷰, 전체 개수, 평균 별점) — 최신순"""
+    """(이번 페이지 공개 리뷰, 전체 개수, 평균 별점) — 최신순"""
+    filters = [
+        Review.product_id == product_id,
+        Review.is_hidden.is_(False),
+    ]
     total, rating_sum = (
-        await db.execute(
-            select(func.count(Review.id), func.coalesce(func.sum(Review.rating), 0)).where(
-                Review.product_id == product_id
-            )
-        )
+        await db.execute(select(func.count(Review.id), func.coalesce(func.sum(Review.rating), 0)).where(*filters))
     ).one()
     rows = await db.scalars(
         select(Review)
-        .where(Review.product_id == product_id)
+        .where(*filters)
         .order_by(Review.created_at.desc(), Review.id.desc())
         .offset((page - 1) * size)
         .limit(size)

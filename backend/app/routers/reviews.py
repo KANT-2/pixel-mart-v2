@@ -2,6 +2,7 @@ from math import ceil
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import select
 
 from app.deps import ActiveUser, CurrentUser, DbSession, OptionalUser
 from app.models import Product
@@ -20,7 +21,13 @@ router = APIRouter(prefix="/products/{product_id}/reviews", tags=["reviews"])
 
 
 async def _require_product(db: DbSession, product_id: int) -> None:
-    if await db.get(Product, product_id) is None:
+    product = await db.scalar(
+        select(Product.id).where(
+            Product.id == product_id,
+            Product.is_hidden.is_(False),
+        )
+    )
+    if product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "상품을 찾을 수 없습니다.")
 
 

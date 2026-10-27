@@ -35,7 +35,15 @@ class QuestionRepository:
         self.session = session
 
     async def product_exists(self, product_id: int) -> bool:
-        return await self.session.scalar(select(Product.id).where(Product.id == product_id)) is not None
+        return (
+            await self.session.scalar(
+                select(Product.id).where(
+                    Product.id == product_id,
+                    Product.is_hidden.is_(False),
+                )
+            )
+            is not None
+        )
 
     async def get(self, question_id: int) -> Authored | None:
         row = await self.session.scalar(
@@ -63,7 +71,10 @@ class QuestionRepository:
         self, product_id: int, answered: bool | None, offset: int, limit: int
     ) -> tuple[list[Authored], int]:
         """(이번 페이지 문의, 전체 개수) — 최신순. answered=None이면 전체"""
-        filters = [ProductQuestion.product_id == product_id]
+        filters = [
+            ProductQuestion.product_id == product_id,
+            ProductQuestion.is_hidden.is_(False),
+        ]
         if answered is True:
             filters.append(ProductQuestion.answer.is_not(None))
         elif answered is False:

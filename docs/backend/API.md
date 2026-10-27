@@ -39,10 +39,10 @@
 | POST | /api/dev/cancel-requests/{id}/approve | [로컬 전용] 취소 승인 → 주문 취소 완료 | ✅ |
 | POST | /api/dev/cancel-requests/{id}/reject | [로컬 전용] 취소 거절 → 신청 직전 상태로 복귀 | ✅ |
 | POST | /api/dev/orders/{id}/advance | [로컬 전용] 배송 단계 진행 | ✅ |
-| GET | /api/products/{id}/reviews | 리뷰 목록 + 평균 별점 | ✅ |
+| GET | /api/products/{id}/reviews | 공개 리뷰 목록 + 리뷰 수·평균 별점 (`is_hidden=true` 제외, 숨긴 상품 404) | ✅ |
 | POST | /api/products/{id}/reviews 🔒 | 리뷰 작성 (배송 완료 상품만) | ✅ |
 | DELETE | /api/products/{id}/reviews/{reviewId} 🔒 | 내 리뷰 삭제 (남의 리뷰는 404, 삭제 후 다시 작성 가능) | ✅ |
-| GET | /api/products/{id}/questions | 상품 Q&A (비밀글은 내용 가림) — ⚠️ 프론트는 아직 미연결(`lib/questions.ts` 인메모리) | ✅ |
+| GET | /api/products/{id}/questions | 공개 상품 문의 목록 (`is_hidden=true` 제외, 비밀글은 내용 가림, 숨긴 상품 404) — ⚠️ 프론트는 아직 미연결(`lib/questions.ts` 인메모리) | ✅ |
 | POST | /api/products/{id}/questions 🔒 | 문의 작성 | ✅ |
 | POST | /api/dev/questions/{id}/answer 🔒 | [로컬 전용] 문의에 답변 달기 (비밀글 내용은 작성자 외에는 응답에서도 가림) | ✅ |
 | GET | /api/faqs?category= | FAQ | ✅ |

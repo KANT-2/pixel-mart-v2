@@ -55,6 +55,8 @@ async def test_hidden_product_is_excluded_from_public_api(
         f"/api/products/{hidden_id}"
     )
     assert hidden_detail.status_code == 404
+    assert (await client.get(f"/api/products/{hidden_id}/reviews")).status_code == 404
+    assert (await client.get(f"/api/products/{hidden_id}/questions")).status_code == 404
 
     after = await rarity_counts(client, category)
     assert after["common"] == before["common"] - 1

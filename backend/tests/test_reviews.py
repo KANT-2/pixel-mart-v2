@@ -105,6 +105,24 @@ async def test_list_shows_only_that_products_reviews(client):
     assert (await client.get(url(OTHER))).json()["total"] == 0
 
 
+async def test_list_excludes_hidden_reviews_from_count_and_average(client):
+    await buy(client, "review1@pixelmart.test")
+    visible = (await client.post(url(), json=review(5, "공개 리뷰"))).json()
+    await buy(client, "review2@pixelmart.test")
+    hidden = (await client.post(url(), json=review(1, "숨긴 리뷰"))).json()
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE reviews SET is_hidden = TRUE WHERE id = :review_id"),
+            {"review_id": hidden["id"]},
+        )
+
+    body = (await client.get(url())).json()
+    assert body["total"] == 1
+    assert body["averageRating"] == 5.0
+    assert [item["id"] for item in body["items"]] == [visible["id"]]
+
+
 # ---- 작성 ----
 async def test_post_requires_login(client):
     assert (await client.post(url(), json=review())).status_code == 401

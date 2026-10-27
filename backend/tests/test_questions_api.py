@@ -114,6 +114,22 @@ async def test_answered_filter_and_paging(client, product):
     assert page2["items"][0]["id"] == ids[0]  # 최신순이라 가장 먼저 쓴 문의가 2페이지
 
 
+async def test_list_excludes_hidden_questions(client, product):
+    token = await login(client, AUTHOR)
+    visible = await ask(client, token, product, title="공개 문의")
+    hidden = await ask(client, token, product, title="숨긴 문의")
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE product_questions SET is_hidden = TRUE WHERE id = :question_id"),
+            {"question_id": hidden["id"]},
+        )
+
+    body = (await client.get(url(product))).json()
+    assert body["total"] == 1
+    assert [item["id"] for item in body["items"]] == [visible["id"]]
+
+
 async def test_oversized_page_is_422(client, product):
     assert (await client.get(url(product), params={"size": 61})).status_code == 422
 
