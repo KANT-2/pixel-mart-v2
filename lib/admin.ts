@@ -13,6 +13,7 @@ import type {
   AdminOrderQuery,
   AdminOrderStatus,
   AdminOrderSummary,
+  AdminSummary,
   Page,
 } from "@/types/admin";
 
@@ -114,4 +115,10 @@ export async function getAdminCancelCounts(): Promise<AdminCancelCounts> {
     ...statuses.map((status) => api.get<Page<AdminCancelRequest>>(`/admin/cancel-requests${toQuery({ status, size: 1 })}`)),
   ]);
   return { total: total.total, requested: requested.total, approved: approved.total, rejected: rejected.total };
+}
+
+// 대시보드 숫자 카드 4개(#98) — 오늘 주문·준비중·취소 대기·미답변 문의를 한 번에 받아온다
+export function getAdminSummary(): Promise<AdminSummary> {
+  if (USE_MOCK) return mock.summary();
+  return api.get("/admin/summary");
 }
