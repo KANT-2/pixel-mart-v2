@@ -46,8 +46,24 @@
 | POST | /api/products/{id}/questions 🔒 | 문의 작성 | ✅ |
 | POST | /api/dev/questions/{id}/answer 🔒 | [로컬 전용] 문의에 답변 달기 (비밀글 내용은 작성자 외에는 응답에서도 가림) | ✅ |
 | GET | /api/faqs?category= | FAQ | ✅ |
+| GET | /api/notices?page=&size=&pinned= | 게시된 공지 목록 `Page<{id, title, isPinned, createdAt}>` — 고정 글 먼저, 최신순. `pinned`로 고정 여부 필터 | ✅ |
+| GET | /api/notices/{id} | 게시된 공지 상세 `{id, title, content, isPinned, createdAt, updatedAt}` — 미게시·없는 글 404 | ✅ |
 | GET | /api/keyboards?maker=&q= | 키보드 모델 검색 (Mock) | ✅ |
 | GET | /api/compatibility?keyboardId=&productId= | 키캡 호환 결과 (키별 호환/일부/불가) | ✅ |
+
+## 관리자 공지 · FAQ 관리
+| 메서드 | 경로 | 설명 | 상태 |
+| --- | --- | --- | --- |
+| GET | /api/admin/notices?page=&size= 🔒 | 관리자 공지 목록 (미게시 포함, 고정 글 먼저) `Page<{id, title, content, isPinned, isPublished, createdAt, updatedAt}>` | ✅ |
+| POST | /api/admin/notices 🔒 | 공지 생성 `{title, content, isPinned?, isPublished?}` — 기본 미게시, 제목 1~100자·내용 1~5,000자 | ✅ |
+| PATCH | /api/admin/notices/{id} 🔒 | 공지 제목·내용·고정·게시 상태 일부 수정 (내리면 공개 상세 404) | ✅ |
+| DELETE | /api/admin/notices/{id} 🔒 | 공지 삭제 → `{message}` | ✅ |
+| GET | /api/admin/faqs 🔒 | 관리자 FAQ 목록 `{id, category, question, answer, sortOrder}[]` — 카테고리·순서대로 | ✅ |
+| POST | /api/admin/faqs 🔒 | FAQ 생성 `{category, question, answer, sortOrder?}` — 카테고리 1~30자·질문 1~200자·답변 1~2,000자 | ✅ |
+| PATCH | /api/admin/faqs/{id} 🔒 | FAQ 일부 수정·순서 변경 | ✅ |
+| DELETE | /api/admin/faqs/{id} 🔒 | FAQ 삭제 → `{message}` | ✅ |
+
+관리자 API는 비로그인 401, 일반 회원 404입니다. 기존 공개 `GET /api/faqs?category=`의 응답 형식은 유지합니다.
 
 ## 관리자 상품 관리
 | 메서드 | 경로 | 설명 | 상태 |
