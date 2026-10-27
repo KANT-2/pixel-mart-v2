@@ -23,7 +23,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/products/[id]">): Promise<Metadata> {
   const { id } = await params;
   const { data: product } = await getProduct(id);
-  return { title: product ? `${product.name} | PIXEL MART` : "상품을 찾을 수 없습니다 | PIXEL MART" };
+  // 검색·공유 미리보기 설명은 상품 설명 그대로 (#108)
+  return product
+    ? { title: `${product.name} | PIXEL MART`, description: product.description }
+    : { title: "상품을 찾을 수 없습니다 | PIXEL MART" };
 }
 
 // Next 16 + Cache Components: params를 <Suspense> 밖에서 기다리면 페이지 전환이 즉시 일어나지 않아
