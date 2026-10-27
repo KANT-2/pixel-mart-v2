@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ApiError } from "@/lib/api";
 import PixelAvatar from "@/components/avatar/PixelAvatar";
+import { pointsApi } from "@/lib/points";
 
 interface UserMenuProps { compact?: boolean; }
 
@@ -15,6 +16,7 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
+  const [points, setPoints] = useState<{ userId: number; balance: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelId = useId();
@@ -27,6 +29,16 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [open]);
+
+  // 메뉴를 열 때마다 적립금을 새로 — 주문·취소 뒤에도 맞는 숫자
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (!open || userId === null) return;
+    const controller = new AbortController();
+    pointsApi.balance(controller.signal).then((data) => setPoints({ userId, balance: data.balance })).catch(() => {});
+    return () => controller.abort();
+  }, [open, userId]);
+  const balance = points?.userId === userId ? points.balance : null;
 
   async function handleLogout() {
     setLogoutError(null);
@@ -59,9 +71,15 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
       )}
       {open && user && (
         <div id={panelId} className="absolute right-0 top-12 z-50 w-60 pixel-panel p-2 shadow-lg">
+          {user.role === "admin" && <Link href="/admin" onClick={() => setOpen(false)} className="mb-1 block rounded-lg border border-violet/40 px-3 py-3 text-sm font-bold text-violet hover:bg-panel-2">관리자 페이지</Link>}
           <Link href="/mypage" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">마이페이지</Link>
+          <Link href="/mypage/orders" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">주문 내역</Link>
+          <Link href="/mypage/points" onClick={() => setOpen(false)} className="flex items-center justify-between rounded-lg px-3 py-3 text-sm hover:bg-panel-2">
+            적립금{balance !== null && <span className="font-bold text-lime">{balance.toLocaleString("ko-KR")}P</span>}
+          </Link>
           <Link href="/local/trades/mine#trade-requests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">교환 신청함</Link>
           <Link href="/mypage/quests" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">내 퀘스트</Link>
+          <Link href="/help" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm hover:bg-panel-2">고객센터</Link>
           <button type="button" disabled={pending} onClick={handleLogout} className="w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-panel-2 disabled:opacity-50">{pending ? "로그아웃 중…" : "로그아웃"}</button>
           {logoutError && <p role="alert" className="px-3 py-2 text-sm text-pink">{logoutError}</p>}
         </div>
