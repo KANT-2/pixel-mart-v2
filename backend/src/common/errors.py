@@ -23,6 +23,13 @@ from src.questions.domain.exceptions import (
     QuestionAlreadyAnswered,
     QuestionNotFound,
 )
+from src.reports.domain.exceptions import (
+    AlreadyReported,
+    CannotReport,
+    ReportAlreadyHandled,
+    ReportNotFound,
+    ReportTargetNotFound,
+)
 
 
 class DomainError(Exception):
@@ -58,6 +65,11 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     MemberNotFound: status.HTTP_404_NOT_FOUND,
     CannotWithdraw: status.HTTP_400_BAD_REQUEST,
     CannotSuspend: status.HTTP_400_BAD_REQUEST,
+    ReportTargetNotFound: status.HTTP_404_NOT_FOUND,
+    CannotReport: status.HTTP_400_BAD_REQUEST,
+    AlreadyReported: status.HTTP_400_BAD_REQUEST,
+    ReportNotFound: status.HTTP_404_NOT_FOUND,
+    ReportAlreadyHandled: status.HTTP_409_CONFLICT,
     QuestionNotFound: status.HTTP_404_NOT_FOUND,
     ProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidQuestion: status.HTTP_422_UNPROCESSABLE_CONTENT,

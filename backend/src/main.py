@@ -58,6 +58,14 @@ from src.questions.domain.exceptions import (
     QuestionNotFound,
 )
 from src.questions.presentation import router as questions_api
+from src.reports.domain.exceptions import (
+    AlreadyReported,
+    CannotReport,
+    ReportAlreadyHandled,
+    ReportNotFound,
+    ReportTargetNotFound,
+)
+from src.reports.presentation import router as reports_api
 
 
 # FastAPI 서버의 시작 및 종료 과정 관리
@@ -120,6 +128,8 @@ for question_error in (
 for admin_product_error in (AdminProductNotFound, InvalidProductCategory):
     app.add_exception_handler(admin_product_error, domain_error_handler)
 
+for report_error in (AlreadyReported, CannotReport, ReportAlreadyHandled, ReportNotFound, ReportTargetNotFound):
+    app.add_exception_handler(report_error, domain_error_handler)
 
 # 프론트엔드의 직접 API 호출을 위한 CORS 설정
 # 허용 출처는 환경변수 FRONTEND_URL에서 가져옴
@@ -177,6 +187,8 @@ for router in (
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(auth_api.users_router, prefix="/api")
+app.include_router(reports_api.router, prefix="/api")
+app.include_router(reports_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(admin_orders_api.router, prefix="/api")
