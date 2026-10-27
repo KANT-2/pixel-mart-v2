@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -106,9 +107,30 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     # 프론트(3000)의 /api 프록시에서도 문서를 볼 수 있도록 설정
-    docs_url="/api/docs",
+    docs_url=None,  # 아래에서 Swagger UI 버전을 고정해 직접 연다
     openapi_url="/api/openapi.json",
 )
+
+
+# Swagger UI는 CDN 최신판(5.34)이 이 문서를 중간까지만 그려서 확인된 버전으로 고정
+SWAGGER_UI_CDN = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14"
+SWAGGER_OAUTH2_REDIRECT = "/api/docs/oauth2-redirect"
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/api/openapi.json",
+        title=f"{app.title} - Swagger UI",
+        oauth2_redirect_url=SWAGGER_OAUTH2_REDIRECT,
+        swagger_js_url=f"{SWAGGER_UI_CDN}/swagger-ui-bundle.js",
+        swagger_css_url=f"{SWAGGER_UI_CDN}/swagger-ui.css",
+    )
+
+
+@app.get(SWAGGER_OAUTH2_REDIRECT, include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
 
 
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
