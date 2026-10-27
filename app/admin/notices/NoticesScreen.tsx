@@ -1,26 +1,35 @@
 "use client"; // 상태·이벤트가 많아 전체를 클라이언트 컴포넌트로 만든다 (#101 ProductsScreen과 같은 구조)
 
 import Link from "next/link"; // 화면 이동은 next/link만 쓴다
+import { useSearchParams } from "next/navigation"; // 주소 쿼리 읽기(페이지 번호)
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import AdminTable, { type AdminTableColumn } from "@/components/admin/AdminTable"; // 공용 표
+import AdminPagination from "@/components/admin/Pagination"; // 공용 페이지 이동 (수정하지 않고 그대로 재사용)
 import ConfirmDialog from "@/components/admin/ConfirmDialog"; // 공용 확인창 (수정하지 않고 그대로 재사용)
 import EmptyRow from "@/components/admin/EmptyRow"; // 공용 빈 상태 한 줄
 import NoticeForm from "@/components/admin/NoticeForm";
 import { ApiError } from "@/lib/api";
-import { deleteNotice, getAdminNotices, updateNotice } from "@/lib/notices";
-import type { Notice } from "@/types/notice";
+import { deleteNotice, getAdminNotices, updateNotice } from "@/lib/adminNotices";
+import type { Page } from "@/types/api";
+import type { AdminNotice } from "@/types/notice";
 import { formatNoticeDate } from "@/utils/notices";
 
+const BASE_PATH = "/admin/notices";
+const PAGE_SIZE = 20; // 실제 API 기본값과 맞춘다
+
 // 공지 등록·수정 폼을 열어 둘 때, 어떤 모드인지와(등록/수정) 대상 공지를 담는다
-type FormState = { mode: "create" } | { mode: "edit"; notice: Notice };
+type FormState = { mode: "create" } | { mode: "edit"; notice: AdminNotice };
 
 export default function NoticesScreen() {
-  const [notices, setNotices] = useState<Notice[] | null>(null);
+  const searchParams = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get("page")) || 1);
+
+  const [data, setData] = useState<Page<AdminNotice> | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [formState, setFormState] = useState<FormState | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<Notice | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<AdminNotice | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -29,20 +38,20 @@ export default function NoticesScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      setNotices(await getAdminNotices());
+      setData(await getAdminNotices(page, PAGE_SIZE));
     } catch (cause) {
       setLoadError(cause instanceof ApiError ? cause.message : "불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 목록을 새로 부를 때마다 로딩 상태를 바로 켜야 한다
     void load();
   }, [load]);
 
-  function onSaved(saved: Notice) {
+  function onSaved(saved: AdminNotice) {
     const verb = formState?.mode === "create" ? "등록" : "수정";
     setFormState(null);
     setSuccessMessage(`"${saved.title}" 공지를 ${verb}했어요.`);
@@ -50,7 +59,7 @@ export default function NoticesScreen() {
     void load();
   }
 
-  async function togglePublish(notice: Notice) {
+  async function togglePublish(notice: AdminNotice) {
     setActionError(null);
     try {
       await updateNotice(notice.id, { isPublished: !notice.isPublished });
@@ -77,7 +86,7 @@ export default function NoticesScreen() {
     }
   }
 
-  const columns: AdminTableColumn<Notice>[] = [
+  const columns: AdminTableColumn<AdminNotice>[] = [
     { header: "제목", render: (notice) => <div className="w-72 break-words [overflow-wrap:anywhere] font-bold text-ink">{notice.title}</div> },
     { header: "고정", className: "text-center", render: (notice) => (notice.isPinned ? <Badge tone="pin">고정</Badge> : <span className="text-xs text-dim">-</span>) },
     { header: "상태", className: "text-center", render: (notice) => (notice.isPublished ? <Badge tone="published">게시중</Badge> : <Badge tone="hidden">숨김</Badge>) },
@@ -94,7 +103,7 @@ export default function NoticesScreen() {
     },
   ];
 
-  if (!notices && loading) return <NoticesSkeleton />;
+  if (!data && loading) return <NoticesSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -104,7 +113,6 @@ export default function NoticesScreen() {
           <p className="mt-1 text-sm text-sub">게시한 공지는 손님 화면의 공지 목록에 바로 보여요. 고정한 공지는 메인 맨 위 배너에도 나와요.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* next/link로 이동해야 클라이언트 라우팅이 유지되고 mocks/notices.ts의 메모리(목업 데이터)가 안 날아간다 */}
           <Link href="/notices" className="btn-pixel min-h-11 whitespace-nowrap px-4 text-sm font-bold">고객 화면에서 보기 →</Link>
           <button type="button" onClick={() => setFormState({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold">+ 새 공지 쓰기</button>
         </div>
@@ -133,17 +141,19 @@ export default function NoticesScreen() {
         />
       )}
 
-      {notices && (
-        notices.length === 0 ? (
+      {data && (
+        data.items.length === 0 ? (
           <p className="pixel-panel p-10 text-center text-sm text-sub">등록된 공지가 없어요. &quot;새 공지 쓰기&quot;로 첫 공지를 올려보세요.</p>
         ) : (
           <>
+            <p className="text-xs text-dim">총 {data.total}건 · {data.page} / {data.totalPages} 페이지</p>
+
             {/* sm 이상: 표. 375px 같은 좁은 화면에서는 가로 스크롤 대신 카드로 보여준다 */}
             <div className="hidden sm:block">
-              <AdminTable columns={columns} rows={notices} rowKey={(notice) => notice.id} empty={<EmptyRow colSpan={columns.length} message="등록된 공지가 없어요." />} />
+              <AdminTable columns={columns} rows={data.items} rowKey={(notice) => notice.id} empty={<EmptyRow colSpan={columns.length} message="등록된 공지가 없어요." />} />
             </div>
             <div className="space-y-3 sm:hidden">
-              {notices.map((notice) => (
+              {data.items.map((notice) => (
                 <div key={notice.id} className="pixel-panel space-y-2 p-3">
                   <p className="break-words font-bold text-ink">{notice.title}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -159,6 +169,8 @@ export default function NoticesScreen() {
                 </div>
               ))}
             </div>
+
+            <AdminPagination currentPage={data.page} totalPages={data.totalPages} basePath={BASE_PATH} />
           </>
         )
       )}
