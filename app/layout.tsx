@@ -6,6 +6,7 @@ import { WishlistProvider } from "@/components/WishlistProvider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RecentlyViewedWidget from "@/components/RecentlyViewedWidget";
+import SuspendedNotice from "@/components/SuspendedNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <CartProvider>
             <WishlistProvider>
               <Header />
+              <SuspendedNotice />
               <main className="flex-1">{children}</main>
               <Footer />
               {/* usePathname()으로 /admin을 가려내는 컴포넌트라 Suspense로 감싸야 나머지 화면이 정적으로 미리 그려진다 */}

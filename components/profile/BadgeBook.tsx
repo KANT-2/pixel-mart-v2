@@ -79,6 +79,7 @@ function BadgeGrid() {
                 {tags.map((tag) => <span key={tag} className={`rounded border px-1 font-pixel text-[9px] leading-4 ${tag === "NEW" ? "border-pink/60 text-pink" : "border-mint/60 text-mint"}`}>{tag}</span>)}
               </p>}
               <p className={`mt-1 text-[11px] leading-snug ${badge.earned ? "text-sub" : "text-dim"}`}>{badge.description}</p>
+              {badge.grantedMemo && <p className="mt-1 break-words text-[11px] leading-snug text-mint">&ldquo;{badge.grantedMemo}&rdquo;</p>}
               {progress && <div className="mt-2">
                 <div role="progressbar" aria-label={`${badge.name} 진행`} aria-valuemin={0} aria-valuemax={progress.goal} aria-valuenow={progress.current}
                   className="h-1.5 overflow-hidden rounded-sm bg-panel-2">

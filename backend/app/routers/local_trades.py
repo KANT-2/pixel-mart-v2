@@ -49,6 +49,7 @@ def post_out(post: TradePost, tree: RegionTree, viewer_id: int | None) -> TradeP
         is_demo=post.author.email.endswith(DEMO_EMAIL_DOMAIN),
         created_at=post.created_at,
         author=author_out(post),
+        hidden_by_admin=post.hidden_by_admin,
     )
 
 

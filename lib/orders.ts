@@ -4,6 +4,7 @@ import type { ApiCancelRequest, ApiOrder, ApiOrderDetail, ApiOrderSummary, Page 
 export interface OrderInput {
   recipientName: string;
   address: string;
+  pointsUsed?: number; // 쓸 구매 포인트 (서버가 잔액·주문 금액으로 다시 검사)
 }
 
 function requestOptions(signal?: AbortSignal): RequestInit {
@@ -12,9 +13,9 @@ function requestOptions(signal?: AbortSignal): RequestInit {
 }
 
 export const ordersApi = {
-  create: ({ recipientName, address }: OrderInput, signal?: AbortSignal) =>
+  create: ({ recipientName, address, pointsUsed = 0 }: OrderInput, signal?: AbortSignal) =>
     // 서버 장바구니 전체로 주문하므로 화면의 상품·금액은 전송하지 않습니다.
-    api.post<ApiOrder>("/orders", { recipientName, address }, requestOptions(signal)),
+    api.post<ApiOrder>("/orders", { recipientName, address, pointsUsed }, requestOptions(signal)),
   list: (page: number, signal?: AbortSignal) =>
     api.get<Page<ApiOrderSummary>>(`/orders?page=${page}&size=10`, requestOptions(signal)),
   detail: (id: number, signal?: AbortSignal) =>

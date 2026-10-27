@@ -24,7 +24,6 @@ class AdminTradeOut(TradePostOut):
 
     author_nickname: str
     author_email: str
-    hidden_by_admin: bool
 
 
 class AdminTradeStatusIn(CamelModel):
@@ -38,7 +37,6 @@ def _out(post: TradePost, tree: RegionTree) -> AdminTradeOut:
         **post_out(post, tree, None).model_dump(),
         author_nickname=display_nickname(post.author.nickname, post.author.deleted_at),
         author_email="탈퇴한 계정" if withdrawn else post.author.email,
-        hidden_by_admin=post.hidden_by_admin,
     )
 
 

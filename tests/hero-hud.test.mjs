@@ -17,11 +17,12 @@ test("HUD 숫자 — 로그인 확인 중은 빈칸, 비로그인은 시안 숫�
   assert.equal(hudNumbersFor(false, true, null), null);
 });
 
-test("HUD 표기 — 하트 ×N, 코인 세 자리 맞춤, 낭독 문장", () => {
+test("HUD 표기 — 하트 ×N, 코인(적립금) 세 자리 맞춤 · 천 단위 쉼표, 낭독 문장", () => {
   assert.equal(heartText(0), "×0");
   assert.equal(heartText(99), "×99");
   assert.equal(coinText(0), "× 000");
   assert.equal(coinText(12), "× 012");
-  assert.equal(coinText(1234), "× 1234");
-  assert.equal(hudLabel({ hearts: 5, coins: 12 }), "내 하트 5개, 코인 12개");
+  assert.equal(coinText(1000), "× 1,000");
+  assert.equal(coinText(12345), "× 12,345");
+  assert.equal(hudLabel({ hearts: 5, coins: 1200 }), "내 하트 5개, 적립금 1,200P");
 });
