@@ -17,13 +17,17 @@ from app.models.review import Review
 from app.models.trade_request import TradeRequest
 from app.models.user import User
 from app.models.wishlist import Wishlist
+from src.addresses.infrastructure.models import ShippingAddress
+from src.coupons.infrastructure.models import Coupon, UserCoupon
 from src.points.infrastructure.models import PointTransaction
+from src.returns.infrastructure.models import ReturnRequest
 
 __all__ = [
     "ActivityPoint",
     "BadgeDefinition",
     "CancelRequest",
     "CartItem",
+    "Coupon",
     "Category",
     "FandomSample",
     "Faq",
@@ -37,6 +41,8 @@ __all__ = [
     "OrderItem",
     "OrderStatusHistory",
     "Product",
+    "ReturnRequest",
+    "ShippingAddress",
     "ProductQuestion",
     "PointTransaction",
     "Region",
@@ -45,6 +51,7 @@ __all__ = [
     "TradePost",
     "TradeRequest",
     "User",
+    "UserCoupon",
     "UserBadge",
     "UserInterest",
     "Wishlist",

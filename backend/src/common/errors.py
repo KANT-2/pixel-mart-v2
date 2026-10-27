@@ -18,6 +18,7 @@ from src.auth.domain.exceptions import (
     WeakPassword,
 )
 from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, NotHolder
+from src.coupons.domain.rules import InvalidCoupon
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.points.domain.rules import InvalidPointUse
 from src.questions.domain.exceptions import (
@@ -34,6 +35,7 @@ from src.reports.domain.exceptions import (
     ReportNotFound,
     ReportTargetNotFound,
 )
+from src.returns.domain.rules import AfterDeliveryError, ReturnRequestNotFound
 
 
 class DomainError(Exception):
@@ -60,6 +62,9 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     EmptyCart: status.HTTP_409_CONFLICT,
     OutOfStock: status.HTTP_409_CONFLICT,
     InvalidPointUse: status.HTTP_400_BAD_REQUEST,
+    InvalidCoupon: status.HTTP_400_BAD_REQUEST,
+    AfterDeliveryError: status.HTTP_400_BAD_REQUEST,
+    ReturnRequestNotFound: status.HTTP_404_NOT_FOUND,
     InvalidEmail: status.HTTP_422_UNPROCESSABLE_CONTENT,
     WeakPassword: status.HTTP_422_UNPROCESSABLE_CONTENT,
     InvalidNickname: status.HTTP_422_UNPROCESSABLE_CONTENT,

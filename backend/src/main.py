@@ -26,6 +26,7 @@ from app.routers import (
     users,
     wishlist,
 )
+from src.addresses.presentation import router as addresses_api
 from src.admin_content.domain.content import FaqNotFound, NoticeNotFound
 from src.admin_content.presentation import router as admin_content_api
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
@@ -53,6 +54,8 @@ from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, No
 from src.badges.presentation import router as badges_api
 from src.common.errors import DomainError, domain_error_handler
 from src.common.logging import log_requests
+from src.coupons.domain.rules import InvalidCoupon
+from src.coupons.presentation import router as coupons_api
 from src.database import engine
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.orders.presentation import router as orders_api
@@ -74,6 +77,8 @@ from src.reports.domain.exceptions import (
     ReportTargetNotFound,
 )
 from src.reports.presentation import router as reports_api
+from src.returns.domain.rules import AfterDeliveryError, ReturnRequestNotFound
+from src.returns.presentation import router as returns_api
 
 
 # FastAPI 서버의 시작 및 종료 과정 관리
@@ -108,7 +113,7 @@ app = FastAPI(
 
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
-for order_error in (EmptyCart, OutOfStock, InvalidPointUse):
+for order_error in (EmptyCart, OutOfStock, InvalidPointUse, InvalidCoupon, AfterDeliveryError, ReturnRequestNotFound):
     app.add_exception_handler(order_error, domain_error_handler)
 for admin_order_error in (InvalidTransition, AlreadyResolved, OrderNotFound, CancelRequestNotFound):
     app.add_exception_handler(admin_order_error, domain_error_handler)
@@ -208,6 +213,10 @@ app.include_router(reports_api.router, prefix="/api")
 app.include_router(reports_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
 app.include_router(points_api.router, prefix="/api")
+app.include_router(addresses_api.router, prefix="/api")
+app.include_router(coupons_api.router, prefix="/api")
+app.include_router(returns_api.router, prefix="/api")
+app.include_router(returns_api.admin_router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(admin_orders_api.router, prefix="/api")
 app.include_router(admin_summary_api.router, prefix="/api")

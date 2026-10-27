@@ -8,6 +8,7 @@ from app.models.order import Order
 from app.models.product import Product
 from src.orders.application.service import OrderService
 from src.orders.domain.exceptions import EmptyCart
+from src.orders.domain.shipping import ShippingInfo
 from src.orders.infrastructure.repositories import OrderRepository
 from src.points.infrastructure.repositories import PointRepository
 from tests.test_orders_service import order_db as order_db
@@ -65,8 +66,7 @@ async def test_same_user_concurrent_orders_do_not_duplicate(order_db):
 
             return await service.place_order(
                 scenario.user_id,
-                "홍길동",
-                "서울시 픽셀로 8",
+                ShippingInfo(recipient_name="홍길동", address="서울시 픽셀로 8"),
             )
 
     first = asyncio.create_task(place_order(True))

@@ -10,6 +10,9 @@ STATUS_LABELS = {
     "delivered": "배송 완료",
     "cancel_requested": "취소 요청",
     "cancelled": "취소 완료",
+    "return_requested": "반품 요청",
+    "returned": "반품 완료",
+    "exchange_requested": "교환 요청",
 }
 
 

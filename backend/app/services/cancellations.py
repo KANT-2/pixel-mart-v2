@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import CancelRequest, Order, OrderStatusHistory, User
 from app.services import notifications  # 승인·거절 알림을 구매자에게 보내기 위해
 from app.services.orders import get_order
+from src.coupons.infrastructure.repositories import CouponRepository
 from src.points.infrastructure.repositories import PointRepository
 
 # 배송이 시작되기 전에만 취소를 신청할 수 있다
@@ -73,6 +74,7 @@ async def resolve_cancel(db: AsyncSession, request: CancelRequest, *, approve: b
         new_status = "cancelled"  # 주문은 취소 완료 상태가 된다
         title, body = "주문이 취소됐어요", f"주문번호 {order.id} · 결제가 취소됐어요."  # 구매자에게 보여줄 문구
         PointRepository(db).refund_order(order.user_id, order.id, order.points_used)
+        await CouponRepository(db).release_for_order(order.id)
     else:
         request.status = "rejected"  # 신청서 상태를 거절로 바꾼다
         new_status = status_before_cancel([h.status for h in order.history])  # 신청 직전 상태로 복귀
