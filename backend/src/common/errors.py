@@ -17,6 +17,7 @@ from src.auth.domain.exceptions import (
     NicknameTaken,
     WeakPassword,
 )
+from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, NotHolder
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
 from src.points.domain.rules import InvalidPointUse
 from src.questions.domain.exceptions import (
@@ -69,6 +70,10 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     MemberNotFound: status.HTTP_404_NOT_FOUND,
     CannotWithdraw: status.HTTP_400_BAD_REQUEST,
     CannotSuspend: status.HTTP_400_BAD_REQUEST,
+    BadgeNotFound: status.HTTP_404_NOT_FOUND,
+    NotEarned: status.HTTP_400_BAD_REQUEST,
+    BadgeRuleError: status.HTTP_400_BAD_REQUEST,
+    NotHolder: status.HTTP_404_NOT_FOUND,
     TradeNotFound: status.HTTP_404_NOT_FOUND,
     CannotReopen: status.HTTP_400_BAD_REQUEST,
     ReportTargetNotFound: status.HTTP_404_NOT_FOUND,

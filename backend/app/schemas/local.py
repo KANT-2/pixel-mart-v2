@@ -49,7 +49,7 @@ class LocalProfileOut(CamelModel):
 
 
 class BadgeOut(CamelModel):
-    """활동 뱃지 (기록으로 계산 — 받은 날짜는 없음)"""
+    """활동 뱃지 (받은 순간 저장 — 동네 큰손만 매주 계산)"""
 
     code: str = Field(examples=["santa"])
     icon: str = Field(examples=["🎁"], description="글자 아이콘 (그림을 못 불러올 때)")
@@ -58,15 +58,27 @@ class BadgeOut(CamelModel):
     description: str = Field(examples=["이웃에게 선물 3번 전달"])
 
 
+class BadgeProgressOut(CamelModel):
+    current: int
+    goal: int
+
+
 class BadgeBookItemOut(BadgeOut):
     earned: bool
+    kind: Literal["auto", "event"] = "auto"
+    earned_at: datetime | None = None
+    is_new: bool = Field(default=False, description="받은 지 7일 안 됨")
+    is_weekly: bool = Field(default=False, description="동네 큰손 — 매주 월요일에 다시 정해요")
+    progress: BadgeProgressOut | None = Field(default=None, description="진행 막대 (한 번에 받는 뱃지는 null)")
+    granted_memo: str | None = Field(default=None, description="관리자가 준 이벤트 뱃지의 메모")
 
 
 class BadgeBookOut(CamelModel):
-    """내 뱃지 도감 — 전체 뱃지와 받은 여부"""
+    """내 뱃지 도감 — 자동 19종 + 내가 받은 이벤트 뱃지"""
 
     earned_count: int
     total: int
+    featured: str | None = Field(default=None, description="대표 뱃지 코드 (고른 것, 없으면 가장 받기 어려운 것)")
     items: list[BadgeBookItemOut]
 
 

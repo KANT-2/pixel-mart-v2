@@ -2,16 +2,27 @@
 
 import random
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import delete, func, or_, select
 
 from app.deps import CurrentUser, DbSession, OptionalUser
-from app.models import ActivityPoint, FandomSample, Interest, Order, Region, TradePost, User, UserInterest
+from app.models import (
+    ActivityPoint,
+    BadgeDefinition,
+    FandomSample,
+    Interest,
+    Order,
+    Region,
+    TradePost,
+    User,
+    UserBadge,
+    UserInterest,
+)
 from app.schemas.local import (
     ActivityLogOut,
-    BadgeBookItemOut,
     BadgeBookOut,
     BadgeOut,
     BuyerRankingOut,
@@ -27,7 +38,7 @@ from app.schemas.local import (
     MyActivityOut,
     RegionOut,
 )
-from app.services import activity, badges, local_stats
+from app.services import activity, badges, local_stats, notifications
 from app.services.local_stats import MIN_GROUP_SIZE, Period, period_start, present, rollup
 from app.services.regions import RegionTree, load_tree
 from app.services.sample_avatars import sample_avatars, sample_nicknames
@@ -97,6 +108,7 @@ async def put_my_local(body: LocalProfileIn, user: CurrentUser, db: DbSession):
     if found != wanted:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "존재하지 않는 취향이 있습니다.")
 
+    before = await notifications.snapshot(db, user.id)
     user.region_code = body.region_code
     user.fandom_opt_in = body.fandom_opt_in
     user.profile_public = body.profile_public
@@ -112,6 +124,7 @@ async def put_my_local(body: LocalProfileIn, user: CurrentUser, db: DbSession):
     db.add_all(UserInterest(user_id=user.id, interest_id=i) for i in wanted - current)
     if body.region_code and wanted:
         await activity.award(db, user.id, "profile")  # 지역·취향 프로필 처음 완성 (한 번만)
+    await notifications.notify_progress(db, user.id, before)  # 동네 등록 · 지도 데뷔 뱃지
     await db.commit()
     return await _profile_out(db, user)
 
@@ -288,15 +301,29 @@ async def _cards(db: DbSession, users: list[User], viewer_id: int | None) -> dic
             want_count=wants.get(u.id, 0) if u.nickname_public else 0,
             is_me=u.id == viewer_id,
             is_public=u.map_card_public,
-            badge=_badge_out(badges.representative(got)),
+            badge=_badge_out(await _featured(db, u, got)),
             badge_count=len(got),
         )
     return cards
 
 
-def _badge_out(badge: badges.Badge | None) -> BadgeOut | None:
-    if badge is None:
-        return None
+async def _featured(db: DbSession, user: User, got: list[badges.Badge]):
+    """이웃 카드 대표 뱃지 — 내가 고른 것(받은 것만) → 없으면 가장 받기 어려운 것"""
+    code = user.featured_badge
+    if code:
+        owned = await db.scalar(select(UserBadge.code).where(UserBadge.user_id == user.id, UserBadge.code == code))
+        if owned and code in badges.BY_CODE:
+            return badges.BY_CODE[code]
+        if owned:
+            event = await db.get(BadgeDefinition, code)
+            if event is not None:
+                return BadgeOut(code=code, icon="🎪", image=event.image, name=event.name, description=event.description)
+    return badges.representative(got)
+
+
+def _badge_out(badge: badges.Badge | BadgeOut | None) -> BadgeOut | None:
+    if badge is None or isinstance(badge, BadgeOut):
+        return badge
     return BadgeOut(code=badge.code, icon=badge.icon, image=badge.image, name=badge.name, description=badge.description)
 
 
@@ -475,14 +502,10 @@ async def buyer_ranking(
 
 @router.get("/users/me/badges", response_model=BadgeBookOut, summary="내 뱃지 도감 — 전체 뱃지와 받은 여부")
 async def my_badges(user: CurrentUser, db: DbSession):
-    got = {b.code for b in badges.earned((await badges.stats_for(db, [user]))[user.id])}
-    items = [
-        BadgeBookItemOut(
-            code=b.code, icon=b.icon, image=b.image, name=b.name, description=b.description, earned=b.code in got
-        )
-        for b in badges.BADGES
-    ]
-    return BadgeBookOut(earned_count=len(got), total=len(items), items=items)
+    # 받은 날짜 · 진행도 · 대표 뱃지 · 이벤트 뱃지까지 (src/badges)
+    from src.badges.presentation.router import book_out, service
+
+    return book_out(await service(db).book(user.id, datetime.now(UTC)))
 
 
 @router.get("/users/me/activity", response_model=MyActivityOut, summary="내 활동 점수 — 하트·코인 (나에게만 정확한 값)")

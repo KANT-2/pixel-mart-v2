@@ -91,6 +91,7 @@ async def users(monkeypatch):
                     {"c": code, "l": level, "p": parent, "n": name},
                 )
             await conn.execute(text(f"DELETE FROM activity_points WHERE user_id IN ({USERS})"))
+            await conn.execute(text(f"DELETE FROM user_badges WHERE user_id IN ({USERS})"))  # 저장된 뱃지도 처음 상태로
             await conn.execute(text(f"DELETE FROM trade_posts WHERE user_id IN ({USERS})"))
     except Exception:
         pytest.skip("로컬 DB가 없거나 마이그레이션 전입니다 (alembic upgrade head → python -m scripts.seed)")
@@ -115,6 +116,7 @@ async def users(monkeypatch):
 
     async with engine.begin() as conn:
         await conn.execute(text(f"DELETE FROM activity_points WHERE user_id IN ({USERS})"))
+        await conn.execute(text(f"DELETE FROM user_badges WHERE user_id IN ({USERS})"))  # 저장된 뱃지도 처음 상태로
         await conn.execute(text(f"DELETE FROM trade_posts WHERE user_id IN ({USERS})"))
         await conn.execute(text("DELETE FROM fandom_samples WHERE region_code LIKE 'ACT%'"))
         await conn.execute(
@@ -149,7 +151,7 @@ async def test_profile_and_first_want_count_once(users):
     await me.post("/api/local/trades", json=want("머그컵 하나"))
     mine = await score(me)
     assert mine["score"] == 15 and mine["hearts"] == 0 and mine["level"] == "새내기 이웃" and mine["nextHeartAt"] == 30
-    assert [r["label"] for r in mine["recent"]] == ["첫 WANT 등록", "지역·취향 프로필 처음 완성"]
+    assert [r["label"] for r in mine["recent"]] == ["첫 WISH 등록", "지역·취향 프로필 처음 완성"]
 
 
 async def test_no_profile_points_without_interests(users):
@@ -195,13 +197,13 @@ async def test_cards_only_for_opted_in_and_without_identity(users):
         "isMe": True,
         "isPublic": True,
         "isSample": False,
-        # 가입·동네 등록·첫 WANT 3개 중 가장 받기 어려운 첫 WANT가 대표
+        # 가입·동네 등록·첫 WISH 3개 중 가장 받기 어려운 첫 WISH가 대표
         "badge": {
             "code": "first_want",
             "icon": "💌",
             "image": "/images/badges/first_want.png",
-            "name": "첫 WANT",
-            "description": "갖고 싶은 아이템 WANT 글 첫 등록",
+            "name": "첫 WISH",
+            "description": "갖고 싶은 아이템 WISH 글 첫 등록",
         },
         "badgeCount": 3,
     }

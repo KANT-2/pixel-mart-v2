@@ -1,15 +1,16 @@
-"""활동 뱃지 — 따로 저장하지 않고 지금 있는 기록(주문·리뷰·활동 점수·거래·선물)으로 계산한다
+"""활동 뱃지 — 지금 있는 기록(주문·리뷰·활동 점수·거래·선물)으로 계산하고, 받은 순간 user_badges에 저장한다
 
-새 테이블·마이그레이션이 없어서 기준을 바꾸면 바로 모두에게 반영된다. 받은 날짜는 남기지 않는다.
+한 번 받으면 계속 가진다 (주문 취소 · 리뷰 숨김에도 유지). 동네 큰손만 매주 다시 계산하고 저장하지 않는다.
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 
 from sqlalchemy import distinct, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ActivityPoint, Gift, Order, OrderItem, Product, Review, TradePost, User
+from app.models import ActivityPoint, Gift, Order, OrderItem, Product, Review, TradePost, User, UserBadge
 from app.services import activity, local_stats
 from app.services.trade_rules import DEMO_EMAIL_DOMAIN
 
@@ -53,12 +54,12 @@ BADGES: tuple[Badge, ...] = (
     Badge("local", "🗺️", "동네 등록", "지역·취향 프로필 완성", 2),
     Badge("map_debut", "👾", "지도 데뷔", "픽셀 아바타로 덕력지도에 등장", 3),
     Badge("first_order", "🛒", "첫 장착", "첫 주문 (취소 제외)", 4),
-    Badge("first_want", "💌", "첫 WANT", "갖고 싶은 아이템 WANT 글 첫 등록", 5),
+    Badge("first_want", "💌", "첫 WISH", "갖고 싶은 아이템 WISH 글 첫 등록", 5),
     Badge("first_trade", "🤝", "첫 거래", "동네 교환·거래 1회 완료", 6),
     Badge("reviewer", "✍️", "리뷰어", "리뷰 3개 작성", 7),
     Badge("collector", "🎒", "컬렉터", "서로 다른 카테고리 상품 4가지 구매", 8),
     Badge("santa", "🎁", "동네 산타", "이웃에게 선물 3번 전달", 9),
-    Badge("wish_done", "✨", "소원 성취", "내 WANT가 선물이나 거래로 이루어짐", 10),
+    Badge("wish_done", "✨", "소원 성취", "내 WISH가 선물이나 거래로 이루어짐", 10),
     Badge("unique_hunter", "💎", "유니크 헌터", "UNIQUE 등급 아이템 구매", 11),
     Badge("regular", "🏠", "단골 이웃", "하트 3개 달성", 12),
     Badge("trader_1", "🪙", "교환 장인 Ⅰ", "교환·거래 10회 완료", 13),
@@ -70,6 +71,7 @@ BADGES: tuple[Badge, ...] = (
     Badge("hearts_3", "🏆", "하트 수집가 Ⅲ", "하트 99개 달성", 19),
 )
 BY_CODE: dict[str, Badge] = {b.code: b for b in BADGES}
+WEEKLY = "top_buyer"  # 매주 다시 정해서 저장하지 않는 뱃지
 KST = timezone(timedelta(hours=9))
 
 
@@ -152,7 +154,9 @@ async def stats_for(db: AsyncSession, users: list[User]) -> dict[int, Stats]:
         stats[user_id].unique = bool(unique_count)
 
     reviews = await db.execute(
-        select(Review.user_id, func.count()).where(Review.user_id.in_(ids)).group_by(Review.user_id)
+        select(Review.user_id, func.count())
+        .where(Review.user_id.in_(ids), Review.is_hidden.is_(False))  # 숨긴 리뷰는 세지 않음
+        .group_by(Review.user_id)
     )
     for user_id, n in reviews:
         stats[user_id].reviews = n
@@ -199,3 +203,29 @@ async def _top_buyers(db: AsyncSession, regions: set[str], now: datetime | None 
         if total:
             by_region.setdefault(region, []).append((int(total), user_id))
     return {user_id for people in by_region.values() for total, user_id in people if total == max(t for t, _ in people)}
+
+
+async def sync(db: AsyncSession, user: User, stats: Stats | None = None, before: Stats | None = None) -> list[Badge]:
+    """지금 기록으로 받은 자동 뱃지를 user_badges에 저장하고, 새로 받은 것을 돌려준다 (commit은 부르는 쪽)
+
+    처음 한 번(저장된 뱃지가 하나도 없을 때)은 이미 받아 둔 것을 조용히 채운다 — 알림 폭탄 방지.
+    before(이번 행동 전 기록)가 있으면 그때 이미 받은 것만 조용히, 이번에 새로 받은 건 돌려준다.
+    """
+    stats = stats or (await stats_for(db, [user]))[user.id]
+    stored = set(await db.scalars(select(UserBadge.code).where(UserBadge.user_id == user.id)))
+    if not stored:
+        baseline = earned(before) if before is not None else earned(stats)
+        stored = {b.code for b in baseline if b.code != WEEKLY}
+        await _store(db, user.id, stored)
+    new = [b for b in earned(stats) if b.code != WEEKLY and b.code not in stored]
+    await _store(db, user.id, {b.code for b in new})
+    return new
+
+
+async def _store(db: AsyncSession, user_id: int, codes: set[str]) -> None:
+    if codes:
+        await db.execute(
+            insert(UserBadge)
+            .values([{"user_id": user_id, "code": c} for c in sorted(codes)])
+            .on_conflict_do_nothing(index_elements=["user_id", "code"])
+        )

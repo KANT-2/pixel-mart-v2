@@ -26,6 +26,7 @@ async def cleanup() -> None:
         await conn.execute(text(f"DELETE FROM orders WHERE user_id IN ({USERS})"))
         await conn.execute(text(f"DELETE FROM cart_items WHERE user_id IN ({USERS})"))
         await conn.execute(text(f"DELETE FROM activity_points WHERE user_id IN ({USERS})"))
+        await conn.execute(text(f"DELETE FROM user_badges WHERE user_id IN ({USERS})"))  # 저장된 뱃지도 처음 상태로
         await conn.execute(text(f"DELETE FROM notifications WHERE user_id IN ({USERS})"))
         await conn.execute(text("DELETE FROM trade_posts WHERE region_code LIKE 'NTF%'"))
         await conn.execute(text("UPDATE users SET region_code = NULL WHERE region_code LIKE 'NTF%'"))
