@@ -13,5 +13,5 @@ const statusColors: Record<string, string> = {
 };
 
 export default function OrderStatusBadge({ status, label }: OrderStatusBadgeProps) {
-  return <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-xs font-bold ${statusColors[status] ?? "border-line bg-panel-2 text-sub"}`}>{label}</span>;
+  return <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-bold ${statusColors[status] ?? "border-line bg-panel-2 text-sub"}`}>{label}</span>;
 }

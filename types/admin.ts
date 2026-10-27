@@ -91,10 +91,30 @@ export interface AdminCancelQuery {
   size?: number; // 한 쪽에 몇 건 (기본 5건)
 }
 
-// 대시보드 숫자 카드 4개 — #98 백엔드 응답(AdminSummaryOut)과 이름을 똑같이 맞춘다
+// 주문 단계별 현황 막대가 쓰는 상태 6종 건수 — #113 백엔드 응답과 이름을 똑같이 맞춘다
+export interface AdminOrderStatusCounts {
+  paid: number; // 주문 완료
+  preparing: number; // 상품 준비중
+  shipping: number; // 배송중
+  delivered: number; // 배송 완료
+  cancelRequested: number; // 취소 요청
+  cancelled: number; // 취소 완료
+}
+
+// 재고 부족 목록 한 줄 — rarity는 utils/gameItem.ts의 Rarity와 같은 값(common/rare/epic/unique)
+export interface AdminLowStockProduct {
+  id: number; // 상품 번호
+  name: string; // 상품 이름
+  rarity: string; // 등급
+  stock: number; // 남은 재고
+}
+
+// 대시보드 숫자 카드 4개 + 주문 단계별 현황 + 재고 부족 목록 — #98·#113 백엔드 응답(AdminSummaryOut)과 이름을 똑같이 맞춘다
 export interface AdminSummary {
   ordersToday: number; // 오늘 들어온 주문 수 (상태 무관, 취소 포함)
   preparingOrders: number; // 배송 준비중(preparing) 주문 수
   pendingCancelRequests: number; // 취소 요청 대기(requested) 수
   unansweredQuestions: number; // 미답변 문의 수
+  orderStatusCounts: AdminOrderStatusCounts; // 주문 상태 6종 건수
+  lowStockProducts: AdminLowStockProduct[]; // 재고 10개 이하 상품(숨김 제외, 재고순 최대 20개)
 }

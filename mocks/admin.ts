@@ -6,10 +6,12 @@ import type {
   AdminCancelQuery,
   AdminCancelRequest,
   AdminCancelStatus,
+  AdminLowStockProduct,
   AdminOrderCounts,
   AdminOrderDetail,
   AdminOrderQuery,
   AdminOrderStatus,
+  AdminOrderStatusCounts,
   AdminOrderSummary,
   AdminSummary,
   Page,
@@ -257,7 +259,15 @@ export async function rejectCancel(id: number): Promise<void> {
   findOrder(cancel.orderId).history.push({ status: cancel.prevStatus, changedAt: new Date().toISOString() }); // 주문은 신청 직전 상태로 돌아간다
 }
 
-// 대시보드 숫자 카드 4개(#98) — 주문·취소 요청은 기존 가짜 데이터로 세고, 문의는 목업이 없어 고정값을 쓴다
+// 재고 부족 목록 목업(#113) — 품절·곧 품절·주의 세 구간을 전부 보여주도록 재고를 다르게 둔다
+const LOW_STOCK_PRODUCTS: AdminLowStockProduct[] = [
+  { id: 101, name: "픽셀 드래곤 피규어", rarity: "unique", stock: 0 },
+  { id: 102, name: "네온 사인 무드등", rarity: "epic", stock: 2 },
+  { id: 103, name: "8비트 마우스패드", rarity: "rare", stock: 6 },
+  { id: 104, name: "레트로 저금통", rarity: "common", stock: 9 },
+];
+
+// 대시보드 숫자 카드 4개 + 주문 단계별 현황 + 재고 부족 목록(#98, #113) — 주문·취소 요청은 기존 가짜 데이터로 세고, 문의·재고는 목업이 없어 고정값을 쓴다
 export async function summary(): Promise<AdminSummary> {
   await wait();
   // 날짜가 제일 늦은(가장 최근) 주문의 날짜를 "오늘"로 보고, 같은 날짜의 주문 수를 센다
@@ -268,5 +278,19 @@ export async function summary(): Promise<AdminSummary> {
   const ordersToday = ORDERS.filter((order) => order.history[0].changedAt.slice(0, 10) === latestDate).length;
   const preparingOrders = ORDERS.filter((order) => statusOf(order) === "preparing").length;
   const pendingCancelRequests = CANCELS.filter((cancel) => cancel.status === "requested").length;
-  return { ordersToday, preparingOrders, pendingCancelRequests, unansweredQuestions: 3 }; // 문의 목업 데이터가 없어 고정값
+  // 주문 전체를 한 번 돌며 6개 상태별로 센다 (키 이름은 AdminOrderStatusCounts와 같다)
+  const orderStatusCounts: AdminOrderStatusCounts = { paid: 0, preparing: 0, shipping: 0, delivered: 0, cancelRequested: 0, cancelled: 0 };
+  for (const order of ORDERS) {
+    const status = statusOf(order);
+    if (status === "cancel_requested") orderStatusCounts.cancelRequested += 1; // 쿼리 값과 필드 이름이 달라서 따로 처리
+    else orderStatusCounts[status] += 1;
+  }
+  return {
+    ordersToday,
+    preparingOrders,
+    pendingCancelRequests,
+    unansweredQuestions: 3, // 문의 목업 데이터가 없어 고정값
+    orderStatusCounts,
+    lowStockProducts: LOW_STOCK_PRODUCTS, // 재고 목업 데이터가 없어 고정 목록
+  };
 }
