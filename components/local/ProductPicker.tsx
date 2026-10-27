@@ -5,7 +5,7 @@ import type { ApiProduct } from "@/types/api";
 import { localApi } from "@/lib/local";
 import { localButton, localInput } from "@/components/local/LocalStates";
 import { formatPrice } from "@/utils/formatPrice";
-import { rarityOf } from "@/utils/gameItem";
+import { productRarity } from "@/utils/gameItem";
 
 interface ProductPickerProps { selected: ApiProduct | null; onChange: (product: ApiProduct | null) => void; disabled?: boolean; }
 
@@ -95,7 +95,7 @@ function ProductSearchModal({ initial, selectedId, onClose, onPick }: ProductSea
           : !loading && !items.length ? <p className="py-8 text-center text-sm text-sub">맞는 상품이 없어요. 다른 이름으로 찾거나 연결 없이 작성할 수 있어요.</p>
             : <ul aria-label="상품 검색 결과" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {items.map((product) => {
-                const rarity = rarityOf(product.price);
+                const rarity = productRarity(product);
                 return <li key={product.id}>
                   <button type="button" aria-pressed={selectedId === product.id} onClick={() => onPick(product)}
                     className="flex h-full w-full flex-col gap-2 rounded-md border-2 border-frame bg-night p-2 text-left hover:border-lime aria-pressed:border-lime focus-visible:outline-2 focus-visible:outline-mint">
