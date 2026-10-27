@@ -67,7 +67,21 @@ async def test_badge_book_for_new_player(client):
         body = (await client.get("/api/users/me/badges")).json()
         assert body["total"] == 19 and body["earnedCount"] == 1
         assert [i["code"] for i in body["items"] if i["earned"]] == ["new_player"]
-        assert set(body["items"][0]) == {"code", "icon", "image", "name", "description", "earned"}
+        assert body["featured"] == "new_player"
+        assert set(body["items"][0]) == {
+            "code",
+            "icon",
+            "image",
+            "name",
+            "description",
+            "earned",
+            "kind",
+            "earnedAt",
+            "isNew",
+            "isWeekly",
+            "progress",
+            "grantedMemo",
+        }
     finally:
         async with engine.begin() as conn:
             await conn.execute(text("DELETE FROM users WHERE email = 'badge-new@pixelmart.test'"))

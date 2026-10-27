@@ -24,7 +24,7 @@ class Rule:
 
 RULES: dict[str, Rule] = {
     "profile": Rule("지역·취향 프로필 처음 완성", 5, None),
-    "first_want": Rule("첫 WANT 등록", 10, None),
+    "first_want": Rule("첫 WISH 등록", 10, None),
     "trade_done": Rule("거래·교환 정상 완료", 20, 3),
     "gift_sent": Rule("선물 보내기 완료", 10, 3),
     "contribution": Rule("유효한 커뮤니티 기여", 5, 5),

@@ -63,18 +63,27 @@ async def notify_progress(db: AsyncSession, user_id: int, before: badges.Stats |
             QUESTS_HREF,
             f"heart:{hearts}",
         )
-    had = {b.code for b in badges.earned(before)}
-    for badge in badges.earned(after):
-        if badge.code not in had:
-            await notify(
-                db,
-                user_id,
-                "badge",
-                f"뱃지 획득! {badge.name}",
-                badge.description,
-                BADGES_HREF,
-                f"badge:{badge.code}",
-            )
+    await check_badges(db, user_id, after, before)
+    # 동네 큰손은 저장하지 않으니 이번 주에 새로 된 경우만 따로 알린다
+    if after.top_buyer and not before.top_buyer:
+        await _notify_badge(db, user_id, badges.BY_CODE[badges.WEEKLY])
+
+
+async def check_badges(
+    db: AsyncSession, user_id: int, stats: badges.Stats | None = None, before: badges.Stats | None = None
+) -> None:
+    """새로 받은 자동 뱃지를 저장하고 알린다 (같은 뱃지는 ref_key로 한 번만). commit은 부르는 쪽"""
+    user = await _real_user(db, user_id)
+    if user is None:
+        return
+    for badge in await badges.sync(db, user, stats, before):
+        await _notify_badge(db, user_id, badge)
+
+
+async def _notify_badge(db: AsyncSession, user_id: int, badge: badges.Badge) -> None:
+    await notify(
+        db, user_id, "badge", f"뱃지 획득! {badge.name}", badge.description, BADGES_HREF, f"badge:{badge.code}"
+    )
 
 
 async def points_awarded(db: AsyncSession, user_id: int, kind: str, ref_id: int, before: badges.Stats | None) -> None:

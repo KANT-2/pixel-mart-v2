@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.deps import CurrentUser, DbSession, OptionalUser
 from app.schemas.user import AvatarIn, NicknameCheckOut, UserOut, UserUpdateIn
+from app.services import notifications
 from app.services.nickname import TAKEN_MESSAGE, is_taken, suggest_nicknames
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -38,7 +39,9 @@ async def update_me(body: UserUpdateIn, user: CurrentUser, db: DbSession):
 
 @router.put("/me/avatar", response_model=UserOut, summary="픽셀 아바타 저장 (PNG data URL, 200KB 이하)")
 async def put_avatar(body: AvatarIn, user: CurrentUser, db: DbSession):
+    before = await notifications.snapshot(db, user.id)
     user.avatar_url = body.avatar_url
+    await notifications.notify_progress(db, user.id, before)  # 지도 데뷔 뱃지
     await db.commit()
     return user
 

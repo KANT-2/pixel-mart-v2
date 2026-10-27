@@ -49,6 +49,8 @@ from src.auth.domain.exceptions import (
     WeakPassword,
 )
 from src.auth.presentation import router as auth_api
+from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, NotHolder
+from src.badges.presentation import router as badges_api
 from src.common.errors import DomainError, domain_error_handler
 from src.common.logging import log_requests
 from src.database import engine
@@ -140,6 +142,8 @@ for report_error in (AlreadyReported, CannotReport, ReportAlreadyHandled, Report
     app.add_exception_handler(report_error, domain_error_handler)
 for admin_trade_error in (TradeNotFound, CannotReopen):
     app.add_exception_handler(admin_trade_error, domain_error_handler)
+for badge_error in (BadgeNotFound, NotEarned, BadgeRuleError, NotHolder):
+    app.add_exception_handler(badge_error, domain_error_handler)
 
 # 프론트엔드의 직접 API 호출을 위한 CORS 설정
 # 허용 출처는 환경변수 FRONTEND_URL에서 가져옴
@@ -197,6 +201,8 @@ for router in (
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(auth_api.users_router, prefix="/api")
+app.include_router(badges_api.router, prefix="/api")
+app.include_router(badges_api.admin_router, prefix="/api")
 app.include_router(admin_trades_api.router, prefix="/api")
 app.include_router(reports_api.router, prefix="/api")
 app.include_router(reports_api.admin_router, prefix="/api")

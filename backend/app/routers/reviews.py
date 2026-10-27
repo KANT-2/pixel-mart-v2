@@ -8,6 +8,7 @@ from app.deps import ActiveUser, CurrentUser, DbSession, OptionalUser
 from app.models import Product
 from app.schemas.common import Message
 from app.schemas.review import ReviewIn, ReviewOut, ReviewPage
+from app.services import notifications
 from app.services.reviews import (
     AlreadyReviewedError,
     NotPurchasedError,
@@ -54,12 +55,15 @@ async def get_reviews(
 @router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED, summary="리뷰 작성 (배송 완료 상품만)")
 async def post_review(product_id: int, body: ReviewIn, user: ActiveUser, db: DbSession):
     await _require_product(db, product_id)
+    before = await notifications.snapshot(db, user.id)
     try:
         review = await create_review(db, user, product_id, body)
     except NotPurchasedError:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "배송이 완료된 상품만 리뷰를 작성할 수 있습니다.") from None
     except AlreadyReviewedError:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "이미 리뷰를 작성한 상품입니다.") from None
+    await notifications.notify_progress(db, user.id, before)  # 리뷰어 뱃지
+    await db.commit()
     return ReviewOut.from_model(review, user.id)
 
 
