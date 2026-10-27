@@ -2,17 +2,17 @@ import Link from "next/link";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/utils/formatPrice";
 import WishButton from "@/components/WishButton";
-import { rarityOf } from "@/utils/gameItem";
+import { productRarity } from "@/utils/gameItem";
 import { stockLabel, stockStatus } from "@/utils/stock";
 
 interface ProductCardProps {
-  product: Product & { stock?: number };
+  product: Product & { stock?: number; rarity?: string };
   muted?: boolean;
 }
 
 export default function ProductCard({ product, muted = false }: ProductCardProps) {
-  // 가격대 등급(COMMON~UNIQUE)을 사진 아래쪽 이름표로 — 게임 아이템처럼
-  const rarity = rarityOf(product.price);
+  // 등급(COMMON~UNIQUE)을 사진 아래쪽 이름표로 — 서버 값 우선, 없으면 가격으로 (#105)
+  const rarity = productRarity(product);
   // 재고 0이면 사진을 덮는 SOLD OUT, 1~5면 왼쪽 아래 'n개 남음' (#104)
   const stock = stockStatus(product.stock);
   const stockText = stockLabel(stock);

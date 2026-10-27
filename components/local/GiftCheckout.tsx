@@ -14,7 +14,7 @@ import { ApiError } from "@/lib/api";
 import { giftApi } from "@/lib/gifts";
 import { containsContact } from "@/utils/localTrades";
 import { formatPrice } from "@/utils/formatPrice";
-import { rarityOf } from "@/utils/gameItem";
+import { productRarity } from "@/utils/gameItem";
 import type { ApiGift, ApiProduct, ApiTradePost } from "@/types/api";
 
 /** 이웃에게 선물 — 받는 사람은 위시맵 WISH 글 작성자, 결제 후 받는 사람이 주소를 넣으면 배송 */
@@ -82,7 +82,7 @@ function GiftForm({ post, product }: { post: ApiTradePost; product: ApiProduct }
     </div>
   </div>;
 
-  const rarity = rarityOf(product?.price);
+  const rarity = productRarity(product);
   return <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="space-y-5">
       {/* 교환 창과 같은 형식 — 왼쪽 나(보낼 선물), 오른쪽 이웃 플레이어(구하는 물건) */}

@@ -38,6 +38,17 @@ export function rarityOf(price: number | null | undefined): RarityInfo {
   return RARITIES.unique;
 }
 
+/** 서버가 알려 준 값이 등급 키인지 */
+export const isRarity = (value: unknown): value is Rarity => typeof value === "string" && (RARITY_KEYS as readonly string[]).includes(value);
+
+/**
+ * 상품 등급 (#105) — 서버 값(products.rarity, 관리자가 정함)을 먼저 쓰고,
+ * 값이 없을 때(서버가 꺼져 정적 데이터로 보여 줄 때 등)만 가격으로 계산한다
+ */
+export function productRarity(product: { price?: number | null; rarity?: string | null } | null | undefined): RarityInfo {
+  return isRarity(product?.rarity) ? RARITIES[product.rarity] : rarityOf(product?.price);
+}
+
 /** 물건 상태 → 내구도 바 */
 export function durabilityOf(condition: string | null | undefined): { percent: number; label: string } | null {
   if (condition === "new") return { percent: 100, label: "새 상품" };

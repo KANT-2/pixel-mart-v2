@@ -1,4 +1,5 @@
 import type { Product } from "@/types/product";
+import type { Rarity } from "@/utils/gameItem";
 
 export interface Page<T> {
   items: T[];
@@ -13,6 +14,8 @@ export interface ApiProduct extends Product {
   isNew: boolean;
   /** 남은 재고 — 서버 응답에만 있고, 정적 대체 데이터에는 없음 (#104) */
   stock?: number;
+  /** 아이템 등급 — 서버 값(관리자가 정함). 없으면 가격으로 계산 (#105) */
+  rarity?: Rarity;
 }
 
 export interface ApiCategory {

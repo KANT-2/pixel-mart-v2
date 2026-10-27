@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 import { giftApi } from "@/lib/gifts";
 import { formatDate } from "@/utils/formatDate";
 import { formatPrice } from "@/utils/formatPrice";
-import { rarityOf } from "@/utils/gameItem";
+import { productRarity } from "@/utils/gameItem";
 import type { ApiGift } from "@/types/api";
 
 type Box = "received" | "sent";
@@ -54,7 +54,7 @@ const STATUS_TONE: Record<ApiGift["status"], string> = {
 };
 
 function GiftRow({ gift, onChanged }: { gift: ApiGift; onChanged: () => void }) {
-  const rarity = rarityOf(gift.product.price);
+  const rarity = productRarity(gift.product);
   const [mode, setMode] = useState<"idle" | "accept" | "decline">("idle");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");

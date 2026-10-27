@@ -6,7 +6,7 @@ import AddToCartButton from "@/components/AddToCartButton";
 import WishButton from "@/components/WishButton";
 import ProductCard from "@/components/ProductCard";
 import { formatPrice } from "@/utils/formatPrice";
-import { rarityOf } from "@/utils/gameItem";
+import { productRarity } from "@/utils/gameItem";
 import { stockLabel, stockStatus } from "@/utils/stock";
 import { getProduct, getProducts, getProductParams } from "@/lib/products";
 import { ProductFallbackNotice } from "@/components/products/ProductStates";
@@ -45,7 +45,7 @@ async function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
 
   // 없는 id(/products/999, /products/abc) → 같은 폴더의 not-found.tsx 표시
   if (!product) notFound();
-  const rarity = rarityOf(product.price);
+  const rarity = productRarity(product); // 서버 등급 우선 (#105)
   const stock = stockStatus(product.stock); // 품절 · 'n개 남음' (#104)
   const stockText = stockLabel(stock);
 
