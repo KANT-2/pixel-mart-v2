@@ -33,6 +33,7 @@ from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidPr
 from src.admin_products.presentation import router as admin_products_api
 from src.admin_summary.presentation import router as admin_summary_api
 from src.auth.domain.exceptions import (
+    CannotWithdraw,
     EmailTaken,
     InvalidEmail,
     InvalidNickname,
@@ -103,6 +104,7 @@ for auth_error in (
     EmailTaken,
     NicknameTaken,
     MemberNotFound,
+    CannotWithdraw,
 ):
     app.add_exception_handler(auth_error, domain_error_handler)
 for question_error in (
@@ -172,6 +174,7 @@ for router in (
 # 새 4계층 라우터 등록
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
+app.include_router(auth_api.users_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
 app.include_router(admin_cancel_api.router, prefix="/api")
 app.include_router(admin_orders_api.router, prefix="/api")

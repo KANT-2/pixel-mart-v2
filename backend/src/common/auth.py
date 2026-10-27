@@ -43,7 +43,7 @@ async def authenticate(db: AsyncSession, raw: str) -> tuple[User, IssuedToken]:
     if await TokenBlacklistRepository(db).contains(token.jti):
         raise InvalidToken()
     user = await db.get(User, token.user_id)
-    if user is None:
+    if user is None or user.deleted_at is not None:  # 탈퇴한 계정의 다른 토큰도 거부
         raise InvalidToken()
     return user, token
 
