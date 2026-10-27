@@ -19,7 +19,7 @@ export default function MyPage() {
     <BadgeBook />
     <Link href="/local/settings" className="mb-6 flex items-center gap-4 pixel-panel p-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">
       <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2 font-pixel text-mint">LOC</span>
-      <span><span className="block font-bold">내 동네·취향 설정 →</span><span className="mt-1 block text-sm text-sub">우리 동네의 취향을 발견하고 집계 참여 여부를 설정하세요.</span></span>
+      <span><span className="block font-bold">내 동네·취향·공개 설정 →</span><span className="mt-1 block text-sm text-sub">우리 동네와 취향, 그리고 취향·닉네임·이웃 카드를 다른 사람에게 보여 줄지 정하세요.</span></span>
     </Link>
     <Link href="/mypage/orders" className="mb-6 flex items-center gap-4 pixel-panel p-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mint">
       <span aria-hidden="true" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2 font-pixel text-mint">BOX</span>
