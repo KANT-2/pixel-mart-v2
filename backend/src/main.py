@@ -29,9 +29,9 @@ from app.routers import (
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.admin_orders.presentation import router as admin_orders_api
-from src.admin_summary.presentation import router as admin_summary_api
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
 from src.admin_products.presentation import router as admin_products_api
+from src.admin_summary.presentation import router as admin_summary_api
 from src.auth.domain.exceptions import (
     EmailTaken,
     InvalidEmail,
