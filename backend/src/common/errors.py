@@ -18,6 +18,7 @@ from src.auth.domain.exceptions import (
     WeakPassword,
 )
 from src.orders.domain.exceptions import EmptyCart, OutOfStock
+from src.points.domain.rules import InvalidPointUse
 from src.questions.domain.exceptions import (
     AnsweredQuestionNotDeletable,
     InvalidQuestion,
@@ -57,6 +58,7 @@ class InvalidInputError(DomainError):
 ERROR_STATUS_MAP: dict[type[Exception], int] = {
     EmptyCart: status.HTTP_409_CONFLICT,
     OutOfStock: status.HTTP_409_CONFLICT,
+    InvalidPointUse: status.HTTP_400_BAD_REQUEST,
     InvalidEmail: status.HTTP_422_UNPROCESSABLE_CONTENT,
     WeakPassword: status.HTTP_422_UNPROCESSABLE_CONTENT,
     InvalidNickname: status.HTTP_422_UNPROCESSABLE_CONTENT,

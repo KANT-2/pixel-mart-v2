@@ -13,6 +13,8 @@ from app.models.product import Category, Product
 from src.admin_orders.application.service import AdminOrderService
 from src.admin_orders.domain.exceptions import AlreadyResolved, InvalidTransition
 from src.admin_orders.infrastructure.repositories import AdminOrderRepository
+from src.points.infrastructure.models import PointTransaction
+from src.points.infrastructure.repositories import PointRepository
 
 
 @dataclass(frozen=True)
@@ -184,6 +186,51 @@ async def test_approve_cancel_cancels_order_restores_stock_and_notifies(db_sessi
         assert request.status == "approved"
         assert product.stock == 12  # 시작 10개 + 주문 수량 2개 복구
         assert notification_count == 1
+    finally:
+        await _cleanup(db_sessions, scenario, tag)
+
+
+async def test_approve_cancel_refunds_order_points(db_sessions):
+    tag = uuid.uuid4().hex[:8]
+    scenario, request_id = await _make_cancel_scenario(db_sessions, tag)
+    try:
+        async with db_sessions() as session:
+            order = await session.get(Order, scenario.order_id)
+            order.points_used = 500
+            order.total_price -= 500
+            session.add_all(
+                [
+                    PointTransaction(
+                        user_id=scenario.user_id,
+                        order_id=scenario.order_id,
+                        kind="first_purchase",
+                        amount=1_000,
+                    ),
+                    PointTransaction(
+                        user_id=scenario.user_id,
+                        order_id=scenario.order_id,
+                        kind="order_spend",
+                        amount=-500,
+                    ),
+                ]
+            )
+            await session.commit()
+
+        async with db_sessions() as session:
+            await service_for(session).approve_cancel(request_id)
+
+        async with db_sessions() as session:
+            assert await PointRepository(session).balance(scenario.user_id) == 1_000
+            refunds = list(
+                await session.scalars(
+                    select(PointTransaction).where(
+                        PointTransaction.order_id == scenario.order_id,
+                        PointTransaction.kind == "order_refund",
+                    )
+                )
+            )
+            assert len(refunds) == 1
+            assert refunds[0].amount == 500
     finally:
         await _cleanup(db_sessions, scenario, tag)
 

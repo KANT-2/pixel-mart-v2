@@ -9,6 +9,7 @@ from app.models.product import Product
 from src.orders.application.service import OrderService
 from src.orders.domain.exceptions import EmptyCart
 from src.orders.infrastructure.repositories import OrderRepository
+from src.points.infrastructure.repositories import PointRepository
 from tests.test_orders_service import order_db as order_db
 
 
@@ -60,7 +61,7 @@ async def test_same_user_concurrent_orders_do_not_duplicate(order_db):
                 resume_first=resume_first,
             )
 
-            service = OrderService(repository, session)
+            service = OrderService(repository, session, PointRepository(session))
 
             return await service.place_order(
                 scenario.user_id,

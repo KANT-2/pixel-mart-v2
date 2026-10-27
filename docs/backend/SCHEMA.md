@@ -1,6 +1,6 @@
 # DB 스키마
 
-> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`, 마이그레이션 head `31584466d9da`).
+> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`·`backend/src/points/infrastructure/models.py`, 마이그레이션 head `3a91c55ca1ee`).
 > 컬럼 이름은 snake_case, 모든 시간은 `timestamptz`. 새 테이블을 만들면 이 문서도 같이 고쳐 주세요.
 > 데스크 꾸미기·토너먼트 테이블은 범위에서 빠져 만들지 않았습니다.
 
@@ -13,6 +13,8 @@ erDiagram
   orders ||--|{ order_items : contains
   orders ||--o{ order_status_history : tracks
   orders ||--o{ cancel_requests : has
+  users ||--o{ point_transactions : owns
+  orders ||--o{ point_transactions : records
   users ||--o{ reviews : writes
   users ||--o{ product_questions : asks
   categories ||--o{ products : groups
@@ -44,7 +46,8 @@ erDiagram
 ## 주문 · CS · 호환성
 | 테이블 | 주요 컬럼 | 비고 |
 | --- | --- | --- |
-| orders | id, user_id FK, status, total_price, shipping_fee (기본 0), recipient_name, address, created_at | status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` |
+| orders | id, user_id FK, status, total_price, shipping_fee (기본 0), points_used (기본 0), recipient_name, address, created_at | total_price는 포인트 사용 후 결제 금액. status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` |
+| point_transactions | id, user_id FK, order_id FK, kind, amount, created_at · unique(user_id, kind, order_id) | 구매 포인트 기록. 첫 구매 1,000P는 사용자당 한 번, 주문 취소 시 사용분 환급. 활동 점수와 별개 |
 | order_items | id, order_id FK, product_id FK, quantity, unit_price | 주문 시점 가격 |
 | order_status_history | id, order_id FK, status, changed_at | 배송 타임라인 |
 | cancel_requests | id, order_id FK, reason, status(`requested/approved/rejected`), created_at | |

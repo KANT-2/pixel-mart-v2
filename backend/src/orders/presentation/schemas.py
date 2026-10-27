@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import StringConstraints
+from pydantic import Field, StringConstraints
 
 from app.models.order import Order, OrderItem, OrderStatusHistory
 from app.schemas.common import CamelModel
@@ -16,6 +16,7 @@ OrderStatus = Literal["paid", "preparing", "shipping", "delivered", "cancel_requ
 class OrderCreate(CamelModel):
     recipient_name: RecipientName
     address: Address
+    points_used: int = Field(default=0, ge=0)
 
 
 class OrderItemOut(CamelModel):
@@ -40,6 +41,7 @@ class OrderOut(CamelModel):
     status_label: str
     items_price: int
     shipping_fee: int
+    points_used: int
     total_price: int
     recipient_name: str
     address: str
@@ -55,6 +57,7 @@ class OrderOut(CamelModel):
             status_label=STATUS_LABELS[order.status],
             items_price=sum(item.subtotal for item in items),
             shipping_fee=order.shipping_fee,
+            points_used=order.points_used,
             total_price=order.total_price,
             recipient_name=order.recipient_name,
             address=order.address,
@@ -90,6 +93,7 @@ class OrderSummaryOut(CamelModel):
     status_label: str
     items_price: int
     shipping_fee: int
+    points_used: int
     total_price: int
     created_at: datetime
     title: str
@@ -107,6 +111,7 @@ class OrderSummaryOut(CamelModel):
             status_label=STATUS_LABELS[order.status],
             items_price=items_price,
             shipping_fee=order.shipping_fee,
+            points_used=order.points_used,
             total_price=order.total_price,
             created_at=order.created_at,
             title=first.product.name + (f" 외 {others}건" if others else ""),
