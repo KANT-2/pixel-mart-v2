@@ -37,3 +37,15 @@ def test_session_cookie_is_https_only_in_production(production):
     security.set_session_token(response, "token")
     cookie = response.headers["set-cookie"].lower()
     assert "secure" in cookie and "httponly" in cookie
+
+
+def test_cloud_database_url_uses_async_driver():
+    for raw in ("postgres://u:p@host:5432/db", "postgresql://u:p@host:5432/db"):
+        assert Settings(database_url=raw, _env_file=None).database_url == "postgresql+asyncpg://u:p@host:5432/db"
+    local = "postgresql+asyncpg://pixelmart:pixelmart@localhost:5432/pixelmart"
+    assert Settings(database_url=local, _env_file=None).database_url == local
+
+
+def test_frontend_host_becomes_https_url():
+    assert Settings(frontend_url="pixel-mart.vercel.app", _env_file=None).frontend_url == "https://pixel-mart.vercel.app"
+    assert Settings(frontend_url="http://localhost:3000/", _env_file=None).frontend_url == "http://localhost:3000"

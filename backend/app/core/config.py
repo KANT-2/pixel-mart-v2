@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 공개 저장소에 적힌 기본값 — 로컬 개발에서만 쓰고, 배포(ENV가 local이 아님)에서는 거부한다
@@ -23,6 +24,24 @@ class Settings(BaseSettings):
     cloudflare_api_token: str = ""
     cloudflare_image_model: str = "@cf/black-forest-labs/flux-2-klein-4b"
     ai_avatar_per_hour: int = 0  # 사용자별 1시간 횟수 제한, 0이면 제한 없음 (무료 일일 할당 약 300장)
+
+    @field_validator("database_url")
+    @classmethod
+    def _async_driver(cls, value: str) -> str:
+        # 클라우드 DB는 postgres:// · postgresql:// 주소를 주므로 비동기 드라이버(asyncpg) 주소로 맞춘다
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+asyncpg://" + value[len(prefix):]
+        return value
+
+    @field_validator("frontend_url")
+    @classmethod
+    def _https_url(cls, value: str) -> str:
+        # 배포 서비스가 호스트 이름만 넘겨도 https 주소로
+        value = value.strip().rstrip("/")
+        if not value:
+            return "http://localhost:3000"
+        return value if "://" in value else f"https://{value}"
 
     @property
     def is_local(self) -> bool:

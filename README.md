@@ -28,11 +28,11 @@
 | 한 줄 | **취향 기반 커뮤니티 커머스**: 쇼핑으로 아이템을 "장착"하고, PIXEL LOCAL에서 같은 동네 덕후를 발견해 주고받고, 그 활동이 하트·뱃지로 쌓여 신뢰가 돼요 |
 | 대상 | 게임·서브컬처를 좋아하는 20~30대, 책상을 꾸미고 굿즈를 모으는 사람 |
 | 콘셉트 | 다크 아케이드 · 8비트 픽셀아트 · 연두 네온 포인트 · 게임 HUD(하트·코인·퀘스트) |
-| 쇼핑 | 상품 검색·정렬·필터, 상품 상세(리뷰·문의), 찜, 장바구니, **가상 주문(재고·배송비)**, 배송 단계·취소 |
-| 플레이어 | **이메일 가입·로그인**, 구글 로그인, 픽셀 아바타, 뱃지 도감 |
+| 쇼핑 | 상품 검색·정렬·필터, 상품 상세(포토 리뷰·문의), 찜, 장바구니, **가상 주문(재고·배송비)**, 배송지·주소 검색, 쿠폰·적립금, 결제수단, 운송장 조회, 취소·구매 확정·반품/교환 |
+| 플레이어 | **이메일 가입·로그인**, 비밀번호 변경·재설정, 구글 로그인, 픽셀 아바타, 퀘스트·뱃지 |
 | PIXEL LOCAL | 덕력지도 · 위시맵 · 거래·교환 · 이웃 선물 |
-| 관리자 | **주문 배송 단계·취소 처리**, **상품 문의 답변**, 회원 목록 |
-| 범위 밖 | 실제 결제, 배포(로컬 개발 전용), 데스크 꾸미기·토너먼트 |
+| 관리자 | **주문 배송 단계·취소 처리**, 운송장·반품/교환, **상품 문의 답변**, 회원·거래글·신고·뱃지·상품·공지·FAQ |
+| 범위 밖 | 실제 결제, 데스크 꾸미기·토너먼트 |
 
 ## 2. 팀 · 역할
 네 명 모두 풀스택으로, 각자 Use Case 하나를 **화면 → API → 도메인 규칙 → DB**까지 직접 만들었어요.
@@ -150,20 +150,28 @@ npm run dev
 
 **CI**: `main`으로 가는 PR과 `main` push마다 GitHub Actions가 위 검사를 자동으로 돌려요 (`.github/workflows/ci.yml`, PostgreSQL 16 서비스 + `alembic upgrade head` + `seed`). `tsc`가 경로 타입(`PageProps`) 오류를 내면 `npx next typegen`을 먼저 실행해요.
 
-### 배포할 때 (production) — #58
-배포 환경에서는 `backend/.env` 대신 **배포 서비스의 환경 변수 화면**에 값을 넣어요. 실제 값은 저장소 · 이슈 · Notion 어디에도 쓰지 않아요.
-
-| 이름 | 배포 값 | 안 지키면 |
+### 배포 — #58
+| 구성 | 서비스 (무료 요금제) | 설정 |
 | --- | --- | --- |
-| `ENV` | `production` | 개발용 로그인(`/api/auth/dev-login`) · 개발자 API(`/api/dev/...`)가 열려 있게 돼요. production이면 둘 다 **404** |
-| `JWT_SECRET` | 32자 이상 새 비밀값 | 기본값이거나 짧으면 **서버가 시작을 거부**해요 (기본값은 공개돼 있어 토큰 위조 가능) |
-| `FRONTEND_URL` | 배포한 프론트 주소 (`https://…`) | CORS가 막히고 구글 콜백(`<FRONTEND_URL>/api/auth/google/callback`)이 틀어져요 |
-| `DATABASE_URL` | 클라우드 PostgreSQL 주소 | 비밀번호 포함 — 배포 화면에만 |
-| (프론트) `BACKEND_URL` | 배포한 백엔드 주소 | `/api/*` 전달이 안 돼요 |
+| 프론트 | Vercel | 환경 변수 `BACKEND_URL` = 백엔드 주소 · `vercel.json` (싱가포르 리전) |
+| 백엔드 + DB | Render (Web Service + PostgreSQL) | `render.yaml` 블루프린트 · 시작 시 `backend/scripts/render_start.sh` |
 
-- production에서는 로그인 쿠키가 `secure`(https 전용)로 바뀌어요. 로그인 화면의 개발용 로그인 칸도 production 빌드에서는 안 보여요.
-- 배포 DB 준비: `uv run alembic upgrade head` → `uv run python -m scripts.seed` → `/api/health/db` 200 확인 → 관리자는 `scripts.make_admin`
-- 실제 배포(어느 서비스에 · 비용)는 팀이 정한 뒤 진행해요. 확인할 장면: 배포 주소에서 로그인 → `/me` 200 → 로그아웃 → **같은 토큰 401**
+1. Render → **New → Blueprint** → 이 저장소 선택 → `render.yaml`대로 API 서버와 DB가 만들어져요. 시작할 때마다 `alembic upgrade head` → `seed` → `seed_demo` (재실행 안전)
+2. Vercel → **Add New → Project** → 이 저장소 → 환경 변수 `BACKEND_URL` = `https://<Render 서비스 주소>` → Deploy
+3. Render 환경 변수 `FRONTEND_URL` = Vercel 주소 → 저장(자동 재시작)
+4. 배포 주소에서 이메일로 가입한 계정을 `ADMIN_EMAIL`에 넣으면 재시작 때 관리자가 돼요
+
+| 환경 변수 | 배포 값 | 지키지 않으면 |
+| --- | --- | --- |
+| `ENV` | `production` | 개발용 로그인 · 개발자 API(`/api/dev/...`)가 열려요. production이면 둘 다 **404** |
+| `JWT_SECRET` | Render가 자동 생성 | 기본값이거나 32자 미만이면 **서버가 시작을 거부**해요 |
+| `DATABASE_URL` | Render DB와 자동 연결 | `postgres://` 주소는 `postgresql+asyncpg://`로 자동 변환 |
+| `FRONTEND_URL` | Vercel 주소 | 구글 콜백(`<FRONTEND_URL>/api/auth/google/callback`) · CORS |
+| (프론트) `BACKEND_URL` | Render 주소 | `/api/*` 전달이 안 돼요 |
+
+- production에서는 로그인 쿠키가 `secure`(https 전용), 로그인 화면의 개발용 로그인 칸도 숨겨져요.
+- 실제 키(구글 · Cloudflare)는 배포 서비스의 환경 변수 화면에만 넣어요. 비우면 그 기능만 꺼져요.
+- Render 무료 서버는 15분 동안 요청이 없으면 잠들어요. 첫 요청은 30초 정도 걸려요.
 
 ## 8. DB 준비
 ```powershell
@@ -444,7 +452,6 @@ flowchart LR
 | 관리자 화면 | 백엔드 머지 전까지 `mocks/` 임시 데이터 (`USE_MOCK`) | 🏹 |
 | 결제 | 가상 주문 (실제 결제 없음) | |
 | 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
-| 배포 · CI | 로컬 개발 전용, CI 없음 (추가 퀘스트) | 🧭 |
 | 알려진 문제 | 처음 clone한 뒤 `npx tsc --noEmit`이 `PageProps` 오류를 내면 `npx next typegen`을 먼저 (경로 타입 생성) | |
 
 ---
