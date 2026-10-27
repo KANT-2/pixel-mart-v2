@@ -30,7 +30,7 @@ const MENU: AdminMenuItem[] = [
   { label: "거래글", href: "/admin/trades", enabled: false },
   { label: "사용자", href: "/admin/users", enabled: false },
   { label: "뱃지", href: "/admin/badges", enabled: false },
-  { label: "상품", href: "/admin/products", enabled: false },
+  { label: "상품", href: "/admin/products", enabled: true },
 ];
 
 interface AdminNavProps {
