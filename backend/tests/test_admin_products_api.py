@@ -57,6 +57,17 @@ async def test_admin_creates_product_that_is_visible_publicly(client, created_pr
     assert public.json()["stock"] == 0  # 품절이어도 숨긴 상품과 달리 공개된다.
 
 
+async def test_admin_changes_product_rarity_and_public_response_reflects_it(client, created_product_ids):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, rarity="common")
+
+    updated = await client.patch(f"{URL}/{product['id']}", json={"rarity": "unique"}, headers=headers(admin))
+
+    assert (updated.status_code, updated.json()["rarity"]) == (200, "unique")
+    public = await client.get(f"/api/products/{product['id']}")
+    assert (public.status_code, public.json()["rarity"]) == (200, "unique")
+
+
 async def test_admin_hides_lists_and_restocks_product(client, created_product_ids):
     admin = await login(client, ADMIN, admin=True)
     product = await create(
