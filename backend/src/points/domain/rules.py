@@ -6,6 +6,8 @@ class InvalidPointUse(Exception):
 
 
 def validate_point_use(requested: int, balance: int, order_total: int) -> None:
+    if type(requested) is not int or requested < 0:
+        raise InvalidPointUse("사용 포인트는 0 이상의 정수여야 해요.")
     if requested > balance:
         raise InvalidPointUse("보유 포인트가 부족해요.")
     if requested > order_total:
