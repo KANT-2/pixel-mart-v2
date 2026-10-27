@@ -32,6 +32,8 @@ export interface ApiUser {
   createdAt: string;
   // 관리자 화면 문지기용 — 인증 API(#14) 머지 전엔 서버가 안 보낼 수 있어요
   role?: "user" | "admin";
+  /** 관리자가 이용을 정지한 계정 — 구경은 되고 글쓰기·리뷰·선물·교환 신청은 막힘 (#88) */
+  suspended?: boolean;
 }
 
 export interface ApiCartItem {
@@ -341,7 +343,9 @@ export interface ApiTradePost {
   isDemo?: boolean;
   createdAt: string;
   /** 위시맵 닉네임 공개에 동의한 사람의 WANT 글에만 (그 외 null) */
-  author?: { nickname: string; avatarUrl: string | null } | null;
+  author?: { nickname: string; avatarUrl: string | null } | null;
+  /** 관리자가 운영 정책으로 숨긴 글 — 작성자도 상태를 바꿀 수 없음 */
+  hiddenByAdmin?: boolean;
 }
 
 /** pending 신청 → accepted 교환 진행 중 → completed 두 사람 모두 받음 (또는 declined·cancelled) */

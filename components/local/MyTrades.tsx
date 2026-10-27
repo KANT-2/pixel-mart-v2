@@ -57,7 +57,10 @@ function AccountTrades({ created }: AccountTradesProps) {
       {/* 처리할 일(받은 신청)이 먼저 보이게 맨 위에 */}
       <TradeRequestInbox onChanged={() => void result.refresh()} />
       <section aria-labelledby="my-trades-title"><h2 id="my-trades-title" className="mb-5 text-xl font-bold">내 글 · {result.data.posts.length}개</h2>
-        {result.data.posts.length ? <ul aria-label="내 거래글" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{result.data.posts.map((post) => <li key={post.id}><TradeCard post={post} actions={post.isMine ? <TradeStatusButtons key={`${post.id}:${post.status}`} status={post.status} disabled={pending !== null || auth.pending} pending={pending === post.id} onConfirm={(status) => update(post.id, status)} /> : null} /></li>)}</ul>
+        {result.data.posts.length ? <ul aria-label="내 거래글" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{result.data.posts.map((post) => <li key={post.id}><TradeCard post={post} actions={!post.isMine ? null : post.hiddenByAdmin
+            // 관리자가 숨긴 글은 내가 숨긴 글과 구분해 이유를 알려 준다 (상태는 못 바꿈)
+            ? <p className="text-xs leading-relaxed text-pink">운영 정책으로 숨겨진 글이에요. 궁금한 점은 고객센터에 문의해 주세요.</p>
+            : <TradeStatusButtons key={`${post.id}:${post.status}`} status={post.status} disabled={pending !== null || auth.pending} pending={pending === post.id} onConfirm={(status) => update(post.id, status)} />} /></li>)}</ul>
           : <div className="pixel-panel p-8 text-center"><p>아직 작성한 글이 없어요.</p><Link href="/local/trades/new" className={`${localButton} mt-4`}>첫 글 쓰기</Link></div>}
       </section>
       <SentRequestsProvider><section aria-labelledby="trade-matches-title"><h2 id="trade-matches-title" className="mb-2 text-xl font-bold">⇄ 교환 제안 · 내 WISH와 맞는 이웃 아이템</h2><p className="mb-5 text-sm text-sub">같은 구·생활권에서 조건이 맞는 물건을 찾아요. 연락 수단과 작성자 정보는 제공하지 않아요.</p>

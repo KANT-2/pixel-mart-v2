@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { WishlistProvider } from "@/components/WishlistProvider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SuspendedNotice from "@/components/SuspendedNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <CartProvider>
             <WishlistProvider>
               <Header />
+              <SuspendedNotice />
               <main className="flex-1">{children}</main>
               <Footer />
             </WishlistProvider>
