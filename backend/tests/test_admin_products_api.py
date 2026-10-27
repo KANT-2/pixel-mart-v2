@@ -79,6 +79,58 @@ async def test_admin_restocks_by_adding_to_existing_stock(client, created_produc
     assert (public.status_code, public.json()["stock"]) == (200, 7)
 
 
+async def test_admin_sets_exact_stock_including_zero_and_can_restock_afterwards(client, created_product_ids):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, stock=4)
+    url = f"{URL}/{product['id']}"
+
+    set_two = await client.patch(url, json={"stockSet": 2}, headers=headers(admin))
+    assert (set_two.status_code, set_two.json()["stock"]) == (200, 2)
+
+    set_zero = await client.patch(
+        url, json={"stockSet": 0, "name": "재고 정정 테스트 상품"}, headers=headers(admin)
+    )
+    assert (set_zero.status_code, set_zero.json()["stock"]) == (200, 0)
+    assert set_zero.json()["name"] == "재고 정정 테스트 상품"
+    public = await client.get(f"/api/products/{product['id']}")
+    assert (public.status_code, public.json()["stock"]) == (200, 0)
+
+    restocked = await client.patch(url, json={"stock": 3}, headers=headers(admin))
+    assert (restocked.status_code, restocked.json()["stock"]) == (200, 3)
+
+
+async def test_admin_sets_stock_to_maximum_allowed_value(client, created_product_ids):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, stock=4)
+
+    response = await client.patch(f"{URL}/{product['id']}", json={"stockSet": 9_999}, headers=headers(admin))
+
+    assert (response.status_code, response.json()["stock"]) == (200, 9_999)
+
+
+@pytest.mark.parametrize("stock_set", [-1, 10_000, None])
+async def test_admin_rejects_invalid_stock_set(client, created_product_ids, stock_set):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, stock=4)
+
+    invalid = await client.patch(f"{URL}/{product['id']}", json={"stockSet": stock_set}, headers=headers(admin))
+
+    assert invalid.status_code == 422
+    public = await client.get(f"/api/products/{product['id']}")
+    assert (public.status_code, public.json()["stock"]) == (200, 4)
+
+
+async def test_admin_rejects_stock_and_stock_set_together(client, created_product_ids):
+    admin = await login(client, ADMIN, admin=True)
+    product = await create(client, admin, await category_slug(client), created_product_ids, stock=4)
+
+    invalid = await client.patch(f"{URL}/{product['id']}", json={"stock": 3, "stockSet": 2}, headers=headers(admin))
+
+    assert invalid.status_code == 422
+    public = await client.get(f"/api/products/{product['id']}")
+    assert (public.status_code, public.json()["stock"]) == (200, 4)
+
+
 async def test_admin_hides_lists_and_restocks_product(client, created_product_ids):
     admin = await login(client, ADMIN, admin=True)
     product = await create(

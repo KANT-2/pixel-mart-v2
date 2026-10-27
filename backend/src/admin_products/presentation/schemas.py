@@ -39,6 +39,7 @@ class ProductUpdateIn(CamelModel):
     image_url: ImageUrl | None = None
     is_new: bool | None = None
     stock: Annotated[int, Field(ge=0, le=9_999)] | None = None
+    stock_set: Annotated[int, Field(ge=0, le=9_999)] | None = None
     rarity: Rarity | None = None
     is_hidden: bool | None = None
 
@@ -55,6 +56,8 @@ class ProductUpdateIn(CamelModel):
             raise ValueError("바꿀 상품 정보를 보내 주세요.")
         if any(getattr(self, field) is None for field in self.model_fields_set):
             raise ValueError("상품 정보는 null로 바꿀 수 없어요.")
+        if {"stock", "stock_set"} <= self.model_fields_set:
+            raise ValueError("stock과 stockSet은 함께 보낼 수 없어요.")
         return self
 
     def changes(self) -> dict[str, object]:

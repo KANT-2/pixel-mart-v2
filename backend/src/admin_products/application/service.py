@@ -59,8 +59,13 @@ class AdminProductService:
         product = await self.products.get(product_id)
         if product is None:
             raise AdminProductNotFound()
-        if "stock" in changes:
-            # 재입고 수량은 현재 재고에 더한다. 0은 다른 필드만 함께 바꿀 때 허용한다.
+        if "stock_set" in changes:
+            # 절대 재고 설정값을 DB 컬럼명으로 바꾼다.
+            stock_set = int(changes["stock_set"])
+            changes = {key: value for key, value in changes.items() if key != "stock_set"}
+            changes["stock"] = stock_set
+        elif "stock" in changes:
+            # 재입고 수량은 기존대로 현재 재고에 더한다.
             changes = {**changes, "stock": product.stock + int(changes["stock"])}
         try:
             await self.products.update(product_id, changes)
