@@ -98,18 +98,19 @@ test("하이라이트는 HTML 같은 문자열과 정규식 특수문자를 일�
   }
 });
 
-test("FAQ 폴백은 백엔드 시드 10개의 내용과 순서가 동일", async () => {
+test("FAQ 폴백은 백엔드 시드 14개의 내용과 순서가 동일", async () => {
   const seed = JSON.parse(await readFile(new URL("../backend/seed/faqs.json", import.meta.url), "utf8"));
-  assert.equal(faqFallback.length, 10);
+  assert.equal(faqFallback.length, 14);
   assert.deepEqual(faqFallback, seed);
   assert.deepEqual(getFaqCategories(faqFallback), [
     { category: "주문", count: 2 },
     { category: "배송", count: 2 },
-    { category: "취소", count: 1 },
+    { category: "취소·반품", count: 2 },
+    { category: "혜택", count: 2 },
     { category: "리뷰", count: 1 },
     { category: "상품 문의", count: 1 },
     { category: "호환성", count: 2 },
-    { category: "기타", count: 1 },
+    { category: "계정", count: 2 },
   ]);
 });
 

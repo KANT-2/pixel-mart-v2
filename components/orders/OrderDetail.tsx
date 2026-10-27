@@ -183,6 +183,5 @@ function OrderDetailContents({ id, placed }: OrderDetailProps) {
         </aside>
       </div>
     </>}
-    <Link href="/mypage/orders" className={`inline-flex btn-pixel px-5 py-3 text-sm font-bold ${focusClass}`}>← 주문 내역으로</Link>
   </div>;
 }
