@@ -9,7 +9,7 @@ from app.core.security import clear_session_cookie, set_session_token
 from app.models import User
 from app.schemas.common import Message, Page
 from app.schemas.user import UserOut
-from src.auth.application.admin_users import AdminUserService, AvatarResetService
+from src.auth.application.admin_users import AdminUserService, AvatarResetService, SuspendService
 from src.auth.application.service import AuthService
 from src.auth.application.withdrawal import WithdrawService
 from src.auth.domain.exceptions import InvalidToken
@@ -20,6 +20,7 @@ from src.auth.presentation.schemas import (
     AdminUserOut,
     AvatarResetRequest,
     SignupRequest,
+    SuspendRequest,
     TokenResponse,
     WithdrawRequest,
 )
@@ -88,9 +89,10 @@ async def list_users(
     pagination: Pagination,
     q: Annotated[str | None, Query(max_length=100, description="닉네임·이메일 부분 일치")] = None,
     role: Annotated[Literal["user", "admin"] | None, Query()] = None,
+    suspended: Annotated[bool | None, Query(description="정지된 회원만(true) · 아닌 회원만(false)")] = None,
 ):
     members, total = await AdminUserService(MemberRepository(db)).list_members(
-        q, role, pagination.page, pagination.size
+        q, role, pagination.page, pagination.size, suspended
     )
     return Page[AdminUserOut](
         items=[_admin_user_out(m) for m in members],
@@ -109,15 +111,25 @@ async def reset_avatar(user_id: int, _admin: AdminUser, db: DbSession, body: Ava
     return _admin_user_out(member)
 
 
+@admin_router.patch("/{user_id}", response_model=AdminUserOut, summary="[관리자] 사용자 정지 · 해제")
+async def set_suspended(user_id: int, body: SuspendRequest, admin: AdminUser, db: DbSession):
+    member = await SuspendService(MemberRepository(db), db).set_suspended(user_id, body.suspended, admin.id)
+    return _admin_user_out(member)
+
+
 def _admin_user_out(m: MemberSummary) -> AdminUserOut:
     return AdminUserOut(
         id=m.id,
-        email=m.email,
+        email="탈퇴한 계정" if m.withdrawn else m.email,
         nickname=m.nickname,
         role=m.role,
         signup_method=m.signup_method,
         created_at=m.created_at,
         avatar_url=m.avatar_url,
+        suspended=m.suspended,
+        withdrawn=m.withdrawn,
+        order_count=m.order_count,
+        report_count=m.report_count,
     )
 
 

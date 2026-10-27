@@ -7,6 +7,6 @@
 로그인 확인은 src/common/auth.py 한 곳에서 한다 (Bearer·쿠키, 블랙리스트면 401) — 기존 라우터도 같은 검사를 받는다.
 """
 
-from src.common.auth import AdminUser, CurrentUser, DbSession, OptionalUser
+from src.common.auth import ActiveUser, AdminUser, CurrentUser, DbSession, OptionalUser
 
-__all__ = ["AdminUser", "CurrentUser", "DbSession", "OptionalUser"]
+__all__ = ["ActiveUser", "AdminUser", "CurrentUser", "DbSession", "OptionalUser"]

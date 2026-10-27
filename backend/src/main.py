@@ -33,6 +33,7 @@ from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidPr
 from src.admin_products.presentation import router as admin_products_api
 from src.admin_summary.presentation import router as admin_summary_api
 from src.auth.domain.exceptions import (
+    CannotSuspend,
     CannotWithdraw,
     EmailTaken,
     InvalidEmail,
@@ -105,6 +106,7 @@ for auth_error in (
     NicknameTaken,
     MemberNotFound,
     CannotWithdraw,
+    CannotSuspend,
 ):
     app.add_exception_handler(auth_error, domain_error_handler)
 for question_error in (

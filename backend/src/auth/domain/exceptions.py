@@ -59,3 +59,10 @@ class CannotWithdraw(Exception):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class CannotSuspend(Exception):
+    """자기 자신 · 관리자 · 탈퇴 계정을 정지하려 할 때 발생한다."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

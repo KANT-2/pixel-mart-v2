@@ -30,6 +30,10 @@ class AdminUserOut(CamelModel):
     signup_method: Literal["email", "google"]
     created_at: datetime
     avatar_url: str | None = None
+    suspended: bool = False
+    withdrawn: bool = False
+    order_count: int = 0
+    report_count: int = 0
 
 
 class AvatarResetRequest(CamelModel):
@@ -42,3 +46,10 @@ class WithdrawRequest(CamelModel):
     """실수로 누르지 않게 '탈퇴'를 직접 입력받는다 (다르면 422)"""
 
     confirm: Literal["탈퇴"]
+
+
+class SuspendRequest(CamelModel):
+    """정지(true) · 해제(false). memo는 관리 기록용"""
+
+    suspended: bool
+    memo: str | None = Field(default=None, max_length=200)

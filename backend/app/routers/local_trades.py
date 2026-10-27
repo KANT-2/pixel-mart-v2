@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
-from app.deps import CurrentUser, DbSession, OptionalUser
+from app.deps import ActiveUser, CurrentUser, DbSession, OptionalUser
 from app.models import Interest, Product, TradePost, User, Wishlist, WishSample
 from app.schemas.common import Page
 from app.schemas.local import (
@@ -148,7 +148,7 @@ async def my_trades(user: CurrentUser, db: DbSession):
     status_code=status.HTTP_201_CREATED,
     summary="거래·교환 글 쓰기 (내 지역으로)",
 )
-async def create_trade(body: TradePostIn, user: CurrentUser, db: DbSession):
+async def create_trade(body: TradePostIn, user: ActiveUser, db: DbSession):
     # 글의 지역은 요청이 아니라 내 프로필에서 — 다른 지역으로 올리는 지역 조작 방지
     if user.region_code is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "먼저 내 지역을 설정해 주세요.")

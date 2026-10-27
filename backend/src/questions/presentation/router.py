@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from app.deps import AdminUser, CurrentUser, DbSession, OptionalUser
+from app.deps import ActiveUser, AdminUser, CurrentUser, DbSession, OptionalUser
 from app.schemas.common import Message, Page
 from src.auth.domain.account import ADMIN_ROLE
 from src.questions.application.service import QuestionService
@@ -50,7 +50,7 @@ async def list_questions(
     status_code=status.HTTP_201_CREATED,
     summary="문의 쓰기 (로그인 필요)",
 )
-async def create_question(product_id: int, body: QuestionIn, user: CurrentUser, db: DbSession) -> QuestionOut:
+async def create_question(product_id: int, body: QuestionIn, user: ActiveUser, db: DbSession) -> QuestionOut:
     view = await _service(db).ask(user.id, product_id, body.title, body.content, body.is_secret)
     return QuestionOut.from_view(view)
 

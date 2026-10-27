@@ -1,10 +1,10 @@
 import uuid
 
 import pytest
-from sqlalchemy import delete, text, update
+from sqlalchemy import delete, select, text, update
 
 from app.core.db import SessionLocal, engine
-from app.models import User
+from app.models import Order, Product, ProductQuestion, User
 from tests.conftest import headers, login, logout
 
 
@@ -38,7 +38,19 @@ async def test_search_filter_and_pages(client, tag):
     body = res.json()
     assert body["total"] == 3
     first = body["items"][0]
-    assert set(first) == {"id", "email", "nickname", "role", "signupMethod", "createdAt", "avatarUrl"}  # 주소·전화 없음
+    assert set(first) == {
+        "id",
+        "email",
+        "nickname",
+        "role",
+        "signupMethod",
+        "createdAt",
+        "avatarUrl",
+        "suspended",
+        "withdrawn",
+        "orderCount",
+        "reportCount",
+    }  # 주소·전화 없음
     assert first["signupMethod"] == "email"
 
     by_email = await client.get("/api/admin/users", params={"q": f"adminusers-{tag}-M1"}, headers=headers(token))
@@ -140,3 +152,103 @@ async def test_avatar_reset_needs_admin_and_existing_member(client, tag):
         f"/api/admin/users/{me['id']}/avatar-reset", json={"memo": "가" * 201}, headers=headers(token)
     )
     assert too_long.status_code == 422
+
+
+async def member_id(client, token: str) -> int:
+    return (await client.get("/api/auth/me", headers=headers(token))).json()["id"]
+
+
+async def ask(client, token: str):
+    async with SessionLocal() as session:
+        product_id = await session.scalar(select(Product.id).limit(1))
+    return await client.post(
+        f"/api/products/{product_id}/questions",
+        json={"title": "재입고 언제?", "content": "궁금해요"},
+        headers=headers(token),
+    )
+
+
+async def test_suspended_user_can_look_but_not_write(client, tag):
+    member = await login(client, f"adminusers-{tag}-bad@pixelmart.test", f"정지{tag}")
+    client.cookies.clear()
+    uid = await member_id(client, member)
+    token = await admin_token(client, tag)
+
+    res = await client.patch(f"/api/admin/users/{uid}", json={"suspended": True}, headers=headers(token))
+    assert res.status_code == 200
+    assert res.json()["suspended"] is True
+
+    assert (await client.get("/api/auth/me", headers=headers(member))).status_code == 200  # 로그인 · 구경은 됨
+    blocked = await ask(client, member)
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"] == "이용이 정지된 계정이에요."
+
+    only = await client.get("/api/admin/users", params={"q": tag, "suspended": True}, headers=headers(token))
+    assert [u["id"] for u in only.json()["items"]] == [uid]
+
+    res = await client.patch(f"/api/admin/users/{uid}", json={"suspended": False}, headers=headers(token))
+    assert res.json()["suspended"] is False
+    created = await ask(client, member)
+    assert created.status_code == 201
+    async with SessionLocal() as session:  # 이 테스트가 쓴 문의 정리
+        await session.execute(delete(ProductQuestion).where(ProductQuestion.id == created.json()["id"]))
+        await session.commit()
+
+
+async def test_cannot_suspend_self_admin_or_withdrawn(client, tag):
+    token = await admin_token(client, tag)
+    me = await member_id(client, token)
+    other_admin = await login(client, f"adminusers-{tag}-boss2@pixelmart.test", f"관리둘{tag}", admin=True)
+    client.cookies.clear()
+    gone = await login(client, f"adminusers-{tag}-gone@pixelmart.test", f"떠남{tag}")
+    client.cookies.clear()
+    gone_id = await member_id(client, gone)
+    assert (
+        await client.post("/api/users/me/withdraw", json={"confirm": "탈퇴"}, headers=headers(gone))
+    ).status_code == 200
+
+    cases = [
+        (me, "자기 자신은 정지할 수 없어요."),
+        (await member_id(client, other_admin), "관리자 계정은 정지할 수 없어요."),
+        (gone_id, "탈퇴한 계정은 정지할 수 없어요."),
+    ]
+    for uid, message in cases:
+        res = await client.patch(f"/api/admin/users/{uid}", json={"suspended": True}, headers=headers(token))
+        assert res.status_code == 400
+        assert res.json()["detail"] == message
+    missing = await client.patch("/api/admin/users/999999999", json={"suspended": True}, headers=headers(token))
+    assert missing.status_code == 404
+
+    async with SessionLocal() as session:  # 탈퇴 계정은 이메일이 바뀌어 id로 정리
+        await session.execute(delete(User).where(User.id == gone_id))
+        await session.commit()
+
+
+async def test_list_shows_order_count_and_hides_withdrawn_email(client, tag):
+    member = await login(client, f"adminusers-{tag}-buyer@pixelmart.test", f"구매{tag}")
+    client.cookies.clear()
+    uid = await member_id(client, member)
+    async with SessionLocal() as session:
+        session.add(Order(user_id=uid, status="delivered", total_price=1000, recipient_name="테스트", address="테스트"))
+        await session.commit()
+    token = await admin_token(client, tag)
+    rows = (await client.get("/api/admin/users", params={"q": f"구매{tag}"}, headers=headers(token))).json()["items"]
+    assert rows[0]["orderCount"] == 1 and rows[0]["reportCount"] == 0
+
+    assert (
+        await client.post("/api/users/me/withdraw", json={"confirm": "탈퇴"}, headers=headers(member))
+    ).status_code == 200
+    rows = (await client.get("/api/admin/users", params={"q": f"탈퇴#{uid}"}, headers=headers(token))).json()["items"]
+    assert rows[0]["email"] == "탈퇴한 계정" and rows[0]["withdrawn"] is True
+    async with SessionLocal() as session:
+        await session.execute(delete(User).where(User.id == uid))
+        await session.commit()
+
+
+async def test_logged_out_or_normal_user_cannot_suspend(client, tag):
+    member = await login(client, f"adminusers-{tag}-u2@pixelmart.test", f"평범{tag}")
+    client.cookies.clear()
+    uid = await member_id(client, member)
+    res = await client.patch(f"/api/admin/users/{uid}", json={"suspended": True}, headers=headers(member))
+    assert res.status_code == 404
+    assert (await client.patch(f"/api/admin/users/{uid}", json={"suspended": True})).status_code == 401
