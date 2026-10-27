@@ -1,6 +1,7 @@
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
+from src.admin_content.domain.content import FaqNotFound, NoticeNotFound
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
 from src.admin_trades.domain.moderation import CannotReopen, TradeNotFound
@@ -88,6 +89,8 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     CancelRequestNotFound: status.HTTP_404_NOT_FOUND,
     AdminProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidProductCategory: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    NoticeNotFound: status.HTTP_404_NOT_FOUND,
+    FaqNotFound: status.HTTP_404_NOT_FOUND,
 }
 
 

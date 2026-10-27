@@ -26,6 +26,8 @@ from app.routers import (
     users,
     wishlist,
 )
+from src.admin_content.domain.content import FaqNotFound, NoticeNotFound
+from src.admin_content.presentation import router as admin_content_api
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.admin_orders.presentation import router as admin_orders_api
@@ -129,6 +131,8 @@ for question_error in (
     app.add_exception_handler(question_error, domain_error_handler)
 for admin_product_error in (AdminProductNotFound, InvalidProductCategory):
     app.add_exception_handler(admin_product_error, domain_error_handler)
+for content_error in (NoticeNotFound, FaqNotFound):
+    app.add_exception_handler(content_error, domain_error_handler)
 
 for report_error in (AlreadyReported, CannotReport, ReportAlreadyHandled, ReportNotFound, ReportTargetNotFound):
     app.add_exception_handler(report_error, domain_error_handler)
@@ -201,3 +205,5 @@ app.include_router(admin_summary_api.router, prefix="/api")
 app.include_router(questions_api.router, prefix="/api")
 app.include_router(questions_api.admin_router, prefix="/api")
 app.include_router(admin_products_api.router, prefix="/api")
+app.include_router(admin_content_api.router, prefix="/api")
+app.include_router(admin_content_api.admin_router, prefix="/api")
