@@ -67,9 +67,9 @@ export default function AdminNav({ counts: countsProp }: AdminNavProps) {
           const badgeCount = item.badgeKey ? counts?.[item.badgeKey] : undefined; // 이 메뉴의 배지 숫자
           const showBadge = !!badgeCount && badgeCount > 0; // 0이면 배지를 숨긴다
           if (!item.enabled) {
-            // 비활성 메뉴 — 링크가 아니라 글자만 있는 span, 흐린 색 + "준비 중" 표시
+            // 비활성 메뉴 — 링크가 아니라 글자만 있는 span, 흐린 색 + "준비 중" 표시. 좁은 화면 한 줄 메뉴에서는 숨겨 쓸 수 있는 메뉴만 보이게
             return (
-              <li key={item.href} className="shrink-0 md:shrink">
+              <li key={item.href} className="hidden md:block">
                 <span className="flex min-h-12 items-center justify-start gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-bold text-dim md:w-full">
                   <span className="truncate">{item.label}</span>
                   <span className="ml-auto flex items-center gap-1.5">

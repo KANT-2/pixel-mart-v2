@@ -226,6 +226,7 @@ export default function OrdersScreen() {
             columns={columns}
             rows={data.items}
             rowKey={(order) => order.id}
+            mobileCards
             empty={
               <EmptyRow
                 colSpan={columns.length}

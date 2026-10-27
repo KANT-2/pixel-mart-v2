@@ -145,7 +145,7 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
                 <span className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${reached ? "bg-lime text-lime-ink" : "border border-line text-dim"}`}>
                   {reached && !current ? "✓" : index + 1}
                 </span>
-                <span className={`truncate text-xs ${current ? "font-bold text-ink" : reached ? "text-sub" : "text-dim"}`}>
+                <span className={`break-keep text-xs leading-tight ${current ? "font-bold text-ink" : reached ? "text-sub" : "text-dim"}`}>
                   {["주문 완료", "상품 준비중", "배송중", "배송 완료"][index]} {/* statusLabel("주문 완료")과 문구를 맞춘다 */}
                 </span>
                 {index < FLOW.length - 1 && <span aria-hidden="true" className={`h-0.5 min-w-2 flex-1 ${currentIndex > index ? "bg-lime" : "bg-line"}`} />}
@@ -173,7 +173,7 @@ export default function OrderDetailScreen({ id }: OrderDetailScreenProps) {
 
       <section>
         <h2 className="mb-3 text-sm font-bold text-ink">주문 상품</h2>
-        <AdminTable columns={itemColumns} rows={order.items} rowKey={(item) => item.productName} />
+        <AdminTable columns={itemColumns} rows={order.items} rowKey={(item) => item.productName} mobileCards />
       </section>
 
       <section>

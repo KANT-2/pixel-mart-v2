@@ -14,11 +14,12 @@ interface AdminTableProps<T> {
   rows: T[]; // 보여줄 행 목록
   rowKey: (row: T) => string | number; // React가 행을 구분할 고유 값
   empty?: ReactNode; // 행이 없을 때 보여줄 내용 (안 넘기면 기본 EmptyRow)
+  mobileCards?: boolean; // true면 sm 미만(375px 등)에서 가로 스크롤 표 대신 "제목: 값" 카드로 보여준다
 }
 
 // 관리자 화면 공용 표 — 주문 말고 다른 목록(문의·신고 등)도 columns만 바꿔서 그대로 쓸 수 있게 범용으로 만든다
-export default function AdminTable<T>({ columns, rows, rowKey, empty }: AdminTableProps<T>) {
-  return (
+export default function AdminTable<T>({ columns, rows, rowKey, empty, mobileCards = false }: AdminTableProps<T>) {
+  const table = (
     <div className="overflow-x-auto"> {/* 좁은 화면에서 표가 넘치면 가로로만 스크롤되게 */}
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
@@ -45,5 +46,26 @@ export default function AdminTable<T>({ columns, rows, rowKey, empty }: AdminTab
         </tbody>
       </table>
     </div>
+  );
+  // 빈 상태는 표의 EmptyRow를 그대로 쓰고, 행이 있을 때만 좁은 화면에서 카드로 바꾼다
+  if (!mobileCards || rows.length === 0) return table;
+  return (
+    <>
+      <div className="hidden sm:block">{table}</div>
+      <ul className="space-y-3 sm:hidden">
+        {rows.map((row) => (
+          <li key={rowKey(row)} className="pixel-panel p-3">
+            <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 text-sm">
+              {columns.map((column) => (
+                <div key={column.header} className="contents">
+                  <dt className="text-xs text-dim">{column.header}</dt>
+                  <dd className="min-w-0 break-words">{column.render(row)}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
