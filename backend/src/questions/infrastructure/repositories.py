@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.product import Product
 from app.models.question import ProductQuestion
 from app.services import notifications
+from src.auth.domain.withdrawal import display_nickname
 from src.questions.domain.question import Question
 
 # (문의, 작성자 닉네임) — 닉네임은 화면 표시용이라 도메인 밖에서 함께 넘긴다
@@ -24,7 +25,7 @@ def _to_domain(row: ProductQuestion) -> Authored:
         answered_at=row.answered_at,
         created_at=row.created_at,
     )
-    return question, row.user.nickname
+    return question, display_nickname(row.user.nickname, row.user.deleted_at)
 
 
 class QuestionRepository:

@@ -52,3 +52,10 @@ class MemberNotFound(Exception):
 
     def __init__(self) -> None:
         super().__init__("회원을 찾을 수 없어요.")
+
+
+class CannotWithdraw(Exception):
+    """진행 중인 주문이 있거나 관리자 계정이라 탈퇴할 수 없을 때 발생한다."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

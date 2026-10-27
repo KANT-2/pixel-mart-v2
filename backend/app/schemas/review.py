@@ -5,6 +5,7 @@ from pydantic import Field, StringConstraints
 
 from app.models.review import Review
 from app.schemas.common import CamelModel, Page
+from src.auth.domain.withdrawal import display_nickname
 
 Rating = Annotated[int, Field(ge=1, le=5)]
 Content = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
@@ -33,7 +34,7 @@ class ReviewOut(CamelModel):
             product_id=review.product_id,
             rating=review.rating,
             content=review.content,
-            nickname=review.user.nickname,
+            nickname=display_nickname(review.user.nickname, review.user.deleted_at),
             created_at=review.created_at,
             is_mine=viewer_id is not None and review.user_id == viewer_id,
         )

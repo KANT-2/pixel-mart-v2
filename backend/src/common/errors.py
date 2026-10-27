@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
 from src.auth.domain.exceptions import (
+    CannotWithdraw,
     EmailTaken,
     InvalidEmail,
     InvalidNickname,
@@ -54,6 +55,7 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     EmailTaken: status.HTTP_409_CONFLICT,
     NicknameTaken: status.HTTP_409_CONFLICT,
     MemberNotFound: status.HTTP_404_NOT_FOUND,
+    CannotWithdraw: status.HTTP_400_BAD_REQUEST,
     QuestionNotFound: status.HTTP_404_NOT_FOUND,
     ProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidQuestion: status.HTTP_422_UNPROCESSABLE_CONTENT,

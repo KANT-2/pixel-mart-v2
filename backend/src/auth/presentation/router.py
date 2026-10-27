@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from math import ceil
 from typing import Annotated, Literal
 
@@ -10,15 +11,24 @@ from app.schemas.common import Message, Page
 from app.schemas.user import UserOut
 from src.auth.application.admin_users import AdminUserService, AvatarResetService
 from src.auth.application.service import AuthService
+from src.auth.application.withdrawal import WithdrawService
 from src.auth.domain.exceptions import InvalidToken
 from src.auth.domain.member import MemberSummary
 from src.auth.infrastructure.repositories import MemberRepository, TokenBlacklistRepository, UserRepository
-from src.auth.presentation.schemas import AdminUserOut, AvatarResetRequest, SignupRequest, TokenResponse
+from src.auth.infrastructure.withdrawal import WithdrawRepository
+from src.auth.presentation.schemas import (
+    AdminUserOut,
+    AvatarResetRequest,
+    SignupRequest,
+    TokenResponse,
+    WithdrawRequest,
+)
 from src.common.auth import AdminUser, CurrentUser, DbSession, RawToken, authenticate
 from src.common.pagination import Pagination
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 admin_router = APIRouter(prefix="/admin/users", tags=["admin"])
+users_router = APIRouter(prefix="/users", tags=["users"])
 
 
 def get_auth_service(db: DbSession) -> AuthService:
@@ -109,3 +119,12 @@ def _admin_user_out(m: MemberSummary) -> AdminUserOut:
         created_at=m.created_at,
         avatar_url=m.avatar_url,
     )
+
+
+@users_router.post("/me/withdraw", response_model=Message, summary="회원 탈퇴 (진행 중 주문이 있으면 400)")
+async def withdraw(_body: WithdrawRequest, response: Response, user: CurrentUser, db: DbSession, raw: RawToken):
+    _, token = await authenticate(db, raw) if raw else (None, None)
+    service = WithdrawService(WithdrawRepository(db), TokenBlacklistRepository(db), db)
+    await service.withdraw(user.id, token, datetime.now(UTC))
+    clear_session_cookie(response)
+    return Message(message="탈퇴했어요. 그동안 함께해 줘서 고마워요.")
