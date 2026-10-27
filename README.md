@@ -52,7 +52,6 @@
 - 인수 상태의 화면·흐름 재현 기록: [docs/backend/BASELINE_DAY1.md](docs/backend/BASELINE_DAY1.md)
 
 ## 4. 개발 방향과 변경 전·후
-> 상태: ✅ 완료 · 🚧 진행 중 (머지되면 담당자가 ✅로 바꿔요)
 
 | 영역 | 인수 전 (`38720a6`) | 2차 이후 | 담당 | 상태 |
 | --- | --- | --- | --- | --- |
@@ -65,7 +64,7 @@
 | 권한 | 로그인 확인만 | `CurrentUser`(Bearer · 쿠키) · `AdminUser`(관리자 아니면 **404**). 기존 API도 같은 검사 | 🧭 | ✅ |
 | 관리자 회원 | 없음 | 회원 목록 (검색 · 역할 필터 · 페이지) | 🧭 | ✅ |
 | 주문 | `app/` 서비스가 재고·배송비 없이 주문 저장 | `src/orders/` 4계층으로 재고 차감(품절·부족 **409**) · 3만 원 이상 무료 배송 · 생성 전체 트랜잭션 · 상태/검색/페이지 목록 | 🛡️ | ✅ |
-| 관리자 주문 | 개발자 API(`/api/dev/...`) | `/api/admin/orders` · 배송 단계 한 칸씩 · 취소 승인(재고 복구)/거절 + `/admin` 화면 | 🏹 | 🚧 |
+| 관리자 주문 | 개발자 API(`/api/dev/...`) | `/api/admin/orders` · 배송 단계 한 칸씩 · 취소 승인(재고 복구)/거절 + `/admin` 화면 | 🏹 | ✅ |
 | 상품 문의 | 화면은 **새로고침하면 사라지는 메모리 데이터** | DB 저장 · 비밀글은 서버에서 가림 · 관리자 답변 1회 · 답변 알림 | 🔮 | ✅ |
 
 ## 5. 기존 app/ vs 이번 src/
@@ -189,7 +188,7 @@ uv run python -m scripts.purge_blacklist         # (가끔) 이미 만료된 로
 - 스키마 · ERD: [docs/backend/ERD_DAY1.md](docs/backend/ERD_DAY1.md) · [docs/backend/SCHEMA.md](docs/backend/SCHEMA.md)
 
 ## 9. 개인별 Use Case
-> 각자 자기 칸을 채워요: **흐름 · 관련 파일 · API · 정상/실패 결과 · 캡처 · 인수 전후 비교**. 모두 **로그인 → 내 API 200 → 로그아웃 → 같은 토큰 401**을 보여 줘요.
+> 칸마다 **흐름 · 관련 파일 · API · 정상/실패 결과 · 캡처 · 인수 전후 비교**, 그리고 **로그인 → 내 API 200 → 로그아웃 → 같은 토큰 401**을 담았어요.
 
 ### 🛡️ 주문하기 (재고 · 배송비): 양성용
 - **UC 한 줄**: 로그인 사용자가 장바구니 상품을 주문하면 서버가 재고와 배송비를 검증하고, 주문·상태 기록·알림·재고 차감·장바구니 비우기를 한 트랜잭션으로 확정합니다.
@@ -352,12 +351,105 @@ flowchart LR
 - **트러블슈팅**: OAuth2 form 로그인은 `python-multipart`가 있어야 동작 → `uv add`로 추가 · bcrypt 5.0이 72바이트 넘는 비밀번호에서 오류 → 요청 검사에서 72바이트 제한 · `/api/auth/signup` 경로가 기존 구글 닉네임 가입과 겹침 → 구글 쪽을 `/api/auth/google/signup`으로 이동 · 캡처는 테스트 전용 계정(`*@pixelmart.test`)으로 찍고 비밀번호·토큰 값은 가렸습니다.
 
 ### 🏹 관리자 주문 관리: 우동현
-- **흐름**: `/admin/orders` → `POST /api/admin/orders/{id}/advance` → `OrderProgress.advance()`(한 칸씩) → 상태 · 기록 저장 + 구매자 알림 / 취소 요청 → `CancelRequest.approve()` → 주문 취소 + `StockItem.restore()`
-- **관련 파일**: `backend/src/admin_orders/` · (화면) `app/admin/`
-- **API**: (작성 예정)
-- **정상 / 실패**: (작성 예정: 끝 칸에서 또 넘기기 409 · 이미 처리한 취소 409 · 일반 사용자 404 · 로그아웃 토큰 401)
-- **캡처**: (작성 예정)
-- **인수 전후**: 개발자 API로만 처리 → 관리자 화면 + 허용된 상태 전이만
+- **UC 한 줄**: 관리자가 `/admin/orders`에서 주문을 주문 완료 → 상품 준비중 → 배송중 → 배송 완료로 **한 칸씩** 넘기고, `/admin/cancels`에서 취소 요청을 승인(재고·적립금 복구)하거나 거절(신청 직전 단계로 복귀)합니다. 상태가 바뀔 때마다 구매자에게 알림이 갑니다.
+
+```mermaid
+flowchart LR
+  screen["화면<br/>/admin/orders · /admin/orders/[id] · /admin/cancels"] --> api["API<br/>POST /api/admin/orders/{id}/advance<br/>POST /api/admin/cancel-requests/{id}/approve · reject"]
+  api --> service["Application<br/>AdminOrderService"]
+  service --> domain["Domain<br/>OrderProgress.advance() 한 칸씩<br/>CancelRequest.approve() · reject() 한 번만"]
+  service --> repo["Infrastructure<br/>AdminOrderRepository"]
+  repo --> db["PostgreSQL<br/>orders · order_status_history<br/>cancel_requests · products · notifications"]
+  repo -->|"알림 저장 실패"| rollback["rollback<br/>상태·기록 그대로"]
+```
+
+- **관련 파일**: 화면 `app/admin/orders/` · `app/admin/cancels/` · `components/admin/` (`AdminNav` · `AdminGuard` · `StatusFilter` · `ConfirmDialog`) · 클라이언트 `lib/admin.ts` · API `backend/src/admin_orders/presentation/` · 서비스 `backend/src/admin_orders/application/` · 도메인 `backend/src/admin_orders/domain/` · 저장소 `backend/src/admin_orders/infrastructure/`
+- **업무 규칙**: 배송 단계는 정해진 순서로 한 칸씩만 (배송 완료·취소된 주문은 더 못 넘김 409) · 취소 요청은 한 번만 처리 (두 번째 409) · 승인하면 주문 취소 + 재고 복구 + 쓴 적립금 환불 · 거절하면 타임라인에서 취소 요청 직전 단계로 복귀 · 상태 변경·타임라인·구매자 알림은 한 트랜잭션 · 관리자가 아니면 404로 숨김
+- **API**
+
+  | 메서드 · 경로 | 정상 | 주요 실패 |
+  | --- | --- | --- |
+  | `GET /api/admin/orders?status=&q=&page=&size=` | 상태 필터 · 주문번호/닉네임/이메일 검색 · 페이지 200 | 일반 사용자 404 · 로그아웃 토큰 401 |
+  | `GET /api/admin/orders/{id}` | 주문 상세 · 타임라인 200 | 없는 주문 404 |
+  | `POST /api/admin/orders/{id}/advance` | 다음 단계로 200 + 구매자 알림 | 더 못 넘기는 상태 409 · 없는 주문 404 |
+  | `GET /api/admin/cancel-requests?status=&page=&size=` | 취소 요청 목록 200 | 일반 사용자 404 |
+  | `POST /api/admin/cancel-requests/{id}/approve` · `reject` | 승인(취소·재고 복구) / 거절(직전 단계로) 200 | 이미 처리 409 · 없는 요청 404 |
+
+- **Swagger 정상 / 실패 증거**
+
+  <details>
+  <summary>주문 목록 200 — 주문번호로 검색</summary>
+
+  ![주문 목록 200](docs/screenshots/issue-36/admin-orders/orders-list-200.jpg)
+  </details>
+
+  <details>
+  <summary>배송 단계 넘기기 200 — 주문 완료 → 상품 준비중</summary>
+
+  ![단계 넘기기 200](docs/screenshots/issue-36/admin-orders/advance-200.jpg)
+  </details>
+
+  <details>
+  <summary>배송 완료 주문을 또 넘기기 409 — "더 넘길 수 없는 상태예요."</summary>
+
+  ![단계 넘기기 409](docs/screenshots/issue-36/admin-orders/advance-409.jpg)
+  </details>
+
+  <details>
+  <summary>없는 주문 넘기기 404</summary>
+
+  ![없는 주문 404](docs/screenshots/issue-36/admin-orders/advance-404.jpg)
+  </details>
+
+  <details>
+  <summary>취소 요청 승인 200</summary>
+
+  ![취소 승인 200](docs/screenshots/issue-36/admin-orders/cancel-approve-200.jpg)
+  </details>
+
+  <details>
+  <summary>같은 취소 요청을 다시 승인 409 — "이미 처리된 요청이에요."</summary>
+
+  ![취소 승인 409](docs/screenshots/issue-36/admin-orders/cancel-approve-409.jpg)
+  </details>
+
+- **로그인 → 내 API → 로그아웃 → 같은 토큰 401** (Swagger **Authorize**로 관리자 Bearer 토큰을 붙이고, 브라우저 쿠키는 지운 상태 · 로그인 뒤 200은 위 주문 목록 캡처)
+
+  <details>
+  <summary><code>POST /api/auth/logout</code> 200</summary>
+
+  ![로그아웃 200](docs/screenshots/issue-36/admin-orders/auth-logout-200.jpg)
+  </details>
+
+  <details>
+  <summary>로그아웃한 같은 토큰으로 <code>GET /api/admin/orders</code> 401</summary>
+
+  ![로그아웃 토큰 401](docs/screenshots/issue-36/admin-orders/orders-list-after-logout-401.jpg)
+  </details>
+
+- **화면**
+
+  <details>
+  <summary>관리자 주문 목록 — 상태 카드 · 상태 필터 · 검색 · 다음 단계 버튼</summary>
+
+  ![관리자 주문 목록](docs/screenshots/issue-36/admin-orders/screen-admin-orders.jpg)
+  </details>
+
+  <details>
+  <summary>관리자 주문 상세 — 배송 단계 · 운송장 · 상태 이력 · 하단 고정 버튼</summary>
+
+  ![관리자 주문 상세](docs/screenshots/issue-36/admin-orders/screen-admin-order-detail.jpg)
+  </details>
+
+  <details>
+  <summary>관리자 취소 요청 — 요약 카드 · 승인/거절</summary>
+
+  ![관리자 취소 요청](docs/screenshots/issue-36/admin-orders/screen-admin-cancels.jpg)
+  </details>
+
+- **테스트**: `tests/test_admin_orders_domain.py`(단계 전이·처리 규칙, DB 없음) · `tests/test_admin_orders_service.py`(실패 시 rollback) · `tests/test_admin_orders_api.py` · `tests/test_admin_cancels_api.py`(관리자만 · 409 · 재고 복구)
+- **인수 전후**: 로컬에서 로그인한 누구나 부르던 개발자 API(`/api/dev/orders/{id}/advance` · `/api/dev/cancel-requests/...`) → 관리자만 쓰는 `/api/admin/...` + 허용된 상태 전이만 + 관리자 화면(대시보드 · 주문 목록/상세 · 취소 요청)
+- **트러블슈팅**: 백엔드 머지 전에는 `mocks/admin.ts` 임시 데이터로 화면을 먼저 만들고, 머지 후 실제 API로 전환(`USE_MOCK = false`) · 취소 사유에 공백 없는 긴 글이 들어오면 표 전체가 가로로 늘어남 → 인라인 요소에는 `max-width`가 적용되지 않아 블록 요소로 바꿔 줄바꿈 · 캡처에서는 Bearer 토큰이 보이는 Curl 영역을 제외
 
 ### 🔮 상품 문의 → 관리자 답변: 김예주
 - **UC 한 줄**: 로그인 사용자가 상품 상세 Q&A 탭에서 문의(비밀글 선택 가능)를 남기면, 관리자가 `/admin/questions`에서 **한 번만** 답변하고 작성자에게 알림이 갑니다.
@@ -449,7 +541,6 @@ flowchart LR
 ## 10. 미완료 · Mock 목록
 | 항목 | 지금 상태 | 담당 |
 | --- | --- | --- |
-| 관리자 화면 | 백엔드 머지 전까지 `mocks/` 임시 데이터 (`USE_MOCK`) | 🏹 |
 | 결제 | 가상 주문 (실제 결제 없음) | |
 | 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
 | 알려진 문제 | 처음 clone한 뒤 `npx tsc --noEmit`이 `PageProps` 오류를 내면 `npx next typegen`을 먼저 (경로 타입 생성) | |
