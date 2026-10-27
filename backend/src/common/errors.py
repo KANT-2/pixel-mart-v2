@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
+from src.admin_trades.domain.moderation import CannotReopen, TradeNotFound
 from src.auth.domain.exceptions import (
     CannotSuspend,
     CannotWithdraw,
@@ -65,6 +66,8 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     MemberNotFound: status.HTTP_404_NOT_FOUND,
     CannotWithdraw: status.HTTP_400_BAD_REQUEST,
     CannotSuspend: status.HTTP_400_BAD_REQUEST,
+    TradeNotFound: status.HTTP_404_NOT_FOUND,
+    CannotReopen: status.HTTP_400_BAD_REQUEST,
     ReportTargetNotFound: status.HTTP_404_NOT_FOUND,
     CannotReport: status.HTTP_400_BAD_REQUEST,
     AlreadyReported: status.HTTP_400_BAD_REQUEST,

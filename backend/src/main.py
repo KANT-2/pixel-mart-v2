@@ -32,6 +32,8 @@ from src.admin_orders.presentation import router as admin_orders_api
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
 from src.admin_products.presentation import router as admin_products_api
 from src.admin_summary.presentation import router as admin_summary_api
+from src.admin_trades.domain.moderation import CannotReopen, TradeNotFound
+from src.admin_trades.presentation import router as admin_trades_api
 from src.auth.domain.exceptions import (
     CannotSuspend,
     CannotWithdraw,
@@ -130,6 +132,8 @@ for admin_product_error in (AdminProductNotFound, InvalidProductCategory):
 
 for report_error in (AlreadyReported, CannotReport, ReportAlreadyHandled, ReportNotFound, ReportTargetNotFound):
     app.add_exception_handler(report_error, domain_error_handler)
+for admin_trade_error in (TradeNotFound, CannotReopen):
+    app.add_exception_handler(admin_trade_error, domain_error_handler)
 
 # 프론트엔드의 직접 API 호출을 위한 CORS 설정
 # 허용 출처는 환경변수 FRONTEND_URL에서 가져옴
@@ -187,6 +191,7 @@ for router in (
 app.include_router(auth_api.router, prefix="/api")
 app.include_router(auth_api.admin_router, prefix="/api")
 app.include_router(auth_api.users_router, prefix="/api")
+app.include_router(admin_trades_api.router, prefix="/api")
 app.include_router(reports_api.router, prefix="/api")
 app.include_router(reports_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
