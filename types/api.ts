@@ -192,11 +192,27 @@ export interface ApiBadge {
   description: string;
 }
 
+/** 도감 한 칸 — 받은 여부 · 진행도 · 표시 (#91) */
+export interface ApiBadgeBookItem extends ApiBadge {
+  earned: boolean;
+  kind?: "auto" | "event";
+  earnedAt?: string | null;
+  /** 받은 지 7일 안 됨 */
+  isNew?: boolean;
+  /** 동네 큰손 — 매주 월요일에 다시 정해요 */
+  isWeekly?: boolean;
+  /** 진행 막대 (한 번에 받는 뱃지는 null) */
+  progress?: { current: number; goal: number } | null;
+  grantedMemo?: string | null;
+}
+
 /** 내 뱃지 도감 */
 export interface ApiBadgeBook {
   earnedCount: number;
   total: number;
-  items: (ApiBadge & { earned: boolean })[];
+  /** 대표 뱃지 코드 — 고른 것, 없으면 가장 받기 어려운 것 */
+  featured?: string | null;
+  items: ApiBadgeBookItem[];
 }
 
 /** 지도 캐릭터의 이웃 카드 — 카드 공개 동의자만 (사용자 id·정확한 점수·금액·위치 없음) */
@@ -217,7 +233,7 @@ export interface ApiMapCard {
   isPublic?: boolean;
   /** 샘플 캐릭터의 카드 */
   isSample?: boolean;
-  /** 대표 뱃지 — 받은 뱃지 중 가장 받기 어려운 것 */
+  /** 대표 뱃지 — 내가 고른 것, 없으면 받은 뱃지 중 가장 받기 어려운 것 */
   badge?: ApiBadge | null;
   /** 받은 뱃지 수 */
   badgeCount?: number;

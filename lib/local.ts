@@ -26,6 +26,8 @@ export const localApi = {
   /** 내 활동 점수 (하트·코인) — 나에게만 정확한 값 */
   myActivity: (signal?: AbortSignal) => api.get<ApiMyActivity>("/users/me/activity", options(signal)),
   myBadges: (signal?: AbortSignal) => api.get<ApiBadgeBook>("/users/me/badges", options(signal)),
+  /** 대표 뱃지 고르기 (받은 뱃지만) — null이면 자동(가장 받기 어려운 것) (#106) */
+  setFeaturedBadge: (code: string | null) => api.patch<ApiBadgeBook>("/users/me/featured-badge", { code }, options()),
   /** 지역 구매 순위 TOP 10 (금액 비공개) */
   buyerRanking: (region: string, interest?: number, signal?: AbortSignal) =>
     api.get<ApiBuyerRanking>(`/local/buyer-ranking?${query({ region, interest })}`, options(signal)),
