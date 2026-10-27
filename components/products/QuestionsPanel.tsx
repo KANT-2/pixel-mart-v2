@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import ReportButton from "@/components/ReportButton";
 import { FeedbackLogin, FeedbackSkeleton } from "@/components/products/FeedbackStates";
 import QuestionDeleteButton from "@/components/products/QuestionDeleteButton";
 import QuestionEntries from "@/components/products/QuestionEntries";
@@ -129,7 +130,7 @@ function AccountQuestions({ productId, viewer }: AccountQuestionsProps) {
     {listLoading && !data ? <FeedbackSkeleton label="질문 불러오는 중" /> : data && <>
       {data.items.length ? <QuestionEntries items={data.items} actions={(question) => canDeleteQuestion(question, Boolean(viewer))
         ? <QuestionDeleteButton disabled={blocked || listLoading} pending={deletingId === question.id} onConfirm={() => remove(question)} />
-        : null} /> : <div className="pixel-panel p-8 text-center">
+        : <ReportButton targetType="question" targetId={question.id} isMine={question.isMine} hidden={question.hidden} />} /> : <div className="pixel-panel p-8 text-center">
         <p className="font-bold">아직 문의가 없어요</p><p className="mt-2 text-sm text-sub">궁금한 점이 있으면 첫 문의를 남겨 주세요.</p>
       </div>}
       {data.totalPages > 1 && <nav aria-label="문의 페이지 이동" className="flex flex-wrap items-center justify-center gap-4 text-sm">
