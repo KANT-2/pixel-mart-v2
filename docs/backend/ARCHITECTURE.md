@@ -8,20 +8,34 @@
 ```
 - 브라우저는 **항상 3000번만** 봅니다. `/api/*`는 Next.js가 FastAPI로 넘깁니다.
 - 그래서 **CORS 설정이나 쿠키 도메인 문제 없이** 로그인 쿠키가 자동으로 오갑니다.
-- 기술: FastAPI · SQLAlchemy 2 (async) · asyncpg · Alembic · Pydantic v2 · PyJWT · Authlib
+- 기술: FastAPI · SQLAlchemy 2 (async) · asyncpg · Alembic · Pydantic v2 · PyJWT · Authlib · bcrypt
 
-## 2. 로그인 (구글 + 로컬 개발용 이메일 로그인)
-**FastAPI가 구글 로그인을 직접 처리**하고, 로그인 결과는 **httpOnly 쿠키(`pm_session`, JWT)**로 유지합니다.
+### 코드 구조 — `backend/app/` + `backend/src/` 공존
+- 1차 기능(쇼핑 · PIXEL LOCAL · 아바타 등)은 `backend/app/`(routers · services · models · schemas)에 그대로 있고, 2차 기능은 `backend/src/<기능>/`에 **4계층**(presentation · application · domain · infrastructure)으로 만듭니다.
+- 앱 조립은 `src/main.py` 한 곳(기존 라우터 + 새 라우터). `app/deps.py`·`app/core/db.py`는 `src/common/auth.py`·`src/database.py`를 다시 내보내기만 해서, 기존 API도 같은 로그인 확인(블랙리스트 포함)을 씁니다.
+- 관리자 API는 `AdminUser` 의존성으로 막고, 관리자가 아니면 403 대신 **404**로 숨깁니다.
+- 자세한 비교·구조도는 [README 5장](../../README.md#5-기존-app-vs-이번-src) · [6장](../../README.md#6-4계층-구조도--요청-흐름).
+
+### 배포
+- 프론트는 **Vercel**, API · PostgreSQL은 **Render**. Vercel의 `/api/*`가 rewrites로 Render API에 전달돼 로컬과 같은 구조(브라우저는 프론트 주소만 봄)입니다.
+- `ENV=production`이면 개발용 로그인 · `/api/dev/...`는 404, API 문서는 관리자만. 설정은 [README 7장 배포](../../README.md#배포--58).
+
+## 2. 로그인 (구글 · 이메일·비밀번호 + 로컬 개발용 이메일 로그인)
+**FastAPI가 로그인을 직접 처리**하고, 로그인 결과는 **httpOnly 쿠키(`pm_session`, JWT)**로 유지합니다.
 
 ```
 [구글로 로그인] 클릭
 → GET /api/auth/google/login          (FastAPI → 구글 로그인 화면으로 이동)
-→ 구글 → GET /api/auth/google/callback (FastAPI가 사용자 확인 — 기존 회원은 로그인, 새 사용자는 /signup에서 닉네임을 고른 뒤 POST /api/auth/signup으로 users 저장)
+→ 구글 → GET /api/auth/google/callback (FastAPI가 사용자 확인 — 기존 회원은 로그인, 새 사용자는 /signup에서 닉네임을 고른 뒤 POST /api/auth/google/signup으로 users 저장)
 → pm_session 쿠키 설정 → 프론트 메인으로 이동
 → 이후 모든 /api 요청에 쿠키 자동 포함 → CurrentUser로 사용자 확인
 ```
 - NextAuth를 쓰지 않는 이유: NextAuth 세션 토큰은 암호화돼 있어 FastAPI가 읽을 수 없고, 구글 토큰을 넘기면 1시간 뒤 만료 처리가 필요합니다. **로그인을 한 곳(FastAPI)에서만 관리**하면 단순합니다.
 - 구글 콘솔 리디렉션 URI: `http://localhost:3000/api/auth/google/callback` (3000번 = 프록시 경유)
+- **이메일·비밀번호**: `POST /api/auth/signup`(`{email, password, nickname}`, 비밀번호는 **bcrypt 해시**로만 저장) → `POST /api/auth/token`(OAuth2 form)으로 로그인하면 JWT를 **Bearer 토큰 + `pm_session` 쿠키**로 함께 돌려줍니다. 요청은 `Authorization: Bearer`를 먼저, 없으면 쿠키를 확인합니다.
+- **로그아웃**: JWT의 고유번호(`jti`)를 `token_blacklist`에 만료 시각까지 보관 → 같은 토큰은 401.
+- **비밀번호 변경·재설정**: `POST /api/auth/password`(지금 비밀번호 확인), `POST /api/auth/password-reset` → `/confirm`. **메일은 보내지 않습니다** — 로컬은 재설정 링크를 응답·화면에 바로 보여 주고, 배포에서는 "메일을 보내지 않아요" 안내만.
+- 자세한 흐름·규칙은 [README 9장 가입 · 로그인 · 로그아웃](../../README.md#-가입--로그인--로그아웃-채희주).
 - **`POST /api/auth/dev-login`**: 구글 로그인 완성 전에도 모두가 "로그인 필요" 기능을 개발할 수 있게 하는 **로컬 전용** 임시 로그인. `ENV=local`일 때만 동작.
 
 ## 3. 데이터 원칙
@@ -66,7 +80,8 @@
 - HAVE/WANT 매칭은 **"HAVE/WANT 일치 + 같은 지역"** 까지만 구현(거리·신뢰도·시간은 향후).
 - **교환 신청**(`trade_requests`): 이웃 글에 내 글을 붙여 신청 → 글 주인이 수락/거절 → 양쪽이 "받았어요" → 완료. 완료되면 두 사람 모두 활동 점수.
 - **선물**(`gifts`): 위시(WANT) 글에 사이트 상품을 가상 결제로 보냄 → 받는 사람이 받기(주문 생성)/거절.
-- 채팅, 실거래, 신고·제재, 공동구매는 향후 범위.
+- **신고·제재는 구현됨**: 신고(`reports`) → 관리자 신고함 처리, 관리자 거래글 숨김(`hidden_by_admin`), 사용자 정지(`users.suspended`).
+- 채팅, 실거래, 공동구매는 향후 범위.
 
 **Cold Start · 빈 화면**
 - 초기 Mock 데이터는 API 응답에 `isSample: true`. **화면에는 "샘플·예시" 라벨을 표시하지 않고**(팀 결정), 샘플 글에는 선물·교환 신청이 안 되게만 막습니다.
@@ -81,7 +96,7 @@
 ### 4-5. 활동 점수 · 하트 · 뱃지
 - 활동(프로필 완성, 첫 WANT, 거래·교환 완료, 선물 등)마다 `activity_points`에 기록 — 같은 일은 한 번, 반복 활동은 하루 상한 (`services/activity.py`).
 - 점수 합계 → 하트 수·레벨(LV.1~10)·코인 구간을 계산해서 보여 줍니다 (마이페이지 퀘스트, 이웃 카드).
-- 뱃지는 **테이블 없이** 주문·리뷰·활동 점수·거래·선물 기록으로 19종을 계산 (`services/badges.py`).
+- 뱃지는 주문·리뷰·활동 점수·거래·선물 기록으로 19종 조건을 확인하고, 얻은 뱃지는 `user_badges`에 저장합니다 (`services/badges.py`). 관리자가 `badge_defs`로 **이벤트 뱃지**를 만들어 지급할 수 있고, 사용자는 **대표 뱃지**(`users.featured_badge`, `PATCH /api/users/me/featured-badge`)를 고를 수 있습니다.
 
 ### 4-6. 알림
 - `services/notifications.py`의 `notify()` 한 곳으로만 쌓습니다 — 교환 신청·수락·거절, 주문 완료, 선물 도착·보냄·수락·거절, 활동 점수, 하트 증가, 뱃지 획득.

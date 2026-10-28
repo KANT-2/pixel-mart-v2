@@ -8,7 +8,7 @@ from app.schemas.common import CamelModel
 from app.schemas.product import ProductOut
 
 RECEIVED_LABELS = {"pending": "받기 대기", "accepted": "받음", "declined": "거절함"}
-SENT_LABELS = {"pending": "받기 대기", "accepted": "받았어요", "declined": "거절 · 환불(데모)"}
+SENT_LABELS = {"pending": "받기 대기", "accepted": "받았어요", "declined": "거절 · 환불"}
 
 
 class GiftIn(CamelModel):

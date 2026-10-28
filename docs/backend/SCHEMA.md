@@ -1,6 +1,6 @@
 # DB 스키마
 
-> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`·`backend/src/points/infrastructure/models.py`, 마이그레이션 head `b3f1c2d4e5a6`).
+> 지금 DB에 **실제로 있는 테이블**만 적습니다 (기준: `backend/app/models/`·`backend/src/*/infrastructure/models.py`, 마이그레이션 head `b3f1c2d4e5a6`).
 > 컬럼 이름은 snake_case, 모든 시간은 `timestamptz`. 새 테이블을 만들면 이 문서도 같이 고쳐 주세요.
 > 데스크 꾸미기·토너먼트 테이블은 범위에서 빠져 만들지 않았습니다.
 
@@ -28,7 +28,16 @@ erDiagram
   users ||--o{ gifts : "sends / receives"
   users ||--o{ activity_points : earns
   users ||--o{ notifications : gets
+  users ||--o{ shipping_addresses : saves
+  coupons ||--o{ user_coupons : issued
+  users ||--o{ user_coupons : holds
+  orders ||--o{ return_requests : has
+  users ||--o{ reports : files
+  users ||--o{ user_badges : earns
+  badge_defs |o..o{ user_badges : "code (FK 아님)"
+  users ||--o{ notices : writes
 ```
+> 그림은 FK 관계 위주예요. `token_blacklist`(FK 없음), `faqs`·`keyboards`·`*_samples` 같은 독립 테이블과 관리자 FK(`resolved_by`·`granted_by` 등)는 생략 — 전체는 아래 표.
 
 ---
 
@@ -46,12 +55,16 @@ erDiagram
 ## 주문 · CS · 호환성
 | 테이블 | 주요 컬럼 | 비고 |
 | --- | --- | --- |
-| orders | id, user_id FK, status, total_price, shipping_fee (기본 0), points_used (기본 0), recipient_name, address, created_at | total_price는 포인트 사용 후 결제 금액. status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` |
-| point_transactions | id, user_id FK, order_id FK, kind, amount, created_at · unique(user_id, kind, order_id) | 구매 포인트 기록. 첫 구매 1,000P는 사용자당 한 번, 주문 취소 시 사용분 환급. 활동 점수와 별개 |
+| orders | id, user_id FK, status, total_price, shipping_fee (기본 0), points_used (기본 0), coupon_discount (기본 0), coupon_name?, recipient_name, phone, postal_code, address, address_detail, delivery_memo, payment_method (기본 card), courier?, tracking_number?, confirmed_at?, created_at | total_price는 쿠폰·포인트 사용 후 결제 금액. 운송장은 배송중으로 넘길 때 관리자가 입력. status: `paid → preparing → shipping → delivered` / `cancel_requested → cancelled` / `return_requested → returned` · `exchange_requested → preparing`(재배송) |
+| point_transactions | id, user_id FK, order_id FK, kind, amount, created_at · unique(user_id, kind, order_id) | 적립금 기록. kind: `first_purchase`(첫 구매 1,000P, 사용자당 한 번) · `order_spend` · `order_refund`(취소 시 사용분 환급) · `purchase_reward`(구매 확정 적립). 활동 점수와 별개 |
 | order_items | id, order_id FK, product_id FK, quantity, unit_price | 주문 시점 가격 |
 | order_status_history | id, order_id FK, status, changed_at | 배송 타임라인 |
 | cancel_requests | id, order_id FK, reason, status(`requested/approved/rejected`), created_at | |
-| reviews | id, user_id FK, product_id FK, order_item_id FK, rating(1~5), content, is_hidden, created_at · unique(user_id, product_id) | 배송 완료 상품만 |
+| return_requests | id, order_id FK, kind(`return/exchange`), reason, status(`requested/approved/rejected`), created_at, resolved_at | 배송 완료·구매 확정 전 주문만. 거절하면 주문은 delivered로 |
+| shipping_addresses | id, user_id FK, label, recipient_name, phone, postal_code, address, address_detail, is_default, created_at | 기본 배송지는 사람당 하나 (부분 unique) |
+| coupons | id, code (unique)?, name, discount_type(`amount/percent`), discount_value, min_order_price, max_discount?, valid_days, auto_issue?, is_active | `auto_issue='welcome'`은 회원마다 한 장 자동 지급 |
+| user_coupons | id, user_id FK, coupon_id FK, issued_at, expires_at, used_order_id FK?(SET NULL), used_at · unique(user_id, coupon_id) | 주문에 쓰면 used_order_id가 채워짐 |
+| reviews | id, user_id FK, product_id FK, order_item_id FK, rating(1~5), content, image_urls (JSON, 최대 3장), is_hidden, created_at · unique(user_id, product_id) | 배송 완료 상품만 |
 | product_questions | id, product_id FK, user_id FK, title, content, is_secret, is_hidden, answer, answered_at, created_at | 비밀글은 작성자만 열람 |
 | faqs | id, category, question, answer, sort_order | 시드 |
 | notices | id, title, content, is_pinned, is_published, created_by FK?, created_at, updated_at | 관리자 공지 |
