@@ -2,8 +2,8 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import PixelIcon from "@/components/PixelIcon";
 import NicknameField, { type NicknameStatus } from "@/components/profile/NicknameField";
+import PencilIcon from "@/components/profile/PencilIcon";
 import { api, ApiError } from "@/lib/api";
 import type { ApiUser } from "@/types/api";
 
@@ -39,7 +39,7 @@ export default function NicknameEditor() {
   if (!editing) return <div>
     <div className="flex min-w-0 items-center gap-2">
       <p className="min-w-0 truncate text-xl font-extrabold">{user.nickname}</p>
-      <button type="button" onClick={() => { setText(user.nickname); setRejected(null); setError(null); setSaved(false); setEditing(true); }} aria-label="이름 바꾸기" title="이름 바꾸기" className="grid size-8 shrink-0 place-items-center rounded-md border border-transparent hover:border-mint/50 hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-mint"><PixelIcon name="pencil" className="size-4" /></button>
+      <button type="button" onClick={() => { setText(user.nickname); setRejected(null); setError(null); setSaved(false); setEditing(true); }} aria-label="이름 바꾸기" title="이름 바꾸기" className="grid size-8 shrink-0 place-items-center rounded-md border border-transparent text-sub hover:border-mint/50 hover:bg-panel-2 hover:text-mint focus-visible:outline-2 focus-visible:outline-mint"><PencilIcon /></button>
     </div>
     {saved && <p role="status" className="text-xs text-mint">닉네임을 바꿨어요.</p>}
   </div>;
