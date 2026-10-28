@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import AdminQuestionsBoard from "./AdminQuestionsBoard";
 import { parseAdminQuestionQuery } from "./adminQuestions";
 
-export const metadata: Metadata = { title: "문의 답변 | PIXEL MART 관리자" };
+export const metadata: Metadata = { title: "문의 관리 | PIXEL MART 관리자" };
 
 // 주소창 쿼리(?status=&q=&page=)는 요청마다 달라서 Suspense 안에서 읽는다 (cacheComponents 규칙, signup·lookbook과 같은 방식)
 async function QuestionsContent({ searchParams }: Pick<PageProps<"/admin/questions">, "searchParams">) {

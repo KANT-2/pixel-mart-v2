@@ -32,10 +32,7 @@ async def clean_author_questions():
     try:
         async with engine.begin() as conn:
             await conn.execute(
-                text(
-                    "DELETE FROM product_questions WHERE user_id IN "
-                    "(SELECT id FROM users WHERE email = :email)"
-                ),
+                text("DELETE FROM product_questions WHERE user_id IN (SELECT id FROM users WHERE email = :email)"),
                 {"email": AUTHOR},
             )
     except Exception:
@@ -169,3 +166,59 @@ async def test_logged_out_admin_token_is_401(client, other, products):
     assert res.status_code == 401
     listing = (await other.get(f"/api/products/{products[0]}/questions")).json()
     assert listing["items"][0]["answered"] is False  # 아무것도 바뀌지 않음
+
+
+# 관리 — 숨김 · 답변 삭제 · 문의 삭제
+async def test_admin_hides_and_shows_question(client, other, products):
+    author = await login(other, AUTHOR, "문의관리테스트")
+    asked = await ask(other, author, products[0], "숨김 문의")
+    admin = await login(client, ADMIN, admin=True)
+    public = f"/api/products/{products[0]}/questions"
+
+    hidden = await client.patch(f"{ADMIN_URL}/{asked['id']}", json={"hidden": True}, headers=headers(admin))
+    assert hidden.status_code == 200
+    assert asked["id"] not in [q["id"] for q in (await other.get(public)).json()["items"]]
+    row = next(q for q in await mine(client, admin, answered="false") if q["id"] == asked["id"])
+    assert row["isHidden"] is True  # 관리자 목록에는 남아 숨김 표시
+    assert (
+        await client.patch(f"{ADMIN_URL}/{asked['id']}", json={"hidden": "yes"}, headers=headers(admin))
+    ).status_code == 422
+
+    shown = await client.patch(f"{ADMIN_URL}/{asked['id']}", json={"hidden": False}, headers=headers(admin))
+    assert shown.status_code == 200
+    assert asked["id"] in [q["id"] for q in (await other.get(public)).json()["items"]]
+
+
+async def test_admin_deletes_answer_then_answers_again(client, other, products):
+    author = await login(other, AUTHOR, "문의관리테스트")
+    asked = await ask(other, author, products[0], "답변 고치기")
+    admin = await login(client, ADMIN, admin=True)
+    await client.post(answer_url(asked["id"]), json={"answer": "오타 답변"}, headers=headers(admin))
+
+    removed = await client.delete(answer_url(asked["id"]), headers=headers(admin))
+    assert removed.status_code == 200
+    again = await client.delete(answer_url(asked["id"]), headers=headers(admin))
+    assert (again.status_code, again.json()["detail"]) == (409, "아직 답변이 없는 문의예요.")
+
+    fixed = await client.post(answer_url(asked["id"]), json={"answer": "고친 답변"}, headers=headers(admin))
+    assert (fixed.status_code, fixed.json()["answer"]) == (200, "고친 답변")
+
+
+async def test_admin_deletes_answered_question(client, other, products):
+    author = await login(other, AUTHOR, "문의관리테스트")
+    asked = await ask(other, author, products[0], "삭제할 문의")
+    admin = await login(client, ADMIN, admin=True)
+    await client.post(answer_url(asked["id"]), json={"answer": "답변"}, headers=headers(admin))
+
+    assert (await client.delete(f"{ADMIN_URL}/{asked['id']}", headers=headers(admin))).status_code == 200
+    assert (await client.delete(f"{ADMIN_URL}/{asked['id']}", headers=headers(admin))).status_code == 404
+    assert asked["id"] not in [q["id"] for q in await mine(client, admin, answered="true")]
+
+
+async def test_moderation_needs_admin(client, other, products):
+    author = await login(other, AUTHOR, "문의관리테스트")
+    asked = await ask(other, author, products[0], "권한 확인")
+    auth = headers(author)
+    assert (await other.patch(f"{ADMIN_URL}/{asked['id']}", json={"hidden": True}, headers=auth)).status_code == 404
+    assert (await other.delete(answer_url(asked["id"]), headers=auth)).status_code == 404
+    assert (await other.delete(f"{ADMIN_URL}/{asked['id']}", headers=auth)).status_code == 404

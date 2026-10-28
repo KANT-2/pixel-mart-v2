@@ -8,6 +8,7 @@ from src.questions.domain.exceptions import (
     AnsweredQuestionNotDeletable,
     InvalidQuestion,
     QuestionAlreadyAnswered,
+    QuestionNotAnswered,
     QuestionNotFound,
 )
 from src.questions.domain.question import Question
@@ -111,6 +112,20 @@ def test_answered_question_cannot_be_deleted():
     question.answer_with("답변", NOW)
     with pytest.raises(AnsweredQuestionNotDeletable):
         question.ensure_deletable_by(AUTHOR)
+
+
+def test_admin_can_remove_answer_and_answer_again():
+    question = make()
+    question.answer_with("첫 답변", NOW)
+    question.remove_answer()
+    assert (question.is_answered, question.answered_at) == (False, None)
+    question.answer_with("고친 답변", NOW)  # 지운 뒤에는 다시 답변할 수 있다
+    assert question.answer == "고친 답변"
+
+
+def test_cannot_remove_missing_answer():
+    with pytest.raises(QuestionNotAnswered):
+        make().remove_answer()
 
 
 # 도메인은 순수 파이썬 (FastAPI·SQLAlchemy·Pydantic import 금지)

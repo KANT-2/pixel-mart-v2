@@ -1,4 +1,4 @@
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -24,6 +24,7 @@ def _to_domain(row: ProductQuestion) -> Authored:
         answer=row.answer,
         answered_at=row.answered_at,
         created_at=row.created_at,
+        is_hidden=row.is_hidden,
     )
     return question, display_nickname(row.user.nickname, row.user.deleted_at)
 
@@ -47,9 +48,7 @@ class QuestionRepository:
 
     async def get(self, question_id: int) -> Authored | None:
         row = await self.session.scalar(
-            select(ProductQuestion)
-            .where(ProductQuestion.id == question_id)
-            .execution_options(populate_existing=True)
+            select(ProductQuestion).where(ProductQuestion.id == question_id).execution_options(populate_existing=True)
         )
         return None if row is None else _to_domain(row)
 
@@ -130,6 +129,11 @@ class QuestionRepository:
         row.answer = question.answer
         row.answered_at = question.answered_at
         await self.session.flush()
+
+    async def save_hidden(self, question_id: int, hidden: bool) -> None:
+        await self.session.execute(
+            update(ProductQuestion).where(ProductQuestion.id == question_id).values(is_hidden=hidden)
+        )
 
     async def notify_answered(self, question: Question) -> None:
         """문의 작성자에게 답변 알림 (ADMIN_API.md 8장 — 같은 문의는 한 번만)"""
