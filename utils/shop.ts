@@ -53,7 +53,16 @@ export function formatPhone(raw: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 3 + middle)}-${digits.slice(3 + middle)}`;
 }
 
-export const isValidPhone = (phone: string) => /^0\d{1,2}\d{3,4}\d{4}$/.test(phone.replace(/\D/g, ""));
+// 배송 연락처는 휴대폰 11자리만 (택배 문자를 받을 수 있게) — 서버 normalize_phone과 같은 규칙
+export const isValidPhone = (phone: string) => /^01[016789]\d{8}$/.test(phone.replace(/\D/g, ""));
+
+/** 입력 중 안내 — 11자리를 다 채우기 전에 몇 자리 남았는지 (다 맞으면 null) */
+export function phoneHint(phone: string): string | null {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits || isValidPhone(digits)) return null;
+  if (digits.length < 11) return `휴대폰 번호 11자리 중 ${digits.length}자리 입력했어요.`;
+  return "010으로 시작하는 휴대폰 번호를 입력해 주세요.";
+}
 export const isValidPostalCode = (code: string) => /^\d{5}$/.test(code.trim());
 
 export interface ShippingForm {
@@ -78,11 +87,12 @@ export function validateShipping(form: ShippingForm) {
   const errors: ShippingErrors = {};
   if (!values.recipientName) errors.recipientName = "받는 사람을 입력해 주세요.";
   else if (Array.from(values.recipientName).length > 50) errors.recipientName = "받는 사람은 50자 이내로 입력해 주세요.";
-  if (!isValidPhone(values.phone)) errors.phone = "연락처를 010-1234-5678처럼 입력해 주세요.";
+  if (!isValidPhone(values.phone)) errors.phone = "휴대폰 번호 11자리를 010-1234-5678처럼 입력해 주세요.";
   if (!isValidPostalCode(values.postalCode)) errors.postalCode = "주소 검색으로 우편번호를 넣어 주세요.";
   if (!values.address) errors.address = "주소를 입력해 주세요.";
   else if (Array.from(values.address).length > 200) errors.address = "주소는 200자 이내로 입력해 주세요.";
-  if (Array.from(values.addressDetail).length > 100) errors.addressDetail = "상세 주소는 100자 이내로 입력해 주세요.";
+  if (!values.addressDetail) errors.addressDetail = "상세 주소(동·호수)를 입력해 주세요. 단독주택이면 '단독주택'이라고 적어 주세요.";
+  else if (Array.from(values.addressDetail).length > 100) errors.addressDetail = "상세 주소는 100자 이내로 입력해 주세요.";
   return { values, errors, valid: Object.keys(errors).length === 0 };
 }
 

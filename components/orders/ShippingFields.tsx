@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import AddressSearch, { type FoundAddress } from "@/components/orders/AddressSearch";
-import { formatPhone, type ShippingErrors, type ShippingForm } from "@/utils/shop";
+import { formatPhone, phoneHint, type ShippingErrors, type ShippingForm } from "@/utils/shop";
 
 interface ShippingFieldsProps {
   idPrefix: string;
@@ -40,7 +40,7 @@ export default function ShippingFields({ idPrefix, value, errors, onChange, disa
         <input id={id("phone")} name="phone" type="tel" inputMode="numeric" autoComplete="tel" maxLength={13} value={value.phone} disabled={disabled}
           onChange={(event) => set("phone", formatPhone(event.target.value))} aria-invalid={Boolean(errors.phone)} aria-describedby={described("phone")}
           placeholder="010-1234-5678" className={input} />
-        {error("phone")}
+        {error("phone") || (phoneHint(value.phone) && <p role="status" className="mt-2 text-xs text-sub">{phoneHint(value.phone)}</p>)}
       </div>
     </div>
     <div>
@@ -58,7 +58,7 @@ export default function ShippingFields({ idPrefix, value, errors, onChange, disa
       {error("address")}
       <input id={id("addressDetail")} name="addressDetail" autoComplete="address-line2" maxLength={100} value={value.addressDetail} disabled={disabled}
         onChange={(event) => set("addressDetail", event.target.value)} aria-invalid={Boolean(errors.addressDetail)} aria-describedby={described("addressDetail")}
-        placeholder="상세 주소 (동·호수)" aria-label="상세 주소" className={`${input} mt-2`} />
+        placeholder="상세 주소 (동·호수, 필수)" aria-label="상세 주소" aria-required="true" className={`${input} mt-2`} />
       {error("addressDetail")}
     </div>
   </div>;
