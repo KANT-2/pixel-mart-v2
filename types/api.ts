@@ -182,6 +182,8 @@ export interface ApiReview {
   imageUrls?: string[]; // 포토 리뷰 (최대 3장)
   createdAt: string;
   isMine: boolean;
+  reply: string | null;
+  repliedAt: string | null;
 }
 
 /** 상품 문의 한 개 — 비밀글을 볼 권한이 없으면 서버가 제목·내용·닉네임·답변을 null로 보낸다 */

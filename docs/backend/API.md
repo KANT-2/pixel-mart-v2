@@ -41,7 +41,7 @@
 | POST | /api/dev/cancel-requests/{id}/approve | [로컬 전용] 취소 승인 → 주문 취소 완료·사용 포인트 환급 | ✅ |
 | POST | /api/dev/cancel-requests/{id}/reject | [로컬 전용] 취소 거절 → 신청 직전 상태로 복귀 | ✅ |
 | POST | /api/dev/orders/{id}/advance | [로컬 전용] 배송 단계 진행 | ✅ |
-| GET | /api/products/{id}/reviews | 공개 리뷰 목록 + 리뷰 수·평균 별점 (`is_hidden=true` 제외, 숨긴 상품 404) | ✅ |
+| GET | /api/products/{id}/reviews | 공개 리뷰 목록 + 리뷰 수·평균 별점 (`is_hidden=true` 제외, 숨긴 상품 404). 각 리뷰에 판매자 `reply`, `repliedAt` 포함 | ✅ |
 | POST | /api/products/{id}/reviews 🔒 | 리뷰 작성 (배송 완료 상품만) | ✅ |
 | DELETE | /api/products/{id}/reviews/{reviewId} 🔒 | 내 리뷰 삭제 (남의 리뷰는 404, 삭제 후 다시 작성 가능) | ✅ |
 | GET | /api/products/{id}/questions | 공개 상품 문의 목록 (`is_hidden=true` 제외, 비밀글은 내용 가림, 숨긴 상품 404) — ⚠️ 프론트는 아직 미연결(`lib/questions.ts` 인메모리) | ✅ |
@@ -66,6 +66,15 @@
 | DELETE | /api/admin/faqs/{id} 🔒 | FAQ 삭제 → `{message}` | ✅ |
 
 관리자 API는 비로그인 401, 일반 회원 404입니다. 기존 공개 `GET /api/faqs?category=`의 응답 형식은 유지합니다.
+
+## 관리자 리뷰 관리
+| 메서드 | 경로 | 설명 | 상태 |
+| --- | --- | --- | --- |
+| GET | /api/admin/reviews?hidden=&rating=&photo=&q=&page=&size= 🔒 | 숨김·별점·사진 필터, 상품명·내용·작성자 검색. 응답에 `reply`, `repliedAt` 포함 | ✅ |
+| PATCH | /api/admin/reviews/{id} 🔒 | `{hidden: true}`로 숨김, `false`로 다시 보이기. 숨긴 리뷰는 공개 목록·평점에서 제외 | ✅ |
+| PATCH | /api/admin/reviews/{id}/reply 🔒 | `{reply: "감사합니다"}`로 답글 등록·수정(1~500자), `{reply: null}`로 답글 삭제 | ✅ |
+
+관리자 숨김은 복구 가능하며 영구 삭제는 제공하지 않습니다. 답글 필드는 `20261028_1200_add_review_replies.py` 마이그레이션으로 추가합니다.
 
 ## 관리자 상품 관리
 | 메서드 | 경로 | 설명 | 상태 |

@@ -117,3 +117,45 @@ async def test_admin_reviews_need_admin_and_live_token(client, tag):
 
     await logout(client, admin)  # 로그아웃한 같은 토큰은 401
     assert (await client.get("/api/admin/reviews", headers=headers(admin))).status_code == 401
+
+
+async def test_admin_reply_is_visible_to_customer_and_can_be_edited_or_removed(client, tag):
+    value, product_id = tag
+    _, review_id = await write_review(client, value, product_id)
+    admin = await login(client, f"adminreviews-{value}-boss@pixelmart.test", f"관리{value}", admin=True)
+    client.cookies.clear()
+    auth = headers(admin)
+    url = f"/api/admin/reviews/{review_id}/reply"
+
+    created = await client.patch(url, json={"reply": "  이용해 주셔서 감사합니다  "}, headers=auth)
+    assert created.status_code == 200
+    assert created.json()["reply"] == "이용해 주셔서 감사합니다"
+    assert created.json()["repliedAt"] is not None
+    listed = (await client.get("/api/admin/reviews", params={"q": value}, headers=auth)).json()["items"]
+    assert listed[0]["reply"] == "이용해 주셔서 감사합니다"
+    public = (await client.get(f"/api/products/{product_id}/reviews")).json()["items"]
+    assert public[0]["reply"] == "이용해 주셔서 감사합니다"
+
+    changed = await client.patch(url, json={"reply": "새 답글"}, headers=auth)
+    assert changed.status_code == 200 and changed.json()["reply"] == "새 답글"
+    removed = await client.patch(url, json={"reply": None}, headers=auth)
+    assert removed.status_code == 200 and removed.json()["reply"] is None
+    assert removed.json()["repliedAt"] is None
+    public = (await client.get(f"/api/products/{product_id}/reviews")).json()["items"]
+    assert public[0]["reply"] is None
+
+
+async def test_admin_reply_checks_permissions_and_input(client, tag):
+    value, product_id = tag
+    writer, review_id = await write_review(client, value, product_id)
+    url = f"/api/admin/reviews/{review_id}/reply"
+    assert (await client.patch(url, json={"reply": "안녕하세요"}, headers=headers(writer))).status_code == 404
+
+    admin = await login(client, f"adminreviews-{value}-boss@pixelmart.test", f"관리{value}", admin=True)
+    client.cookies.clear()
+    auth = headers(admin)
+    assert (await client.patch(url, json={"reply": "  "}, headers=auth)).status_code == 422
+    assert (await client.patch(url, json={"reply": "a" * 501}, headers=auth)).status_code == 422
+    assert (
+        await client.patch("/api/admin/reviews/999999999/reply", json={"reply": "답글"}, headers=auth)
+    ).status_code == 404

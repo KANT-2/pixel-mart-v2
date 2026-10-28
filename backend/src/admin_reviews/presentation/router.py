@@ -3,7 +3,7 @@ from math import ceil
 from typing import Annotated
 
 from fastapi import APIRouter, Query
-from pydantic import StrictBool
+from pydantic import Field, StrictBool, field_validator
 
 from app.deps import AdminUser, DbSession
 from app.models import Review
@@ -29,10 +29,26 @@ class AdminReviewOut(CamelModel):
     author_email: str
     is_hidden: bool
     created_at: datetime
+    reply: str | None
+    replied_at: datetime | None
 
 
 class AdminReviewHiddenIn(CamelModel):
     hidden: StrictBool  # "yes" 같은 문자열로 잘못 숨기지 않게 true/false만
+
+
+class AdminReviewReplyIn(CamelModel):
+    reply: str | None = Field(max_length=500)
+
+    @field_validator("reply")
+    @classmethod
+    def strip_reply(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("답글을 입력해 주세요.")
+        return stripped
 
 
 def _out(review: Review, product_name: str) -> AdminReviewOut:
@@ -48,6 +64,8 @@ def _out(review: Review, product_name: str) -> AdminReviewOut:
         author_email="탈퇴한 계정" if withdrawn else review.user.email,
         is_hidden=review.is_hidden,
         created_at=review.created_at,
+        reply=review.reply,
+        replied_at=review.replied_at,
     )
 
 
@@ -78,4 +96,11 @@ async def list_reviews(
 async def change_review_hidden(review_id: int, body: AdminReviewHiddenIn, _admin: AdminUser, db: DbSession):
     repo = AdminReviewRepository(db)
     await AdminReviewService(repo, db).set_hidden(review_id, body.hidden)
+    return _out(*(await repo.get(review_id)))
+
+
+@router.patch("/{review_id}/reply", response_model=AdminReviewOut, summary="[관리자] 리뷰 답글 등록 · 수정 · 삭제")
+async def change_review_reply(review_id: int, body: AdminReviewReplyIn, _admin: AdminUser, db: DbSession):
+    repo = AdminReviewRepository(db)
+    await AdminReviewService(repo, db).set_reply(review_id, body.reply)
     return _out(*(await repo.get(review_id)))

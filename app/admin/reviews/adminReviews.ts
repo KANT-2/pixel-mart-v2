@@ -14,6 +14,8 @@ export interface ApiAdminReview {
   authorEmail: string;
   isHidden: boolean;
   createdAt: string;
+  reply: string | null;
+  repliedAt: string | null;
 }
 
 export type AdminReviewFilter = "all" | "shown" | "hidden";
@@ -84,6 +86,7 @@ function options(signal?: AbortSignal): RequestInit {
 export const adminReviewsApi = {
   list: (query: AdminReviewQuery, signal?: AbortSignal) => api.get<Page<ApiAdminReview>>(adminReviewsApiPath(query), options(signal)),
   setHidden: (reviewId: number, hidden: boolean) => api.patch<ApiAdminReview>(`/admin/reviews/${reviewId}`, { hidden }, options()),
+  setReply: (reviewId: number, reply: string | null) => api.patch<ApiAdminReview>(`/admin/reviews/${reviewId}/reply`, { reply }, options()),
 };
 
 /** 본문 앞부분 — 줄바꿈은 띄어쓰기로 */

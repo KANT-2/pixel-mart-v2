@@ -7,6 +7,7 @@ class AdminReviews(Protocol):
     async def state(self, review_id: int) -> ReviewState | None: ...
     async def set_hidden(self, review_id: int, hidden: bool) -> None: ...
     async def notify_hidden(self, review: ReviewState) -> None: ...
+    async def set_reply(self, review_id: int, reply: str | None) -> None: ...
 
 
 class Transaction(Protocol):
@@ -27,6 +28,16 @@ class AdminReviewService:
             await self.reviews.set_hidden(review_id, hidden)
             if newly_hidden(review, hidden):
                 await self.reviews.notify_hidden(review)
+            await self.tx.commit()
+        except Exception:
+            await self.tx.rollback()
+            raise
+
+    async def set_reply(self, review_id: int, reply: str | None) -> None:
+        if await self.reviews.state(review_id) is None:
+            raise ReviewNotFound()
+        try:
+            await self.reviews.set_reply(review_id, reply)
             await self.tx.commit()
         except Exception:
             await self.tx.rollback()

@@ -15,6 +15,7 @@ import {
   ADMIN_REVIEWS_PATH, RATINGS, SEARCH_LIMIT, adminReviewsApi, adminReviewsHref, confirmText, contentPreview, doneText, emptyMessage, statusOptions,
   type AdminReviewQuery, type ApiAdminReview,
 } from "./adminReviews";
+import AdminReviewReply from "./AdminReviewReply";
 
 const LOAD_ERROR = "리뷰 목록을 불러오지 못했어요. 다시 시도해 주세요.";
 const errorText = (cause: unknown, fallback = LOAD_ERROR) => (cause instanceof ApiError ? cause.message : fallback);
@@ -105,6 +106,7 @@ export default function AdminReviewsBoard({ status, rating, photo, q, page }: Ad
             <img src={src} alt="" className="size-full object-cover" />
           </a>)}
         </div>}
+        <AdminReviewReply review={review} onSaved={() => { setNotice("답글을 저장했어요."); void reload(); }} onRemoved={() => { setNotice("답글을 삭제했어요."); void reload(); }} onAuthExpired={() => void refreshAuth()} />
       </div>,
     },
     {

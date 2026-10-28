@@ -19,6 +19,10 @@ export default function ReviewEntries({ items, actions }: ReviewEntriesProps) {
           <img src={url} alt={`${review.nickname}님의 리뷰 사진 ${index + 1}`} loading="lazy" className="size-24 rounded-lg border border-line object-cover sm:size-32" />
         </li>)}
       </ul>}
+      {review.reply && <div className="mt-4 border-l-2 border-mint bg-panel-2 p-4">
+        <p className="mb-2 text-xs font-bold text-mint">판매자 답글{review.repliedAt && <time dateTime={review.repliedAt} className="ml-2 font-normal text-dim">{formatDate(review.repliedAt)}</time>}</p>
+        <p className="whitespace-pre-line break-words text-sm leading-relaxed text-sub">{review.reply}</p>
+      </div>}
       {actions?.(review)}
     </li>)}
   </ul>;

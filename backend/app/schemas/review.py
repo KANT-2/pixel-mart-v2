@@ -40,6 +40,8 @@ class ReviewOut(CamelModel):
     image_urls: list[str] = []
     created_at: datetime
     is_mine: bool = False  # 로그인한 사용자가 쓴 리뷰면 true (삭제 버튼 표시용)
+    reply: str | None = None
+    replied_at: datetime | None = None
 
     @classmethod
     def from_model(cls, review: Review, viewer_id: int | None = None) -> "ReviewOut":
@@ -52,6 +54,8 @@ class ReviewOut(CamelModel):
             image_urls=list(review.image_urls or []),
             created_at=review.created_at,
             is_mine=viewer_id is not None and review.user_id == viewer_id,
+            reply=review.reply,
+            replied_at=review.replied_at,
         )
 
 

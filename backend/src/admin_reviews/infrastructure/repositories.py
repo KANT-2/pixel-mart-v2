@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +58,16 @@ class AdminReviewRepository:
 
     async def set_hidden(self, review_id: int, hidden: bool) -> None:
         await self.session.execute(update(Review).where(Review.id == review_id).values(is_hidden=hidden))
+
+    async def set_reply(self, review_id: int, reply: str | None) -> None:
+        await self.session.execute(
+            update(Review)
+            .where(Review.id == review_id)
+            .values(
+                reply=reply,
+                replied_at=datetime.now(UTC) if reply is not None else None,
+            )
+        )
 
     async def notify_hidden(self, review: ReviewState) -> None:
         """작성자에게 알림 — 같은 리뷰는 한 번만"""

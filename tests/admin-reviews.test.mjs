@@ -10,7 +10,7 @@ async function moduleUrl(path, dependencies = {}) {
   return `data:text/javascript;base64,${Buffer.from(output).toString("base64")}`;
 }
 const apiModule = await moduleUrl("../lib/api.ts");
-const { parseAdminReviewQuery, adminReviewsHref, adminReviewsApiPath, contentPreview, confirmText, doneText, emptyMessage } = await import(
+const { parseAdminReviewQuery, adminReviewsHref, adminReviewsApiPath, adminReviewsApi, contentPreview, confirmText, doneText, emptyMessage } = await import(
   await moduleUrl("../app/admin/reviews/adminReviews.ts", { "@/lib/api": apiModule })
 );
 
@@ -42,4 +42,19 @@ test("문구 — 미리보기 자르기 · 확인 창 · 완료 · 빈 목록", 
   assert.equal(emptyMessage({ status: "all", rating: null, photo: false, q: "" }), "아직 리뷰가 없어요.");
   assert.equal(emptyMessage({ status: "all", rating: 3, photo: false, q: "" }), "조건에 맞는 리뷰가 없어요.");
   assert.match(emptyMessage({ status: "all", rating: null, photo: false, q: "x" }), /검색 결과가 없어요/);
+});
+
+test("답글 등록·삭제는 관리자 PATCH에 값과 null을 구분해 보낸다", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, ...init });
+    return new Response(JSON.stringify({ id: 8 }), { headers: { "Content-Type": "application/json" } });
+  };
+  await adminReviewsApi.setReply(8, "감사합니다");
+  await adminReviewsApi.setReply(8, null);
+  assert.ok(calls.every((call) => call.url === "/api/admin/reviews/8/reply" && call.method === "PATCH"));
+  assert.deepEqual(calls.map((call) => JSON.parse(call.body)), [{ reply: "감사합니다" }, { reply: null }]);
+  assert.ok(calls.every((call) => call.credentials === "same-origin" && call.cache === "no-store"));
 });

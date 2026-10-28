@@ -34,6 +34,8 @@ class Review(Base):
     # 포토 리뷰 (브라우저가 줄인 data URL, 최대 3장)
     image_urls: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    reply: Mapped[str | None] = mapped_column(String(500))
+    replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(lazy="joined")  # 목록에 닉네임을 보여 주기 위해
