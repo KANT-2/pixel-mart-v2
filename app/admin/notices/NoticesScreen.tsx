@@ -134,6 +134,9 @@ export default function NoticesScreen() {
 
       {formState && (
         <NoticeForm
+          // 폼이 열린 채로 다른 공지의 "수정"을 눌러도 내용이 안 바뀌던 문제 — NoticeForm의 입력값은
+          // useState로 한 번만 초기화되니, 대상(id)이 바뀌면 key로 아예 새로 만들어서 다시 채운다
+          key={formState.mode === "edit" ? formState.notice.id : "create"}
           mode={formState.mode}
           notice={formState.mode === "edit" ? formState.notice : undefined}
           onSaved={onSaved}
