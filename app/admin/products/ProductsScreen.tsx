@@ -167,11 +167,11 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
   if (!data && loading) return <ProductsSkeleton />;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-2 sm:space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-3">
         <div>
           <h1 className="text-xl font-bold text-ink">상품 관리</h1>
-          <p className="mt-1 text-sm text-sub">상품을 등록하고, 등급·재고·노출 여부를 관리해요. 등급과 상태는 표에서 바로 바꿀 수 있어요.</p>
+          <p className="mt-0.5 text-sm text-sub sm:mt-1">상품을 등록하고, 등급·재고·노출 여부를 관리해요. 등급과 상태는 표에서 바로 바꿀 수 있어요.</p>
         </div>
         <button type="button" onClick={() => setFormState({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold">상품 등록</button>
       </header>
@@ -207,7 +207,7 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
       />
 
       {/* 등급 필터 — 상태 탭과 다른 쿼리 키를 쓰므로 StatusFilter 대신 직접 그린다. 줄바꿈 대신 가로 스크롤로 한 줄에 보여준다 */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:pb-1">
         <FilterChip active={rarity === ""} label="등급 전체" onClick={() => changeQuery({ rarity: undefined, page: undefined })} />
         {RARITY_KEYS.map((key) => (
           <FilterChip key={key} active={rarity === key} label={rarityInfo(key).label} onClick={() => changeQuery({ rarity: rarity === key ? undefined : key, page: undefined })} />
@@ -329,7 +329,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full border-2 px-3 text-xs font-bold ${active ? "border-lime bg-lime text-lime-ink" : "border-line text-sub hover:text-ink"}`}
+      className={`flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border-2 px-3 text-xs font-bold sm:min-h-9 ${active ? "border-lime bg-lime text-lime-ink" : "border-line text-sub hover:text-ink"}`}
     >
       {label}
     </button>
