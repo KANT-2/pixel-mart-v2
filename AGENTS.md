@@ -14,7 +14,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 > `backend/`에는 별도 규칙(`backend/AGENTS.md`)이 있습니다. **프론트 이슈를 작업할 때는 `backend/`를 수정하지 않습니다**(읽기는 가능). 백엔드 변경이 필요하면 "BE 확인 필요"로 남깁니다.
 
 ## 프로젝트 맥락
-- PIXEL MART: 픽셀아트 게이밍 데스크 소품 쇼핑몰 + 취향 커뮤니티(PIXEL LOCAL). 로컬 개발 전용, 실제 결제 없음(가상 주문), 로그인은 구글 + 로컬 개발용 이메일 로그인.
+- PIXEL MART: 픽셀아트 게이밍 데스크 소품 쇼핑몰 + 취향 커뮤니티(PIXEL LOCAL). 로컬 개발 + 배포(Vercel · Render), 실제 결제 없음(가상 주문), 로그인은 구글 · 이메일·비밀번호 · 로컬 개발용 이메일 로그인.
 - 작업 단위는 GitHub 이슈(라벨 `FE`): `gh issue view <번호>`
 - **범위 밖(만들지 않음)**: 데스크 꾸미기·데스크 출품·토너먼트. 남아 있는 "데스크"는 정적 페이지 `/lookbook`(데스크 룩북)뿐입니다.
 - 현재 구현 기준: `docs/UI_STRUCTURE.md`, `docs/PIXEL_LOCAL_AS_BUILT.md` · 비전: `docs/PRODUCT_STRATEGY.md`, `docs/UX_CX_STRATEGY.md`
@@ -28,7 +28,8 @@ Next.js 16 (App Router, Turbopack, **Cache Components 켜짐**) · React 19 · T
 ```bash
 npm run dev          # 프론트 :3000 (백엔드는 backend/에서 uvicorn :8000 — docs/backend/README.md 참고)
 npm run lint
-npx tsc --noEmit     # 경로 타입 오류가 나면 npm run build 한 번 후 다시
+npx tsc --noEmit     # 경로 타입 오류가 나면 npx next typegen(또는 npm run build) 한 번 후 다시
+npm test             # utils/ 순수 함수 테스트 (tests/*.test.mjs)
 npm run build
 ```
 작업을 "완료"라고 말하기 전에 **lint · tsc · build를 실제로 실행해 통과를 확인**한다.

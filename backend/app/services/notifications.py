@@ -16,7 +16,7 @@ SAMPLE_EMAIL = "sample@pixelmart.local"
 TRADES_HREF = "/local/trades/mine#trade-requests"
 GIFTS_HREF = "/mypage/gifts"
 QUESTS_HREF = "/mypage/quests"
-BADGES_HREF = "/mypage"
+BADGES_HREF = "/mypage/quests"
 
 
 async def _real_user(db: AsyncSession, user_id: int) -> User | None:

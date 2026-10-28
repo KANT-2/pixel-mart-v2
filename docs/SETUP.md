@@ -50,7 +50,7 @@ npm run dev
 
 ## STEP 1. 프로젝트 생성 (✅ 완료 — 참고용 기록)
 
-> 이미 완료되어 https://github.com/KANT-2/pixel-mart 에 올라가 있습니다. **새로 만들지 말고 STEP 2부터** 진행하세요.
+> 이미 완료되어 https://github.com/KANT-2/pixel-mart-v2 에 올라가 있습니다. (아래는 1차 저장소 `pixel-mart`를 만들 때의 기록) **새로 만들지 말고 STEP 2부터** 진행하세요.
 
 ### 1-1. 프로젝트 만들기
 ```
@@ -147,12 +147,13 @@ git push -u origin main
 ## STEP 2. 나머지 팀원 — 내려받아 실행
 초대 메일을 수락한 뒤:
 ```
-git clone https://github.com/KANT-2/pixel-mart.git
-cd pixel-mart
+git clone https://github.com/KANT-2/pixel-mart-v2.git
+cd pixel-mart-v2
 npm install
 npm run dev
 ```
-localhost:3000에서 "등록된 상품 8개"가 보이면 준비 완료입니다.
+백엔드(uv · DB · `alembic upgrade head` · seed)는 [README 7장 실행](../README.md#7-실행-uv--환경-변수) · [8장 DB 준비](../README.md#8-db-준비)대로 준비합니다.
+localhost:3000에서 메인 캐러셀과 상품 목록(시드 상품 180개)이 보이면 준비 완료입니다. (백엔드가 꺼져 있으면 `data/products.ts` 폴백 상품만 보여요)
 
 ---
 
