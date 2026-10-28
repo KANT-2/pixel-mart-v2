@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useWishlist } from "@/components/WishlistProvider";
 import { giftApi } from "@/lib/gifts";
 
 const iconButton = "relative grid size-10 shrink-0 place-items-center btn-pixel transition-colors hover:border-violet/40";
 
-/** 상단 바로가기 — 찜한 아이템, 선물함(받기 대기 수) */
+/** 상단 바로가기 — 찜한 아이템(찜한 수), 선물함(받기 대기 수) */
 export default function HeaderShortcuts() {
   const { user, loading } = useAuth();
+  const { wishedIds, ready } = useWishlist();
   const [pending, setPending] = useState(0);
 
   // 로그인했을 때만 받기 대기 선물 수를 센다 (로그아웃·계정 전환 시 0으로)
@@ -23,12 +25,15 @@ export default function HeaderShortcuts() {
   }, [user]);
 
   const count = user && !loading ? pending : 0;
+  // 찜하기·해제를 누르면 바로 바뀌도록 낙관적 상태(wishedIds)로 센다
+  const wished = user && !loading && ready ? wishedIds.size : 0;
   return <>
     {/* 장바구니 아이콘처럼 색 없이 흰 선으로 */}
-    <Link href="/mypage/wishlist" aria-label="찜한 아이템" title="찜한 아이템" className={iconButton}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
+    <Link href="/mypage/wishlist" aria-label={wished ? `찜한 아이템, ${wished}개` : "찜한 아이템"} title="찜한 아이템" className={iconButton}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={`size-5 stroke-current stroke-2 transition-colors ${wished ? "fill-pink text-pink" : "fill-none"}`} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" />
       </svg>
+      {wished > 0 && <span key={wished} aria-hidden="true" className="absolute -right-2 -top-2 min-w-5 motion-safe:animate-[wish-pop_0.25s_ease-out] rounded bg-pink px-1 text-center font-pixel text-xs leading-5 text-night">{wished > 99 ? "99+" : wished}</span>}
     </Link>
     <Link href="/mypage/gifts" aria-label={count ? `선물함, 받기 대기 ${count}개` : "선물함"} title="선물함" className={iconButton}>
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
