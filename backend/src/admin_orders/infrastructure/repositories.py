@@ -111,10 +111,9 @@ class AdminOrderRepository:
         # 목록·상세가 공통으로 쓰는 join — Order엔 User와의 관계가 없어서 직접 join한다
         return select(Order, User.nickname, User.email).join(User, User.id == Order.user_id)
 
-    async def list_orders(
-        self, status: str | None, q: str | None, offset: int, limit: int
-    ) -> tuple[list[AdminOrderRow], int]:
-        # 읽기 전용 — 주문 목록 화면용 (상태 필터, 주문번호·닉네임·이메일 검색, 페이지)
+    @staticmethod
+    def _order_filters(status: str | None, q: str | None) -> list:
+        # 목록 화면·CSV 내보내기 공용 필터 — 상태 일치 + 주문번호 완전일치 또는 닉네임·이메일 부분일치(이슈 #99)
         filters = []
         if status is not None:
             filters.append(Order.status == status)
@@ -127,6 +126,13 @@ class AdminOrderRepository:
             )
             order_number = q.removeprefix("#")
             filters.append(or_(Order.id == int(order_number), name_match) if order_number.isdecimal() else name_match)
+        return filters
+
+    async def list_orders(
+        self, status: str | None, q: str | None, offset: int, limit: int
+    ) -> tuple[list[AdminOrderRow], int]:
+        # 읽기 전용 — 주문 목록 화면용 (상태 필터, 주문번호·닉네임·이메일 검색, 페이지)
+        filters = self._order_filters(status, q)
 
         total = (
             await self.session.scalar(
@@ -150,6 +156,19 @@ class AdminOrderRepository:
             AdminOrderRow(order=order, buyer_nickname=nickname, buyer_email=email) for order, nickname, email in rows
         ]
         return admin_rows, total
+
+    async def list_orders_for_export(self, status: str | None, q: str | None) -> list[AdminOrderRow]:
+        # CSV 내보내기용 — 목록과 같은 필터, 페이지 없이 전체 (이슈 #99)
+        # 데이터가 많아지면 서버 커서 스트리밍(AsyncSession.stream)으로 전환
+        filters = self._order_filters(status, q)
+        rows = (
+            await self.session.execute(
+                self._order_row_query().where(*filters).order_by(Order.created_at.desc(), Order.id.desc())
+            )
+        ).all()
+        return [
+            AdminOrderRow(order=order, buyer_nickname=nickname, buyer_email=email) for order, nickname, email in rows
+        ]
 
     async def get_order_detail(self, order_id: int) -> AdminOrderRow | None:
         # 읽기 전용 — 주문 상세 화면용 (잠그지 않는다, 그건 advance/승인/거절 쪽 메서드가 한다)
