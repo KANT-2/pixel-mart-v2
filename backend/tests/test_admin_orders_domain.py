@@ -2,6 +2,7 @@
 import pytest  # 예외 발생을 확인하는 pytest.raises를 쓴다
 
 from src.admin_orders.domain.cancel import CancelRequest, status_before_cancel
+from src.admin_orders.domain.csv_export import sanitize_csv_cell
 from src.admin_orders.domain.exceptions import AlreadyResolved, InvalidTransition
 from src.admin_orders.domain.progress import OrderProgress
 
@@ -73,3 +74,13 @@ def test_status_before_cancel_raises_value_error_without_prior_status() -> None:
     # 취소 흐름 이전 기록이 하나도 없으면 데이터가 잘못된 것이므로 ValueError
     with pytest.raises(ValueError):
         status_before_cancel(["cancel_requested"])
+
+
+def test_sanitize_csv_cell_escapes_formula_prefixes_and_leaves_other_values_alone() -> None:
+    # =, +, -, @로 시작하면 수식으로 해석되지 않게 앞에 '를 붙인다 (CSV 수식 주입 방지, 이슈 #99)
+    assert sanitize_csv_cell("=HYPERLINK(\"http://evil\")") == "'=HYPERLINK(\"http://evil\")"
+    assert sanitize_csv_cell("+1-234-5678") == "'+1-234-5678"
+    assert sanitize_csv_cell("-10") == "'-10"
+    assert sanitize_csv_cell("@someone") == "'@someone"
+    assert sanitize_csv_cell("홍길동") == "홍길동"
+    assert sanitize_csv_cell("") == ""

@@ -87,13 +87,16 @@ def service_for(session) -> AdminOrderService:
     return AdminOrderService(AdminOrderRepository(session), session)
 
 
-async def test_advance_order_changes_status_history_and_notifies(db_sessions):
+async def test_advance_order_changes_status_and_history(db_sessions):
+    # 이슈 #99: advance_order는 더 이상 알림을 직접 보내지 않는다(라우터가 BackgroundTasks로 따로 예약).
+    # 알림 자체는 아래 test_send_advance_notification_creates_notification에서 따로 확인한다.
     tag = uuid.uuid4().hex[:8]
     scenario = await _make_scenario(db_sessions, tag, order_status="paid", history=["paid"])
     try:
         async with db_sessions() as session:
-            new_status = await service_for(session).advance_order(scenario.order_id)
+            new_status, user_id = await service_for(session).advance_order(scenario.order_id)
         assert new_status == "preparing"
+        assert user_id == scenario.user_id
 
         async with db_sessions() as session:
             order = await session.get(Order, scenario.order_id)
@@ -112,7 +115,7 @@ async def test_advance_order_changes_status_history_and_notifies(db_sessions):
             )
         assert order.status == "preparing"
         assert history == ["paid", "preparing"]
-        assert notification_count is not None
+        assert notification_count is None  # advance_order 단계에서는 아직 알림이 생기지 않는다
     finally:
         await _cleanup(db_sessions, scenario, tag)
 

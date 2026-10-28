@@ -55,6 +55,12 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   return text ? `?${text}` : "";
 }
 
+// 주문 CSV 내려받기 주소(이슈 #99) — 목록과 같은 상태·검색어 필터를 그대로 붙인다.
+// 인증은 쿠키라서 이 주소를 그냥 <a href>로 열기만 해도 로그인 쿠키가 같이 간다(fetch/Blob이 필요 없다).
+export function adminOrderExportUrl(query: Pick<AdminOrderQuery, "status" | "q"> = {}): string {
+  return `/api/admin/orders/export.csv${toQuery({ ...query })}`;
+}
+
 // 주문 목록 (상태 필터, 검색어, 페이지, 쪽당 건수)
 export function getAdminOrders(query: AdminOrderQuery = {}): Promise<Page<AdminOrderSummary>> {
   // 스위치가 켜져 있으면 가짜 서버를 불러요.

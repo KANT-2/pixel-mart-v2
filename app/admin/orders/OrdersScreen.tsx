@@ -10,7 +10,7 @@ import AdminPagination from "@/components/admin/Pagination"; // 공용 페이지
 import StatusFilter from "@/components/admin/StatusFilter"; // 공용 상태 탭 (수정하지 않고 그대로 재사용)
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge"; // 다른 화면이 이미 만든 상태 배지 — 읽기 전용으로 가져다 쓴다
 import { ApiError } from "@/lib/api";
-import { advanceAdminOrder, getAdminOrderCounts, getAdminOrders } from "@/lib/admin";
+import { adminOrderExportUrl, advanceAdminOrder, getAdminOrderCounts, getAdminOrders } from "@/lib/admin";
 import type { AdminOrderCounts, AdminOrderStatus, AdminOrderSummary, Page } from "@/types/admin";
 import { formatPrice } from "@/utils/formatPrice";
 
@@ -206,17 +206,22 @@ export default function OrdersScreen() {
 
       <StatusFilter options={buildTabOptions(counts)} basePath={BASE_PATH} totalCount={counts?.total} />
 
-      {/* 검색 입력 */}
-      <div>
-        <label htmlFor="order-search" className="sr-only">주문 검색</label>
-        <input
-          id="order-search"
-          type="search"
-          value={searchText}
-          onChange={(event) => setSearchText(event.target.value)}
-          placeholder="주문번호 · 닉네임 · 이메일로 검색"
-          className="pixel-input h-11 w-full max-w-sm px-3 text-sm"
-        />
+      {/* 검색 입력 + CSV 내려받기(이슈 #99, 지금 적용 중인 상태·검색어 필터 그대로) */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <label htmlFor="order-search" className="sr-only">주문 검색</label>
+          <input
+            id="order-search"
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="주문번호 · 닉네임 · 이메일로 검색"
+            className="pixel-input h-11 w-full max-w-sm px-3 text-sm"
+          />
+        </div>
+        <a href={adminOrderExportUrl({ status, q: q || undefined })} className="btn-pixel flex h-11 shrink-0 items-center px-4 text-sm font-bold">
+          CSV 내려받기
+        </a>
       </div>
 
       {data && (
