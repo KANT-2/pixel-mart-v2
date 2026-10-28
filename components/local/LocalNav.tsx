@@ -6,7 +6,7 @@ import { useLocalProfile } from "@/components/local/LocalProvider";
 import PixelIcon from "@/components/PixelIcon";
 import LocalActivityMenu from "@/components/local/LocalActivityMenu";
 
-const links: { href: string; label: string; icon?: "heart" }[] = [{ href: "/local", label: "덕력지도" }, { href: "/local/trades", label: "거래·교환" }, { href: "/local/wish-map", label: "위시맵", icon: "heart" as const }];
+const links: { href: string; label: string; icon?: "gift" }[] = [{ href: "/local", label: "덕력지도" }, { href: "/local/trades", label: "거래·교환" }, { href: "/local/wish-map", label: "위시맵", icon: "gift" as const }]; // 위시맵은 선물 아이콘 (하트는 찜과 헷갈려서)
 interface LocalNavLinksProps { pathname?: string; region?: string | null; withActivity?: boolean; }
 function LocalNavLinks({ pathname, region, withActivity = false }: LocalNavLinksProps) {
   // 탭은 넘치면 가로로 밀고, "내 활동" 메뉴는 잘리지 않게 스크롤 밖 오른쪽에 둔다
