@@ -40,7 +40,12 @@ async def test_export_csv_has_bom_header_and_applies_status_filter(client, tag):
     other = await _make_order_scenario(f"{tag}other", order_status="paid")
     token = await admin_token(client, tag)
 
-    res = await client.get("/api/admin/orders/export.csv", params={"status": "delivered"}, headers=headers(token))
+    # q=tag로 같이 좁혀서 이 테스트가 만든 두 주문만 보게 한다 — status만으로 거르면 다른 테스트가
+    # 이미 만들어 둔(아직 지워지지 않은) delivered 주문들까지 같이 나와서, 숫자 하나를 부분 문자열로
+    # 찾는 아래 단언이 우연히 다른 줄(날짜·금액·다른 주문번호)과 겹쳐 실패할 수 있다
+    res = await client.get(
+        "/api/admin/orders/export.csv", params={"status": "delivered", "q": tag}, headers=headers(token)
+    )
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/csv")
     assert "attachment" in res.headers["content-disposition"]
