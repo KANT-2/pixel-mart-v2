@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import LoginRequiredNotice from "@/components/LoginRequiredNotice";
 import PixelAvatar from "@/components/avatar/PixelAvatar";
+import NicknameEditor from "@/components/profile/NicknameEditor";
+import PencilIcon from "@/components/profile/PencilIcon";
 import { api } from "@/lib/api";
 import { couponsApi } from "@/lib/coupons";
 import { pointsApi } from "@/lib/points";
@@ -13,7 +15,7 @@ import type { ApiOrderSummary, Page } from "@/types/api";
 interface Numbers { userId: number; points: number | null; coupons: number | null; activeOrders: number | null; }
 const ACTIVE = ["paid", "preparing", "shipping"] as const; // 배송이 끝나지 않은 주문
 
-/** 마이페이지 맨 위 — 내 캐릭터 · 닉네임 + 자주 보는 숫자 3개 (누르면 그 화면으로) */
+/** 마이페이지 맨 위 — 내 캐릭터 · 닉네임(여기서 바로 바꿈) + 자주 보는 숫자 3개 (누르면 그 화면으로) */
 export default function MyPageSummary() {
   const { user, loading } = useAuth();
   const userId = user?.id ?? null;
@@ -41,16 +43,17 @@ export default function MyPageSummary() {
     { href: "/mypage/coupons", label: "쿠폰", value: mine?.coupons, unit: "장" },
   ];
 
-  return <section aria-label="내 요약" className="mb-8 grid gap-4 pixel-panel p-5 sm:p-6 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
-    <div className="flex min-w-0 items-center gap-4">
-      <Link href="/mypage/avatar" aria-label="픽셀 아바타 바꾸기" className="grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2 hover:ring-2 hover:ring-mint/50">
+  return <section aria-label="내 요약" className="mb-8 grid gap-4 pixel-panel p-5 sm:p-6 md:grid-cols-2 md:items-center">
+    <div className="flex min-w-0 items-start gap-4">
+      <Link href="/mypage/avatar" aria-label="픽셀 아바타 바꾸기" className="group relative grid size-16 shrink-0 place-items-center rounded-lg bg-panel-2 hover:ring-2 hover:ring-mint/50 focus-visible:outline-2 focus-visible:outline-mint">
         {user.avatarUrl ? <PixelAvatar src={user.avatarUrl} className="size-12" />
           // eslint-disable-next-line @next/next/no-img-element -- 기본 픽셀 캐릭터
           : <img src="/images/hero-slime.svg" alt="" className="size-10 object-contain" />}
+        <span aria-hidden="true" className="absolute -bottom-1.5 -right-1.5 grid size-6 place-items-center rounded-md border border-line bg-night text-sub group-hover:border-mint/60 group-hover:text-mint"><PencilIcon className="size-3" /></span>
       </Link>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-pixel text-xs text-dim" aria-hidden="true">PLAYER</p>
-        <p className="truncate text-xl font-extrabold">{user.nickname}</p>
+        <NicknameEditor />
         <p className="truncate text-xs text-sub">{user.email}</p>
       </div>
     </div>

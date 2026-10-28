@@ -3,9 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import PageHeader from "@/components/PageHeader";
 import PixelIcon from "@/components/PixelIcon";
-import AvatarShortcut from "@/components/avatar/AvatarShortcut";
 import MyPageSummary from "@/components/profile/MyPageSummary";
-import NicknameEditor from "@/components/profile/NicknameEditor";
 import PasswordSection from "@/components/profile/PasswordSection";
 import WithdrawSection from "@/components/profile/WithdrawSection";
 
@@ -72,10 +70,6 @@ export default function MyPage() {
     </div>
 
     <h2 className="mb-4 mt-10 flex items-baseline gap-2 font-bold">계정 <span className="font-pixel text-[10px] text-dim" aria-hidden="true">ACCOUNT</span></h2>
-    <div className="grid gap-x-6 md:grid-cols-2">
-      <NicknameEditor />
-      <AvatarShortcut />
-    </div>
     <PasswordSection />
     <WithdrawSection />
   </section>;
