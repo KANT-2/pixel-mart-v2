@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import LoginRequiredNotice from "@/components/LoginRequiredNotice";
+import PixelIcon from "@/components/PixelIcon";
 import PixelAvatar from "@/components/avatar/PixelAvatar";
 import NicknameEditor from "@/components/profile/NicknameEditor";
 import { api } from "@/lib/api";
@@ -48,7 +49,7 @@ export default function MyPageSummary() {
         {user.avatarUrl ? <PixelAvatar src={user.avatarUrl} className="size-12" />
           // eslint-disable-next-line @next/next/no-img-element -- 기본 픽셀 캐릭터
           : <img src="/images/hero-slime.svg" alt="" className="size-10 object-contain" />}
-        <span aria-hidden="true" className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded border border-line bg-night px-1 font-pixel text-[9px] text-mint group-hover:border-mint/60">EDIT</span>
+        <span aria-hidden="true" className="absolute -bottom-1.5 -right-1.5 grid size-6 place-items-center rounded-md border border-line bg-night group-hover:border-mint/60"><PixelIcon name="pencil" className="size-3.5" /></span>
       </Link>
       <div className="min-w-0 flex-1">
         <p className="font-pixel text-xs text-dim" aria-hidden="true">PLAYER</p>
