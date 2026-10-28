@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.core.db import SessionLocal, engine
 from app.models import Category, Faq, Keyboard, KeycapSpec, Product
+from app.services.rarity import rarity_of
 from scripts.seed_local import seed_local
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "seed"
@@ -46,8 +47,8 @@ async def main() -> None:
                 "description": p["description"],
                 "is_new": p.get("isNew", False),
             }
-            # 재실행해도 주문으로 줄어든 기존 재고는 보존한다.
-            stmt = insert(Product).values(**values, stock=30)
+            # 재실행해도 주문으로 줄어든 기존 재고와 관리자가 바꾼 등급은 보존한다 (처음 넣을 때만 가격대로 등급).
+            stmt = insert(Product).values(**values, stock=30, rarity=rarity_of(p["price"]))
             await db.execute(stmt.on_conflict_do_update(index_elements=[Product.id], set_=values))
 
         # id를 직접 넣었으므로 다음 자동 번호를 최대값 뒤로 맞춤
