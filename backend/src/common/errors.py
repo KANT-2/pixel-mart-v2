@@ -1,4 +1,7 @@
+import logging
+
 from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.admin_content.domain.content import FaqNotFound, NoticeNotFound
@@ -38,6 +41,8 @@ from src.reports.domain.exceptions import (
     ReportTargetNotFound,
 )
 from src.returns.domain.rules import AfterDeliveryError, ReturnRequestNotFound
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class DomainError(Exception):
@@ -123,3 +128,64 @@ async def domain_error_handler(
         status_code=status_code,
         content={"detail": str(exc)},
     )
+
+
+# 입력 형식 오류(422) — Pydantic 기본 영어 문구와 보낸 값(비밀번호 등)을 그대로 돌려주지 않고 한글 안내만 보낸다
+FIELD_LABELS = {
+    "email": "이메일",
+    "password": "비밀번호",
+    "newPassword": "새 비밀번호",
+    "currentPassword": "지금 비밀번호",
+    "nickname": "닉네임",
+    "title": "제목",
+    "content": "내용",
+    "answer": "답변",
+    "recipientName": "받는 사람",
+    "phone": "휴대폰 번호",
+    "postalCode": "우편번호",
+    "address": "주소",
+    "addressDetail": "상세 주소",
+    "quantity": "수량",
+    "rating": "별점",
+    "reason": "사유",
+    "page": "페이지",
+    "size": "개수",
+}
+
+
+def _validation_message(error: dict) -> str:
+    kind = error.get("type", "")
+    ctx = error.get("ctx") or {}
+    if kind == "missing":
+        return "꼭 입력해 주세요."
+    if kind == "string_too_short":
+        return "비어 있어요." if ctx.get("min_length") == 1 else f"{ctx.get('min_length')}자 이상 입력해 주세요."
+    if kind == "string_too_long":
+        return f"{ctx.get('max_length')}자 이하로 입력해 주세요."
+    if kind in ("greater_than_equal", "greater_than"):
+        return f"{ctx.get('ge', ctx.get('gt'))} 이상이어야 해요."
+    if kind in ("less_than_equal", "less_than"):
+        return f"{ctx.get('le', ctx.get('lt'))} 이하여야 해요."
+    if kind in ("int_parsing", "int_type", "float_parsing"):
+        return "숫자로 입력해 주세요."
+    if kind == "value_error":
+        # 우리 검증기가 던진 한글 문구("Value error, ..." 접두어 제외)만 그대로 쓴다
+        message = str(error.get("msg", "")).removeprefix("Value error, ")
+        return message if any("가" <= ch <= "힣" for ch in message) else "형식이 올바르지 않아요."
+    return "형식이 올바르지 않아요."
+
+
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    errors = []
+    causes = []
+    for error in exc.errors():
+        loc = [str(part) for part in error.get("loc", ()) if part not in ("body", "query", "path")]
+        field = loc[-1] if loc else ""
+        errors.append({"field": field, "message": _validation_message(error)})
+        causes.append((field, error.get("type")))
+    # 자세한 원인은 서버 로그로만 — 입력값은 남기지 않는다
+    logger.info("422 %s %s %s", request.method, request.url.path, causes)
+    first = errors[0] if errors else {"field": "", "message": "입력값을 확인해 주세요."}
+    label = FIELD_LABELS.get(first["field"], "")
+    detail = f"{label}: {first['message']}" if label else f"입력값을 확인해 주세요. {first['message']}"
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": detail, "errors": errors})
