@@ -173,3 +173,26 @@ async def test_badge_admin_is_hidden_from_players(client, tag):
     token, _ = await player(client, tag, "일반")
     assert (await client.get("/api/admin/badges", headers=headers(token))).status_code == 404
     assert (await client.get("/api/admin/badges")).status_code == 401
+
+
+async def test_admin_deletes_event_badge(client, tag):
+    admin, _ = await player(client, tag, "boss", admin=True)
+    fan, fan_id = await player(client, tag, "팬")
+    body = {"name": f"삭제{tag}", "description": "곧 지울 뱃지", "image": "/images/badges/santa.png"}
+    code = (await client.post("/api/admin/badges", json=body, headers=headers(admin))).json()["code"]
+    await client.post(f"/api/admin/badges/{code}/grant", json={"userIds": [fan_id]}, headers=headers(admin))
+    await client.patch("/api/users/me/featured-badge", json={"code": code}, headers=headers(fan))
+
+    auto_delete = await client.delete("/api/admin/badges/santa", headers=headers(admin))
+    assert auto_delete.status_code == 400 and auto_delete.json()["detail"] == "자동 뱃지는 코드로 관리돼요."
+    assert (await client.delete(f"/api/admin/badges/{code}", headers=headers(fan))).status_code == 404  # 일반 사용자
+
+    deleted = await client.delete(f"/api/admin/badges/{code}", headers=headers(admin))
+    assert deleted.status_code == 200 and deleted.json()["message"] == "뱃지를 삭제했어요. (1명에게서 회수)"
+    assert (await client.delete(f"/api/admin/badges/{code}", headers=headers(admin))).status_code == 404
+
+    listed = (await client.get("/api/admin/badges", headers=headers(admin))).json()
+    assert code not in [b["code"] for b in listed["event"]]
+    book = (await client.get("/api/users/me/badges", headers=headers(fan))).json()
+    assert code not in [i["code"] for i in book["items"]] and book["featured"] == "new_player"
+    assert not [t for t in await badge_notices(client, fan) if f"삭제{tag}" in t]  # '받았어요' 알림도 함께 정리

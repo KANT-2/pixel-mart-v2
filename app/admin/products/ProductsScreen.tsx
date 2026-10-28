@@ -1,7 +1,7 @@
 "use client"; // 쿼리 읽기·상태·이벤트가 많아 전체를 클라이언트 컴포넌트로 만든다
 
 import { useRouter, useSearchParams } from "next/navigation"; // 주소 쿼리 읽기·바꾸기
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AdminTable, { type AdminTableColumn } from "@/components/admin/AdminTable"; // 공용 표
 import ConfirmDialog from "@/components/admin/ConfirmDialog"; // 공용 확인창 (수정하지 않고 그대로 재사용)
 import EmptyRow from "@/components/admin/EmptyRow"; // 공용 빈 상태 한 줄
@@ -14,7 +14,7 @@ import type { AdminProduct, AdminProductQuery, Page } from "@/types/admin";
 import type { ApiCategory } from "@/types/api";
 import { stockStatus } from "@/utils/adminProducts";
 import { formatPrice } from "@/utils/formatPrice";
-import { RARITY_KEYS, rarityInfo } from "@/utils/gameItem";
+import { RARITY_KEYS, rarityInfo, type Rarity } from "@/utils/gameItem";
 
 const BASE_PATH = "/admin/products";
 
@@ -41,7 +41,16 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
   const [confirmProduct, setConfirmProduct] = useState<AdminProduct | null>(null); // 숨김/다시 보이기 확인 대상
   const [hiding, setHiding] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [savingRarity, setSavingRarity] = useState<number | null>(null); // 등급을 바꾸는 중인 상품 id
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 완료 문구를 3초 보여 준다 — 연달아 바꾸면 앞 타이머를 지워서 새 문구가 바로 사라지지 않게
+  function flash(message: string) {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setSuccessMessage(message);
+    flashTimer.current = setTimeout(() => setSuccessMessage(null), 3000);
+  }
 
   const changeQuery = useCallback((patch: Record<string, string | undefined>) => {
     const params = new URLSearchParams(searchParams);
@@ -101,9 +110,25 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
   function onSaved(saved: AdminProduct) {
     const verb = formState?.mode === "create" ? "등록" : "수정";
     setFormState(null);
-    setSuccessMessage(`#${saved.id} "${saved.name}" 상품을 ${verb}했어요.`);
-    setTimeout(() => setSuccessMessage(null), 3000);
+    flash(`#${saved.id} "${saved.name}" 상품을 ${verb}했어요.`);
     void load(new AbortController().signal);
+  }
+
+  // 표에서 등급을 바로 바꾼다 — 성공하면 그 줄만 고친다 (등급 필터를 켜 둔 상태면 목록을 다시 받는다)
+  async function changeRarity(product: AdminProduct, next: Rarity) {
+    if (next === product.rarity || savingRarity !== null) return;
+    setSavingRarity(product.id);
+    setActionError(null);
+    try {
+      const saved = await updateAdminProduct(product.id, { rarity: next });
+      setData((current) => current && { ...current, items: current.items.map((item) => (item.id === saved.id ? saved : item)) });
+      flash(`#${product.id} 상품 등급을 ${rarityInfo(next).label}(으)로 바꿨어요.`);
+      if (rarity) void load(new AbortController().signal);
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : "등급을 바꾸지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setSavingRarity(null);
+    }
   }
 
   async function confirmToggleHidden() {
@@ -112,8 +137,7 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
     setActionError(null);
     try {
       await updateAdminProduct(confirmProduct.id, { isHidden: !confirmProduct.isHidden });
-      setSuccessMessage(confirmProduct.isHidden ? `#${confirmProduct.id} 상품을 다시 보이게 했어요.` : `#${confirmProduct.id} 상품을 숨겼어요.`);
-      setTimeout(() => setSuccessMessage(null), 3000);
+      flash(confirmProduct.isHidden ? `#${confirmProduct.id} 상품을 다시 보이게 했어요.` : `#${confirmProduct.id} 상품을 숨겼어요.`);
       setConfirmProduct(null);
       void load(new AbortController().signal);
     } catch (cause) {
@@ -125,17 +149,16 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
 
   const columns: AdminTableColumn<AdminProduct>[] = [
     { header: "상품명", render: (product) => <span className="break-words font-bold text-ink">{product.name}</span> },
-    { header: "등급", render: (product) => <RarityBadge rarity={product.rarity} /> },
+    { header: "등급", render: (product) => <RarityPicker product={product} saving={savingRarity === product.id} disabled={savingRarity !== null} onChange={(next) => void changeRarity(product, next)} /> },
     { header: "가격", align: "right", render: (product) => <span className="font-bold">{formatPrice(product.price)}</span> },
     { header: "재고", render: (product) => <StockCell stock={product.stock} /> },
-    { header: "상태", render: (product) => <VisibilityBadge hidden={product.isHidden} /> },
+    { header: "상태", render: (product) => <VisibilityToggle product={product} onClick={() => setConfirmProduct(product)} /> },
     {
       header: "동작",
       render: (product) => (
         <div className="flex flex-wrap gap-1.5">
           <button type="button" onClick={() => setFormState({ mode: "edit", product, focusRestock: false })} className="btn-pixel min-h-9 whitespace-nowrap px-2.5 text-xs font-bold">수정</button>
           <button type="button" onClick={() => setFormState({ mode: "edit", product, focusRestock: true })} className="btn-pixel min-h-9 whitespace-nowrap px-2.5 text-xs font-bold">재입고</button>
-          <button type="button" onClick={() => setConfirmProduct(product)} className="btn-pixel min-h-9 whitespace-nowrap px-2.5 text-xs font-bold">{product.isHidden ? "다시 보이기" : "숨김"}</button>
         </div>
       ),
     },
@@ -148,7 +171,7 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-ink">상품 관리</h1>
-          <p className="mt-1 text-sm text-sub">상품을 등록하고, 등급·재고·노출 여부를 관리해요.</p>
+          <p className="mt-1 text-sm text-sub">상품을 등록하고, 등급·재고·노출 여부를 관리해요. 등급과 상태는 표에서 바로 바꿀 수 있어요.</p>
         </div>
         <button type="button" onClick={() => setFormState({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold">상품 등록</button>
       </header>
@@ -226,17 +249,16 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
                 <div key={product.id} className="pixel-panel space-y-2 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="break-words font-bold text-ink">{product.name}</p>
-                    <RarityBadge rarity={product.rarity} />
+                    <RarityPicker product={product} saving={savingRarity === product.id} disabled={savingRarity !== null} onChange={(next) => void changeRarity(product, next)} />
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold">{formatPrice(product.price)}</span>
                     <StockCell stock={product.stock} />
                   </div>
-                  <VisibilityBadge hidden={product.isHidden} />
+                  <VisibilityToggle product={product} onClick={() => setConfirmProduct(product)} />
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     <button type="button" onClick={() => setFormState({ mode: "edit", product, focusRestock: false })} className="btn-pixel min-h-9 flex-1 whitespace-nowrap px-2.5 text-xs font-bold">수정</button>
                     <button type="button" onClick={() => setFormState({ mode: "edit", product, focusRestock: true })} className="btn-pixel min-h-9 flex-1 whitespace-nowrap px-2.5 text-xs font-bold">재입고</button>
-                    <button type="button" onClick={() => setConfirmProduct(product)} className="btn-pixel min-h-9 flex-1 whitespace-nowrap px-2.5 text-xs font-bold">{product.isHidden ? "다시 보이기" : "숨김"}</button>
                   </div>
                 </div>
               ))
@@ -249,7 +271,7 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
 
       <ConfirmDialog
         open={!!confirmProduct}
-        title={confirmProduct ? `#${confirmProduct.id} "${confirmProduct.name}"을(를) ${confirmProduct.isHidden ? "다시 보이게" : "숨기"}게 할까요?` : ""}
+        title={confirmProduct ? `#${confirmProduct.id} "${confirmProduct.name}"을(를) ${confirmProduct.isHidden ? "다시 보이게 할까요?" : "숨길까요?"}` : ""}
         description={confirmProduct?.isHidden ? "숨김을 풀면 손님 상품 목록에 다시 보여요." : "숨기면 손님 상품 목록·검색에서 보이지 않아요."}
         confirmLabel={hiding ? "처리 중…" : "확인"}
         danger={!confirmProduct?.isHidden}
@@ -260,15 +282,36 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
   );
 }
 
-function RarityBadge({ rarity }: { rarity: AdminProduct["rarity"] }) {
-  const info = rarityInfo(rarity);
-  return <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-bold" style={{ color: info.color, borderColor: info.color }}>{info.label}</span>;
+// 등급 배지 모양의 선택 상자 — 고르면 바로 저장
+function RarityPicker({ product, saving, disabled, onChange }: { product: AdminProduct; saving: boolean; disabled: boolean; onChange: (next: Rarity) => void }) {
+  const info = rarityInfo(product.rarity);
+  return (
+    <span className="relative inline-flex shrink-0">
+      <select
+        aria-label={`#${product.id} ${product.name} 등급`}
+        value={product.rarity}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value as Rarity)}
+        className="min-h-9 cursor-pointer appearance-none rounded-md border bg-night py-1 pl-2.5 pr-7 text-xs font-bold hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-mint disabled:cursor-wait disabled:opacity-60"
+        style={{ color: info.color, borderColor: info.color }}
+      >
+        {RARITY_KEYS.map((key) => <option key={key} value={key} style={{ color: "initial" }}>{rarityInfo(key).label}</option>)}
+      </select>
+      <span aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: info.color }}>{saving ? "…" : "▾"}</span>
+    </span>
+  );
 }
 
-function VisibilityBadge({ hidden }: { hidden: boolean }) {
-  return hidden
-    ? <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-line bg-panel-2 px-2.5 py-1 text-xs font-bold text-dim">숨김</span>
-    : <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-mint/30 bg-mint/10 px-2.5 py-1 text-xs font-bold text-mint">노출</span>;
+// 노출/숨김 배지를 누르면 확인창을 거쳐 바꾼다
+function VisibilityToggle({ product, onClick }: { product: AdminProduct; onClick: () => void }) {
+  const tone = product.isHidden ? "border-line bg-panel-2 text-dim hover:text-ink" : "border-mint/30 bg-mint/10 text-mint hover:border-mint/60";
+  return (
+    <button type="button" onClick={onClick} title={product.isHidden ? "눌러서 다시 보이게" : "눌러서 숨기기"}
+      aria-label={`#${product.id} ${product.name} ${product.isHidden ? "숨김 상태, 다시 보이게 하기" : "노출 중, 숨기기"}`}
+      className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-bold focus-visible:outline-2 focus-visible:outline-mint ${tone}`}>
+      {product.isHidden ? "숨김" : "노출"}<span aria-hidden="true" className="text-[10px] opacity-70">⇄</span>
+    </button>
+  );
 }
 
 function StockCell({ stock }: { stock: number }) {

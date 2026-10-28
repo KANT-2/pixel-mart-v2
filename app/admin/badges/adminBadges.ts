@@ -51,6 +51,7 @@ export const adminBadgesApi = {
     api.post<{ granted: number; skipped: number }>(`/admin/badges/${encodeURIComponent(code)}/grant`, { userIds, memo: memo.trim() || null }, options()),
   holders: (code: string, page: number, signal?: AbortSignal) =>
     api.get<Page<ApiBadgeHolder>>(`/admin/badges/${encodeURIComponent(code)}/holders?page=${page}&size=${HOLDER_PAGE_SIZE}`, options(signal)),
+  remove: (code: string) => api.delete<{ message: string }>(`/admin/badges/${encodeURIComponent(code)}`, options()),
   revoke: (code: string, userId: number) => api.delete<{ message: string }>(`/admin/badges/${encodeURIComponent(code)}/holders/${userId}`, options()),
   searchUsers: (q: string, signal?: AbortSignal) =>
     api.get<Page<BadgeGrantCandidate>>(`/admin/users?${new URLSearchParams({ q, size: "10" })}`, options(signal)),

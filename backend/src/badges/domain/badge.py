@@ -132,7 +132,7 @@ def next_event_code(existing: list[str]) -> str:
 
 
 def check_event_badge(info: BadgeInfo, action: str) -> None:
-    """이벤트 뱃지만 관리자가 바꾸고 · 주고 · 회수한다"""
+    """이벤트 뱃지만 관리자가 바꾸고 · 주고 · 회수하고 · 지운다"""
     if info.kind == "auto":
         raise BadgeRuleError("자동 뱃지는 코드로 관리돼요.")
     if action == "grant" and not info.is_active:
