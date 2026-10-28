@@ -26,7 +26,7 @@ Next.js 16 (App Router, Turbopack, **Cache Components 켜짐**) · React 19 · T
 
 ## 명령어 (저장소 루트)
 ```bash
-npm run dev          # 프론트 :3000 (백엔드는 backend/에서 uvicorn :8000 — backend/README 참고)
+npm run dev          # 프론트 :3000 (백엔드는 backend/에서 uvicorn :8000 — docs/backend/README.md 참고)
 npm run lint
 npx tsc --noEmit     # 경로 타입 오류가 나면 npm run build 한 번 후 다시
 npm run build
@@ -60,7 +60,6 @@ data/                      정적 데이터 (상품 폴백, 키캡·키보드, �
 - 모든 호출은 `lib/api.ts`의 공통 함수 사용: JSON 파싱, `res.ok` 아니면 백엔드의 `detail` 한글 메시지로 에러 throw, 401은 "로그인이 필요합니다" 처리
 - **상품 목록·상세는 API 실패 시 `data/products.ts`로 폴백**한다 (백엔드가 꺼져도 쇼핑몰 기본 화면은 동작)
 - 백엔드 API가 아직 머지되지 않았으면 `mocks/<기능>.ts`에 같은 타입 데이터를 만들어 화면을 먼저 만들고, 코드에 `// TODO(#백엔드이슈번호): API 연결` 표시
-  (예외로 남아 있는 임시 코드: `lib/questions.ts` 상품 Q&A 인메모리 어댑터 — 백엔드 API는 이미 있음, 연결 필요)
 - 응답 필드는 **camelCase** (`imageUrl`, `isNew`, `totalPages`). 목록은 `Page<T>` = `{ items, total, page, size, totalPages }`
 
 ## 로그인 · 상태
