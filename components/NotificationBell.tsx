@@ -78,7 +78,7 @@ export default function NotificationBell() {
     try { setUnread((await notificationApi.read(ids)).unread); } catch { refreshCount(); }
   }
 
-  return <div ref={root} className="relative" onKeyDown={(event) => { if (event.key === "Escape" && open) { event.preventDefault(); setOpen(false); } }}>
+  return <div ref={root} className="static sm:relative" onKeyDown={(event) => { if (event.key === "Escape" && open) { event.preventDefault(); setOpen(false); } }}>
     <button type="button" onClick={() => void toggle()} aria-expanded={open} aria-controls={panelId}
       aria-label={unread ? `알림, 안 읽은 알림 ${unread}개` : "알림"} title="알림" className={iconButton}>
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
@@ -86,7 +86,7 @@ export default function NotificationBell() {
       </svg>
       {unread > 0 && <span aria-hidden="true" className="absolute -right-2 -top-2 min-w-5 rounded bg-pink px-1 text-center font-pixel text-xs leading-5 text-night">{unread > 9 ? "9+" : unread}</span>}
     </button>
-    {open && <div id={panelId} className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] pixel-panel shadow-lg">
+    {open && <div id={panelId} className="absolute left-3 right-3 top-full z-50 max-w-[calc(100vw-2rem)] sm:left-auto sm:right-0 sm:top-12 sm:w-80 pixel-panel shadow-lg">
       <div className="flex items-center justify-between border-b-2 border-frame px-3 py-2">
         <p className="font-pixel text-xs tracking-widest text-mint">NOTIFICATIONS</p>
         <button type="button" disabled={!items?.some((item) => !item.read)} onClick={() => void markRead(null)}
