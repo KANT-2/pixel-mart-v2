@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from src.admin_content.domain.content import FaqNotFound, NoticeNotFound
 from src.admin_orders.domain.exceptions import AlreadyResolved, CancelRequestNotFound, InvalidTransition, OrderNotFound
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
+from src.admin_reviews.domain.moderation import ReviewNotFound
 from src.admin_trades.domain.moderation import CannotReopen, TradeNotFound
 from src.auth.domain.exceptions import (
     CannotSuspend,
@@ -80,6 +81,7 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     BadgeRuleError: status.HTTP_400_BAD_REQUEST,
     NotHolder: status.HTTP_404_NOT_FOUND,
     TradeNotFound: status.HTTP_404_NOT_FOUND,
+    ReviewNotFound: status.HTTP_404_NOT_FOUND,
     CannotReopen: status.HTTP_400_BAD_REQUEST,
     ReportTargetNotFound: status.HTTP_404_NOT_FOUND,
     CannotReport: status.HTTP_400_BAD_REQUEST,

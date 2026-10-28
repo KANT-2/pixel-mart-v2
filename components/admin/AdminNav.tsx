@@ -28,6 +28,7 @@ const GROUPS: { title: string; items: AdminMenuItem[] }[] = [
   ] },
   { title: "고객 응대", items: [
     { label: "상품 문의", href: "/admin/questions" },
+    { label: "리뷰", href: "/admin/reviews" },
     { label: "FAQ", href: "/admin/faqs" },
     { label: "공지", href: "/admin/notices" },
   ] },
