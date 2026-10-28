@@ -26,7 +26,11 @@ interface AccountTradesProps { created: boolean; }
 function AccountTrades({ created }: AccountTradesProps) {
   const auth = useAuth();
   const load = useCallback(async (signal: AbortSignal) => {
-    const [posts, matches] = await Promise.all([localApi.myTrades(signal), localApi.matches(signal)]);
+    // 매칭은 덤이라 실패해도 내 글은 보여 준다 (로그인 만료 401만 그대로 올려 다시 로그인 안내)
+    const [posts, matches] = await Promise.all([
+      localApi.myTrades(signal),
+      localApi.matches(signal).catch((cause) => { if (cause instanceof ApiError && cause.status === 401) throw cause; return []; }),
+    ]);
     return { posts, matches };
   }, []);
   const result = useLocalResource(load);
