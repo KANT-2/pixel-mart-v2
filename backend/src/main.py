@@ -35,6 +35,8 @@ from src.admin_orders.presentation import cancel_router as admin_cancel_api
 from src.admin_orders.presentation import router as admin_orders_api
 from src.admin_products.domain.exceptions import AdminProductNotFound, InvalidProductCategory
 from src.admin_products.presentation import router as admin_products_api
+from src.admin_reviews.domain.moderation import ReviewNotFound
+from src.admin_reviews.presentation import router as admin_reviews_api
 from src.admin_summary.presentation import router as admin_summary_api
 from src.admin_trades.domain.moderation import CannotReopen, TradeNotFound
 from src.admin_trades.presentation import router as admin_trades_api
@@ -169,6 +171,7 @@ for report_error in (AlreadyReported, CannotReport, ReportAlreadyHandled, Report
     app.add_exception_handler(report_error, domain_error_handler)
 for admin_trade_error in (TradeNotFound, CannotReopen):
     app.add_exception_handler(admin_trade_error, domain_error_handler)
+app.add_exception_handler(ReviewNotFound, domain_error_handler)
 for badge_error in (BadgeNotFound, NotEarned, BadgeRuleError, NotHolder):
     app.add_exception_handler(badge_error, domain_error_handler)
 
@@ -231,6 +234,7 @@ app.include_router(auth_api.users_router, prefix="/api")
 app.include_router(badges_api.router, prefix="/api")
 app.include_router(badges_api.admin_router, prefix="/api")
 app.include_router(admin_trades_api.router, prefix="/api")
+app.include_router(admin_reviews_api.router, prefix="/api")
 app.include_router(reports_api.router, prefix="/api")
 app.include_router(reports_api.admin_router, prefix="/api")
 app.include_router(orders_api.router, prefix="/api")
