@@ -178,7 +178,7 @@ async def test_decline_shows_refund_to_sender(users):
     gift_id = (await sender.post("/api/gifts", json=gift(await want_post(recipient)))).json()["id"]
     res = await recipient.post(f"/api/gifts/{gift_id}/decline")
     assert res.status_code == 200 and res.json()["status"] == "declined"
-    assert (await sender.get("/api/gifts", params={"box": "sent"})).json()[0]["statusLabel"] == "거절 · 환불(데모)"
+    assert (await sender.get("/api/gifts", params={"box": "sent"})).json()[0]["statusLabel"] == "거절 · 환불"
     assert (await recipient.post(f"/api/gifts/{gift_id}/decline")).status_code == 400
     assert all(r["label"] != "선물 보내기 완료" for r in (await sender.get("/api/users/me/activity")).json()["recent"])
 

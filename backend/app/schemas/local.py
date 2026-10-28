@@ -216,7 +216,7 @@ class TradePostOut(CamelModel):
     region_name: str
     is_mine: bool
     is_sample: bool
-    is_demo: bool = Field(default=False, description="시연용 데모 이웃의 글 — 화면에 '데모 이웃' 표시")
+    is_demo: bool = Field(default=False, description="시연용 이웃의 글 — 화면 표시 없이 집계에서만 뺀다")
     created_at: datetime
     author: TradeAuthorOut | None = Field(
         default=None, description="작성자가 닉네임 공개에 동의했을 때만 (샘플 글 제외)"
