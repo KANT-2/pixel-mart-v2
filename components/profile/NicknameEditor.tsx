@@ -46,8 +46,9 @@ export default function NicknameEditor() {
 
   return <form onSubmit={save} aria-label="닉네임 바꾸기" className="mt-1">
     <label htmlFor="nickname-edit" className="sr-only">새 닉네임</label>
-    <div className="flex items-start gap-2">
-      <div className="min-w-0 flex-1">
+    {/* 입력칸은 배지 자리(pr-28)만큼 줄어들 수 없어, 좁은 카드(모바일·md 2단)에선 버튼을 다음 줄로 내린다 */}
+    <div className="flex flex-wrap items-start gap-2">
+      <div className="min-w-0 flex-[1_1_14rem]">
         <NicknameField id="nickname-edit" value={text} onChange={(next) => { setText(next); setError(null); }} current={user.nickname} disabled={busy} onStatus={setStatus} rejected={rejected} />
       </div>
       <button type="submit" disabled={!canSave} className="btn-lime h-11 shrink-0 px-4 text-sm font-bold disabled:opacity-50">{busy ? "저장 중…" : "저장"}</button>
