@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { ApiError } from "@/lib/api";
 import type { Page } from "@/types/api";
 import { formatDate } from "@/utils/formatDate";
+import TradeDetailDialog from "./TradeDetailDialog";
 import {
   ADMIN_TRADES_PATH, SEARCH_LIMIT, adminTradesApi, adminTradesHref, confirmText, contentPreview, doneText, emptyMessage, kindLabel, kindOptions, statusOptions, tradeAction, tradeState,
   type AdminTradeQuery, type AdminTradeTarget, type ApiAdminTrade,
@@ -30,6 +31,7 @@ export default function AdminTradesBoard({ status, kind, q, page }: AdminTradeQu
   const [search, setSearch] = useState(q);
   const [pending, setPending] = useState<{ post: ApiAdminTrade; target: AdminTradeTarget } | null>(null); // 확인 창 대상
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState<ApiAdminTrade | null>(null); // 전체 내용을 펼친 글
   const lifetime = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -91,10 +93,12 @@ export default function AdminTradesBoard({ status, kind, q, page }: AdminTradeQu
     {
       header: "물건",
       className: "min-w-[12rem]",
-      render: (post) => <div className="min-w-0">
-        <p className="break-words font-bold text-ink">{post.itemName}</p>
+      render: (post) => <button type="button" onClick={() => { setNotice(null); setViewing(post); }} aria-haspopup="dialog" aria-label={`${post.itemName} 글 전체 보기`}
+        className="group block w-full min-w-0 rounded text-left focus-visible:outline-2 focus-visible:outline-mint">
+        <p className="break-words font-bold text-ink underline-offset-2 group-hover:underline">{post.itemName}</p>
         {post.content && <p className="mt-0.5 break-words text-xs text-dim">{contentPreview(post.content)}</p>}
-      </div>,
+        <p className="mt-0.5 text-[11px] font-bold text-mint">전체 보기 ›</p>
+      </button>,
     },
     {
       header: "작성자",
@@ -128,7 +132,7 @@ export default function AdminTradesBoard({ status, kind, q, page }: AdminTradeQu
   return <div className="space-y-5">
     <header>
       <h1 className="text-xl font-bold text-ink">거래글 관리</h1>
-      <p className="mt-1 text-sm text-sub">PIXEL LOCAL 거래·교환 글을 살펴보고 숨기거나 다시 보이게 해요. 글쓴이가 직접 숨긴 글은 다시 보이게 할 수 없어요.</p>
+      <p className="mt-1 text-sm text-sub">PIXEL LOCAL 거래·교환 글을 살펴보고 숨기거나 다시 보이게 해요. 물건 이름을 누르면 글 전체 내용을 볼 수 있어요. 글쓴이가 직접 숨긴 글은 다시 보이게 할 수 없어요.</p>
     </header>
 
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -165,6 +169,9 @@ export default function AdminTradesBoard({ status, kind, q, page }: AdminTradeQu
         <AdminPagination currentPage={data.page} totalPages={data.totalPages} basePath={ADMIN_TRADES_PATH}
           query={{ status: status === "all" ? undefined : status, kind: kind ?? undefined, q: q || undefined }} />
       </>}
+
+    {viewing && <TradeDetailDialog post={viewing} busy={busy} onClose={() => setViewing(null)}
+      onAction={(target) => { setViewing(null); setPending({ post: viewing, target }); }} />}
 
     <ConfirmDialog open={Boolean(dialog)} title={dialog?.title ?? ""} description={dialog?.description}
       confirmLabel={busy ? "처리 중…" : dialog?.confirm} danger={pending?.target === "hidden"}

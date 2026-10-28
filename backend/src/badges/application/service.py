@@ -34,6 +34,7 @@ class Badges(Protocol):
     async def grantable(self, code: str, user_ids: list[int]) -> list[int]: ...
     async def grant(self, info: BadgeInfo, user_ids: list[int], memo: str | None, admin_id: int) -> None: ...
     async def revoke(self, code: str, user_id: int) -> bool: ...
+    async def delete_event(self, code: str) -> int: ...
     async def images(self) -> list[str]: ...
 
 
@@ -133,3 +134,10 @@ class BadgeService:
         if not await self.badges.revoke(code, user_id):
             raise NotHolder()
         await self._commit()
+
+    async def delete_event(self, code: str) -> int:
+        """이벤트 뱃지를 지운다 — 받은 사람 기록도 함께 (지운 사람 수)"""
+        check_event_badge(await self.find(code), "delete")
+        removed = await self.badges.delete_event(code)
+        await self._commit()
+        return removed

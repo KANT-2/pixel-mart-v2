@@ -4,7 +4,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BadgeDefinition, User, UserBadge
+from app.models import BadgeDefinition, Notification, User, UserBadge
 from app.services import badges as auto
 from app.services import notifications
 from src.badges.domain.badge import EVENT_ICON, BadgeInfo, Owned
@@ -116,6 +116,17 @@ class BadgeRepository:
             update(User).where(User.id == user_id, User.featured_badge == code).values(featured_badge=None)
         )
         return result.rowcount > 0
+
+    async def delete_event(self, code: str) -> int:
+        """정의 · 받은 기록 · 대표 선택 · '받았어요' 알림을 함께 지운다.
+        알림까지 지우는 건, 마지막 번호를 지우면 새 뱃지가 같은 코드를 다시 쓰기 때문 (같은 ref_key면 알림이 안 감)"""
+        removed = await self.session.execute(delete(UserBadge).where(UserBadge.code == code))
+        await self.session.execute(update(User).where(User.featured_badge == code).values(featured_badge=None))
+        await self.session.execute(
+            delete(Notification).where(Notification.kind == "badge", Notification.ref_key == f"badge:{code}")
+        )
+        await self.session.execute(delete(BadgeDefinition).where(BadgeDefinition.code == code))
+        return removed.rowcount
 
     async def images(self) -> list[str]:
         if not BADGE_IMAGE_DIR.is_dir():

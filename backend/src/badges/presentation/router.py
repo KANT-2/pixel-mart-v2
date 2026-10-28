@@ -171,6 +171,14 @@ async def badge_holders(code: str, _admin: AdminUser, db: DbSession, pagination:
     )
 
 
+@admin_router.delete(
+    "/badges/{code}", response_model=Message, summary="[관리자] 이벤트 뱃지 삭제 (받은 기록도 함께, 자동 뱃지 400)"
+)
+async def delete_badge(code: str, _admin: AdminUser, db: DbSession):
+    removed = await service(db).delete_event(code)
+    return Message(message=f"뱃지를 삭제했어요. ({removed}명에게서 회수)" if removed else "뱃지를 삭제했어요.")
+
+
 @admin_router.delete("/badges/{code}/holders/{user_id}", response_model=Message, summary="[관리자] 이벤트 뱃지 회수")
 async def revoke_badge(code: str, user_id: int, _admin: AdminUser, db: DbSession):
     await service(db).revoke(code, user_id)

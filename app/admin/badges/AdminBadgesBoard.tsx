@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import PixelAvatar from "@/components/avatar/PixelAvatar";
 import { ApiError } from "@/lib/api";
 import BadgeForm from "./BadgeForm";
@@ -21,6 +22,8 @@ export default function AdminBadgesBoard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [deleting, setDeleting] = useState<ApiAdminBadge | null>(null); // 삭제 확인창 대상
+  const [busy, setBusy] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const lifetime = useRef<AbortController | null>(null);
 
@@ -58,11 +61,30 @@ export default function AdminBadgesBoard() {
     void reload();
   }
 
+  // 확인창에서 [삭제] → 받은 기록도 함께 지운다 (이벤트 뱃지만)
+  async function remove() {
+    if (!deleting || busy) return;
+    const badge = deleting;
+    setBusy(true); setNotice(null); setError(null);
+    try {
+      const res = await adminBadgesApi.remove(badge.code);
+      setDeleting(null);
+      if (panel && panel.mode !== "create" && panel.badge.code === badge.code) setPanel(null);
+      done(`'${badge.name}' ${res.message}`, true);
+    } catch (cause) {
+      setDeleting(null);
+      setError(cause instanceof ApiError ? cause.message : "뱃지를 삭제하지 못했어요. 다시 시도해 주세요.");
+      if (cause instanceof ApiError && cause.status === 404) void reload(); // 이미 지워진 뱃지
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <div className="space-y-6">
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 className="text-xl font-bold text-ink">뱃지</h1>
-        <p className="mt-1 text-sm text-sub">이벤트 뱃지를 만들어 손님에게 주고, 받은 사람을 확인해요. 자동 뱃지는 활동 기록으로 정해져서 고칠 수 없어요.</p>
+        <p className="mt-1 text-sm text-sub">이벤트 뱃지를 만들어 손님에게 주고, 받은 사람을 확인하고, 필요 없으면 삭제해요. 자동 뱃지는 활동 기록으로 정해져서 고치거나 지울 수 없어요.</p>
       </div>
       <button type="button" onClick={() => open({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold text-lime-ink">이벤트 뱃지 만들기</button>
     </header>
@@ -87,6 +109,7 @@ export default function AdminBadgesBoard() {
             <button type="button" onClick={() => open({ mode: "edit", badge })} className="min-h-9 btn-pixel px-2.5 text-xs font-bold">고치기</button>
             {badge.isActive && <button type="button" onClick={() => open({ mode: "grant", badge })} className="min-h-9 btn-pixel px-2.5 text-xs font-bold text-lime">주기</button>}
             <button type="button" onClick={() => open({ mode: "holders", badge })} className="min-h-9 btn-pixel px-2.5 text-xs font-bold">받은 사람</button>
+            <button type="button" disabled={busy} onClick={() => { setNotice(null); setDeleting(badge); }} className="min-h-9 btn-pixel px-2.5 text-xs font-bold text-pink disabled:opacity-50">삭제</button>
           </BadgeCard>)}
         </BadgeSection>
         <BadgeSection title="자동 뱃지" count={data.auto.length} empty="자동 뱃지가 없어요.">
@@ -95,6 +118,11 @@ export default function AdminBadgesBoard() {
           </BadgeCard>)}
         </BadgeSection>
       </>}
+
+    <ConfirmDialog open={Boolean(deleting)} title={deleting ? `'${deleting.name}' 뱃지를 삭제할까요?` : ""}
+      description={deleting?.holderCount ? `받은 ${deleting.holderCount}명에게서도 사라지고, 되돌릴 수 없어요. 잠시 안 보이게만 하려면 [고치기]에서 꺼 두세요.` : "되돌릴 수 없어요. 잠시 안 보이게만 하려면 [고치기]에서 꺼 두세요."}
+      confirmLabel={busy ? "삭제 중…" : "삭제"} danger
+      onConfirm={() => void remove()} onClose={() => { if (!busy) setDeleting(null); }} />
   </div>;
 }
 
