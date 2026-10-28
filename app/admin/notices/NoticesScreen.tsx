@@ -1,6 +1,5 @@
 "use client"; // 상태·이벤트가 많아 전체를 클라이언트 컴포넌트로 만든다 (#101 ProductsScreen과 같은 구조)
 
-import Link from "next/link"; // 화면 이동은 next/link만 쓴다
 import { useSearchParams } from "next/navigation"; // 주소 쿼리 읽기(페이지 번호)
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import AdminTable, { type AdminTableColumn } from "@/components/admin/AdminTable"; // 공용 표
@@ -113,7 +112,6 @@ export default function NoticesScreen() {
           <p className="mt-1 text-sm text-sub">게시한 공지는 손님 화면의 공지 목록에 바로 보여요. 고정한 공지는 메인 맨 위 배너에도 나와요.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/notices" className="btn-pixel min-h-11 whitespace-nowrap px-4 text-sm font-bold">고객 화면에서 보기 →</Link>
           <button type="button" onClick={() => setFormState({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold">+ 새 공지 쓰기</button>
         </div>
       </header>
