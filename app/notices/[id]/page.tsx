@@ -4,14 +4,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import PixelStar from "@/components/PixelStar";
+import { serverFetch } from "@/lib/api";
 import { getNotice, getNotices } from "@/lib/notices";
+import type { Page } from "@/types/api";
 import type { NoticeSummary } from "@/types/notice";
 import { adjacentNotices, formatNoticeDate } from "@/utils/notices";
 
 // 게시 중인 공지는 빌드 때 미리 만들어 첫 클릭부터 바로 보이게 한다.
 // 공지 API가 꺼져 있어도(빌드 환경 등) 상세 경로를 최소 1개 미리 만들어 둔다
+// (캐시를 거치지 않고 바로 묻는다 — 실패 값의 짧은 캐시는 빌드 단계에서 기다리기만 할 수 있어서)
 export async function generateStaticParams() {
-  const list = await getNotices({ size: 60 }).catch(() => null);
+  const list = await serverFetch<Page<NoticeSummary>>("/notices?size=60").catch(() => null);
   const ids = list?.items.map((notice) => ({ id: String(notice.id) })) ?? [];
   return ids.length > 0 ? ids : [{ id: "1" }];
 }
