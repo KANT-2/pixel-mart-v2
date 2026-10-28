@@ -98,16 +98,49 @@ QUESTIONS: list[tuple[int, str, str, str]] = [
     (5, "고리 색상", "키링 고리는 은색인가요?", "은색 니켈 고리로 나가요."),
 ]
 
-# 발표 계정이 올리는 글 (이름으로 찾아 한 번만 만든다)
-MY_WANT = (8, "책상 모니터 옆에 둘 인베이더 무드등 찾고 있어요")
-# 첫 글은 이웃의 교환 신청(대기), 둘째 글은 교환 진행 중, 셋째 글은 게시판에서 직접 교환 신청할 때 고를 물건
-MY_HAVES = [
-    (1, "HP 하트 키캡 하나 남아요. 미개봉이라 교환 원해요"),
-    (5, "슬라임 아크릴 키링 중복이에요. 다른 굿즈랑 바꿔요"),
-    (6, "픽셀 스티커 팩 한 세트 남아요"),
+# 발표 계정이 올리는 글 (내용으로 찾아 한 번만 만든다) — 계정이 여러 개면 계정마다 다른 물건이라
+# 게시판에 같은 글이 여러 개 보이지 않는다. (WISH, [HAVE 3개], 짝 이웃이 교환 진행 중인 건에 걸 물건)
+# HAVE 첫 글은 이웃의 교환 신청(대기), 둘째 글은 교환 진행 중, 셋째 글은 게시판에서 직접 교환 신청할 때 고를 물건
+PRESENTER_SETS = [
+    (
+        (8, "책상 모니터 옆에 둘 인베이더 무드등 찾고 있어요"),
+        [
+            (1, "HP 하트 키캡 하나 남아요. 미개봉이라 교환 원해요"),
+            (5, "슬라임 아크릴 키링 중복이에요. 다른 굿즈랑 바꿔요"),
+            (6, "픽셀 스티커 팩 한 세트 남아요"),
+        ],
+        (2, "코인 키캡 세트 하나 남아서 교환해요"),
+    ),
+    (
+        (4, "인베이더 장패드 찾아요. 넓은 책상용이면 좋겠어요"),
+        [
+            (15, "루비 하트 ESC 키캡 남아요. 한 번도 안 꽂았어요"),
+            (13, "슬라임 머그컵 선물 받은 게 두 개예요"),
+            (18, "루비 하트 스티커 팩 한 세트 교환해요"),
+        ],
+        (21, "골드 코인 스페이스바 키캡 하나 남아서 교환해요"),
+    ),
+    (
+        (29, "보물상자 미니 피규어 구해요. 책상 장식용이에요"),
+        [
+            (9, "슬라임 아티산 키캡 중복이라 교환해요"),
+            (24, "골드 코인 금속 뱃지 남아요"),
+            (30, "보물상자 에나멜 핀 미개봉이에요"),
+        ],
+        (33, "보랏빛 보석 포인트 키캡 세트 교환해요"),
+    ),
+    (
+        (87, "인베이더 메탈 키캡 찾고 있어요"),
+        [
+            (11, "슬라임 미니 무드등 하나 남아요"),
+            (17, "루비 하트 펜꽂이 교환 원해요"),
+            (23, "골드 코인 메모패드 새것 있어요"),
+        ],
+        (12, "슬라임 미니 아크릴 키링 하나 남아서 교환해요"),
+    ),
 ]
-# 이웃(레트로토끼)이 교환 진행 중인 건에 걸어 둘 물건
-NEIGHBOR_HAVE = (2, "코인 키캡 세트 하나 남아서 교환해요")
+# 예전 실행에서 올렸던 글 내용 — 지금 계정에 맞지 않는 건 숨긴다 (같은 글 여러 개 정리)
+SHOWCASE_CONTENTS = {c for want, haves, neighbor in PRESENTER_SETS for _, c in [want, *haves, neighbor]}
 # 발표 계정마다 선물·교환을 보내는 데모 이웃 (한 이웃의 교환글이 두 계정의 교환에 같이 쓰이지 않게 나눈다)
 PARTNERS = ["retrobunny", "keycapmaster", "slimeking", "dotcat"]
 
@@ -324,7 +357,14 @@ async def _questions_and_wishes(db: AsyncSession, demo: list[User]) -> None:
     await db.flush()
 
 
-async def _presenter(db: AsyncSession, me: User) -> tuple[TradePost, list[TradePost]]:
+async def _retire_others(db: AsyncSession, owner: User, keep: set[str]) -> None:
+    """이 계정의 진행 중 시연 글 중 이번에 쓰지 않는 것은 숨긴다 (예전 실행에서 계정마다 같은 글을 올렸던 것 정리)"""
+    for post in await db.scalars(select(TradePost).where(TradePost.user_id == owner.id, TradePost.status == "open")):
+        if post.content in SHOWCASE_CONTENTS and post.content not in keep:
+            post.status = "hidden"
+
+
+async def _presenter(db: AsyncSession, me: User, n: int) -> tuple[TradePost, list[TradePost]]:
     """발표 계정 — 지역·취향·공개 설정·활동 기록·WANT/HAVE 글 (아바타가 있으면 메인 배너가 개인화돼서 그대로 둔다)"""
     me.region_code = me.region_code or "11440-01"
     me.map_avatar_opt_in = me.map_card_public = me.nickname_public = me.profile_public = True
@@ -352,8 +392,10 @@ async def _presenter(db: AsyncSession, me: User) -> tuple[TradePost, list[TradeP
                 )
             )
 
-    want = await _post(db, me, "want", *MY_WANT, None)
-    haves = [await _post(db, me, "have", pid, content, "new") for pid, content in MY_HAVES]
+    my_want, my_haves, _ = PRESENTER_SETS[n % len(PRESENTER_SETS)]
+    await _retire_others(db, me, {my_want[1], *(content for _, content in my_haves)})
+    want = await _post(db, me, "want", *my_want, None)
+    haves = [await _post(db, me, "have", pid, content, "new") for pid, content in my_haves]
     await db.flush()
     return want, haves
 
@@ -395,7 +437,7 @@ def _bearer(user_id: int) -> dict[str, str]:
 
 
 async def _neighbor_actions(
-    me_id: int, partner_id: int, want_id: int, have_ids: list[int], neighbor_have_id: int
+    me_id: int, partner_id: int, want_id: int, want_product_id: int, have_ids: list[int], neighbor_have_id: int
 ) -> list[str]:
     """데모 이웃이 실제 API로 선물·교환 신청 — 알림까지 함께 생긴다.
     개발용 로그인은 배포(production)에서 꺼져 있어서, 두 계정의 토큰을 직접 만들어 붙인다"""
@@ -409,7 +451,7 @@ async def _neighbor_actions(
             "/api/gifts",
             json={
                 "tradePostId": want_id,
-                "productId": MY_WANT[0],
+                "productId": want_product_id,
                 "message": "같은 동네 이웃 선물이에요! 책상에 잘 어울릴 거예요",
             },
         )
@@ -455,16 +497,20 @@ async def seed_showcase(emails: list[str]) -> str:
         await _questions_and_wishes(db, demo)
         plans = []
         for n, me in enumerate(presenters):
-            want, haves = await _presenter(db, me)
+            want, haves = await _presenter(db, me, n)
             key = PARTNERS[n % len(PARTNERS)]
             partner = next(u for u in demo if u.email == f"demo-{key}{DEMO_EMAIL_DOMAIN}")
-            neighbor_have = await _post(db, partner, "have", *NEIGHBOR_HAVE, "like_new")
-            plans.append((me.id, me.email, partner.id, want.id, [h.id for h in haves], neighbor_have.id))
+            neighbor_item = PRESENTER_SETS[n % len(PRESENTER_SETS)][2]
+            await _retire_others(db, partner, {neighbor_item[1]})
+            neighbor_have = await _post(db, partner, "have", *neighbor_item, "like_new")
+            plans.append(
+                (me.id, me.email, partner.id, want.id, want.product_id, [h.id for h in haves], neighbor_have.id)
+            )
         local_posts = await _local_neighbors(db, presenters[0])
         await db.commit()
     results = []
-    for me_id, email, partner_id, want_id, have_ids, neighbor_have_id in plans:
-        actions = await _neighbor_actions(me_id, partner_id, want_id, have_ids, neighbor_have_id)
+    for me_id, email, partner_id, want_id, want_product_id, have_ids, neighbor_have_id in plans:
+        actions = await _neighbor_actions(me_id, partner_id, want_id, want_product_id, have_ids, neighbor_have_id)
         results.append(f"{email} ({', '.join(actions)})")
     async with SessionLocal() as db:
         for me_id, *_ in plans:
