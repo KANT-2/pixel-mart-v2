@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import StringConstraints
+from pydantic import StrictBool, StringConstraints
 
 from app.schemas.common import CamelModel
 from src.questions.application.service import AdminQuestionView, QuestionView
@@ -24,6 +24,12 @@ class AnswerIn(CamelModel):
     """관리자 답변 요청 — { answer } (1~500자)"""
 
     answer: Answer
+
+
+class HiddenIn(CamelModel):
+    """관리자 숨김 요청 — { hidden: true | false } ("yes" 같은 값으로 잘못 숨기지 않게 true/false만)"""
+
+    hidden: StrictBool
 
 
 class QuestionOut(CamelModel):
@@ -65,8 +71,11 @@ class AdminQuestionOut(QuestionOut):
 
     product_name: str
     author_nickname: str
+    is_hidden: bool = False
 
     @classmethod
     def from_admin_view(cls, view: AdminQuestionView) -> "AdminQuestionOut":
         base = QuestionOut.from_view(view.question).model_dump()
-        return cls(**base, product_name=view.product_name, author_nickname=view.author_nickname)
+        return cls(
+            **base, product_name=view.product_name, author_nickname=view.author_nickname, is_hidden=view.is_hidden
+        )

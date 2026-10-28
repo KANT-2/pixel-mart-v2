@@ -8,7 +8,7 @@ from app.schemas.common import Message, Page
 from src.auth.domain.account import ADMIN_ROLE
 from src.questions.application.service import QuestionService
 from src.questions.infrastructure.repositories import QuestionRepository
-from src.questions.presentation.schemas import AdminQuestionOut, AnswerIn, QuestionIn, QuestionOut
+from src.questions.presentation.schemas import AdminQuestionOut, AnswerIn, HiddenIn, QuestionIn, QuestionOut
 
 router = APIRouter(tags=["questions"])
 # 관리자 API — 관리자가 아니거나 로그인하지 않았으면 404 (AdminUser), 로그아웃한 토큰은 401
@@ -93,3 +93,23 @@ async def list_admin_questions(
 async def answer_question(question_id: int, body: AnswerIn, admin: AdminUser, db: DbSession) -> QuestionOut:
     view = await _service(db).answer(question_id, body.answer, admin.id)
     return QuestionOut.from_view(view)
+
+
+@admin_router.patch("/{question_id}", response_model=Message, summary="[관리자] 문의 숨김 · 다시 보이기")
+async def hide_question(question_id: int, body: HiddenIn, _admin: AdminUser, db: DbSession) -> Message:
+    await _service(db).set_hidden(question_id, body.hidden)
+    return Message(message="문의를 숨겼어요." if body.hidden else "문의를 다시 보이게 했어요.")
+
+
+@admin_router.delete(
+    "/{question_id}/answer", response_model=Message, summary="[관리자] 답변 삭제 (답변 대기로 돌아가 다시 답변 가능)"
+)
+async def delete_answer(question_id: int, _admin: AdminUser, db: DbSession) -> Message:
+    await _service(db).delete_answer(question_id)
+    return Message(message="답변을 삭제했어요.")
+
+
+@admin_router.delete("/{question_id}", response_model=Message, summary="[관리자] 문의 삭제 (답변이 달려 있어도)")
+async def admin_delete_question(question_id: int, _admin: AdminUser, db: DbSession) -> Message:
+    await _service(db).admin_delete(question_id)
+    return Message(message="문의를 삭제했어요.")

@@ -27,6 +27,7 @@ from src.questions.domain.exceptions import (
     InvalidQuestion,
     ProductNotFound,
     QuestionAlreadyAnswered,
+    QuestionNotAnswered,
     QuestionNotFound,
 )
 from src.reports.domain.exceptions import (
@@ -92,6 +93,7 @@ ERROR_STATUS_MAP: dict[type[Exception], int] = {
     ProductNotFound: status.HTTP_404_NOT_FOUND,
     InvalidQuestion: status.HTTP_422_UNPROCESSABLE_CONTENT,
     QuestionAlreadyAnswered: status.HTTP_409_CONFLICT,
+    QuestionNotAnswered: status.HTTP_409_CONFLICT,
     AnsweredQuestionNotDeletable: status.HTTP_409_CONFLICT,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ForbiddenError: status.HTTP_403_FORBIDDEN,

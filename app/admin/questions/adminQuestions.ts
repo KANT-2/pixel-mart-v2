@@ -2,7 +2,8 @@ import { api } from "@/lib/api";
 import type { ApiQuestion, Page } from "@/types/api";
 
 /** 관리자 문의 목록 한 줄 — 상품 문의(ApiQuestion) + 상품 이름 · 작성자 닉네임 (#31 AdminQuestionOut) */
-export interface ApiAdminQuestion extends ApiQuestion { productName: string; authorNickname: string; }
+/** isHidden: 관리자 · 신고 처리로 숨겨 손님 목록에서 빠진 문의 */
+export interface ApiAdminQuestion extends ApiQuestion { productName: string; authorNickname: string; isHidden: boolean; }
 
 export type AdminQuestionStatus = "waiting" | "answered" | "all";
 export interface AdminQuestionQuery { status: AdminQuestionStatus; q: string; page: number; }
@@ -62,7 +63,27 @@ export const adminQuestionsApi = {
   list: (query: AdminQuestionQuery, signal?: AbortSignal) => api.get<Page<ApiAdminQuestion>>(adminQuestionsApiPath(query), options(signal)),
   answer: (questionId: number, answer: string, signal?: AbortSignal) =>
     api.post<ApiQuestion>(`/admin/questions/${questionId}/answer`, { answer }, options(signal)),
+  // 관리 — 숨김 · 다시 보이기, 답변 삭제(답변 대기로 돌아가 다시 답변), 문의 삭제(답변이 있어도)
+  setHidden: (questionId: number, hidden: boolean) => api.patch<{ message: string }>(`/admin/questions/${questionId}`, { hidden }, options()),
+  deleteAnswer: (questionId: number) => api.delete<{ message: string }>(`/admin/questions/${questionId}/answer`, options()),
+  remove: (questionId: number) => api.delete<{ message: string }>(`/admin/questions/${questionId}`, options()),
 };
+
+export type ModerationAction = "hide" | "show" | "deleteAnswer" | "delete";
+
+/** 관리 확인 창 문구 · 완료 문구 */
+export const MODERATION_TEXT: Record<ModerationAction, { title: string; description: string; confirm: string; done: string; danger: boolean }> = {
+  hide: { title: "이 문의를 숨길까요?", description: "상품 페이지 문의 목록에서 바로 빠져요. 언제든 다시 보이게 할 수 있어요.", confirm: "숨기기", done: "문의를 숨겼어요.", danger: true },
+  show: { title: "이 문의를 다시 보이게 할까요?", description: "상품 페이지 문의 목록에 다시 보여요.", confirm: "다시 보이기", done: "문의를 다시 보이게 했어요.", danger: false },
+  deleteAnswer: { title: "답변을 삭제할까요?", description: "문의가 답변 대기로 돌아가요. 고친 답변을 다시 등록할 수 있어요.", confirm: "답변 삭제", done: "답변을 삭제했어요. 다시 답변할 수 있어요.", danger: true },
+  delete: { title: "이 문의를 삭제할까요?", description: "답변까지 함께 지워지고 되돌릴 수 없어요.", confirm: "삭제하기", done: "문의를 삭제했어요.", danger: true },
+};
+
+export function runModeration(questionId: number, action: ModerationAction) {
+  if (action === "hide" || action === "show") return adminQuestionsApi.setHidden(questionId, action === "hide");
+  if (action === "deleteAnswer") return adminQuestionsApi.deleteAnswer(questionId);
+  return adminQuestionsApi.remove(questionId);
+}
 
 /** 남은 글자 수 — 서버(파이썬 len)처럼 글자 단위로 센다 */
 export function remainingAnswerChars(text: string) {

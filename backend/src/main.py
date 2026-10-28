@@ -69,6 +69,7 @@ from src.questions.domain.exceptions import (
     InvalidQuestion,
     ProductNotFound,
     QuestionAlreadyAnswered,
+    QuestionNotAnswered,
     QuestionNotFound,
 )
 from src.questions.presentation import router as questions_api
@@ -159,6 +160,7 @@ for question_error in (
     ProductNotFound,
     InvalidQuestion,
     QuestionAlreadyAnswered,
+    QuestionNotAnswered,
     AnsweredQuestionNotDeletable,
 ):
     app.add_exception_handler(question_error, domain_error_handler)

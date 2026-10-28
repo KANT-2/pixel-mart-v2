@@ -7,7 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import PixelIcon from "@/components/PixelIcon";
 import { ApiError } from "@/lib/api";
 import { formatDate } from "@/utils/formatDate";
-import { ANSWER_LIMIT, adminQuestionsApi, remainingAnswerChars, validateAnswer, type ApiAdminQuestion } from "./adminQuestions";
+import { ANSWER_LIMIT, MODERATION_TEXT, adminQuestionsApi, remainingAnswerChars, runModeration, validateAnswer, type ApiAdminQuestion, type ModerationAction } from "./adminQuestions";
 
 interface AdminQuestionCardProps {
   question: ApiAdminQuestion;
@@ -16,16 +16,18 @@ interface AdminQuestionCardProps {
   onClose: () => void;
   onAnswered: () => void; // 등록 성공 → 목록 다시 받기
   onStale: () => void; // 이미 답변됐거나 지워진 문의 → 목록 다시 받기
+  onModerated: (message: string) => void; // 숨김 · 답변 삭제 · 문의 삭제 뒤 → 안내 + 목록 다시 받기
 }
 
 // 문의 한 개 — 내용 · 상품 · 작성자, 답변 대기면 [답변하기]로 아래에 입력창을 펼친다
-export default function AdminQuestionCard({ question, open, onOpen, onClose, onAnswered, onStale }: AdminQuestionCardProps) {
+export default function AdminQuestionCard({ question, open, onOpen, onClose, onAnswered, onStale, onModerated }: AdminQuestionCardProps) {
   const { refresh: refreshAuth } = useAuth();
   const id = useId();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [action, setAction] = useState<ModerationAction | null>(null); // 관리 확인 창 대상
   const textarea = useRef<HTMLTextAreaElement>(null);
   const alive = useRef(true);
   const remaining = remainingAnswerChars(text);
@@ -61,10 +63,31 @@ export default function AdminQuestionCard({ question, open, onOpen, onClose, onA
     }
   }
 
-  return <li className="min-w-0 pixel-panel p-5">
+  // 관리 확인 창에서 [확인] → 서버 처리 → 목록 다시 받기
+  async function moderate() {
+    if (!action || busy) return;
+    const current = action;
+    setAction(null); setBusy(true); setError(null);
+    try {
+      await runModeration(question.id, current);
+      if (alive.current) onModerated(MODERATION_TEXT[current].done);
+    } catch (cause) {
+      if (!alive.current) return;
+      setError(cause instanceof ApiError ? cause.message : "처리하지 못했어요. 다시 시도해 주세요.");
+      if (cause instanceof ApiError && cause.status === 401) void refreshAuth();
+      else if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) onStale();
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  }
+  const dialog = action ? MODERATION_TEXT[action] : null;
+  const tool = "min-h-9 btn-pixel px-3 text-xs font-bold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-mint";
+
+  return <li className={`min-w-0 pixel-panel p-5 ${question.isHidden ? "opacity-80" : ""}`}>
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className={`rounded border px-2 py-1 ${question.answered ? "border-mint/30 text-mint" : "border-line text-dim"}`}>{question.answered ? "답변 완료" : "답변 대기"}</span>
+        {question.isHidden && <span className="rounded border border-pink/40 bg-pink/10 px-2 py-1 font-bold text-pink">숨김</span>}
         <Link href={`/products/${question.productId}#qna`} className="min-w-0 break-words font-bold text-sub underline-offset-4 hover:text-ink hover:underline">{question.productName}</Link>
       </div>
       {question.createdAt && <time dateTime={question.createdAt} className="text-dim">{formatDate(question.createdAt)}</time>}
@@ -83,7 +106,14 @@ export default function AdminQuestionCard({ question, open, onOpen, onClose, onA
       <p className="whitespace-pre-line break-words text-sm leading-relaxed text-sub">{question.answer}</p>
     </div>}
 
-    {!question.answered && !open && <button type="button" onClick={onOpen} aria-expanded={false} aria-controls={`${id}-form`} className="mt-4 min-h-11 btn-pixel px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-mint">답변하기</button>}
+    {!open && <div className="mt-4 flex flex-wrap items-center gap-2">
+      {!question.answered && <button type="button" onClick={onOpen} aria-expanded={false} aria-controls={`${id}-form`} className="min-h-11 btn-pixel px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-mint">답변하기</button>}
+      <span className="flex-1" />
+      {question.answered && <button type="button" disabled={busy} onClick={() => setAction("deleteAnswer")} className={tool}>답변 삭제</button>}
+      <button type="button" disabled={busy} onClick={() => setAction(question.isHidden ? "show" : "hide")} className={tool}>{question.isHidden ? "다시 보이기" : "숨김"}</button>
+      <button type="button" disabled={busy} onClick={() => setAction("delete")} className={`${tool} text-pink`}>문의 삭제</button>
+    </div>}
+    {!open && error && <p role="alert" className="mt-2 text-sm text-pink">{error}</p>}
 
     {!question.answered && open && <form id={`${id}-form`} onSubmit={submit} noValidate className="mt-4 rounded-lg border border-line bg-panel-2 p-4">
       <label htmlFor={`${id}-answer`} className="mb-2 block text-sm font-semibold">답변 내용</label>
@@ -99,7 +129,9 @@ export default function AdminQuestionCard({ question, open, onOpen, onClose, onA
       </div>
     </form>}
 
-    <ConfirmDialog open={confirming} title="답변을 등록할까요?" description="등록하면 수정할 수 없어요. 손님에게 답변 알림이 가요."
+    <ConfirmDialog open={confirming} title="답변을 등록할까요?" description="손님에게 답변 알림이 가요. 고치려면 답변을 삭제하고 다시 등록해요."
       confirmLabel="등록하기" onConfirm={() => void confirm()} onClose={() => setConfirming(false)} />
+    <ConfirmDialog open={Boolean(dialog)} title={dialog?.title ?? ""} description={dialog?.description} confirmLabel={dialog?.confirm}
+      danger={dialog?.danger} onConfirm={() => void moderate()} onClose={() => setAction(null)} />
   </li>;
 }

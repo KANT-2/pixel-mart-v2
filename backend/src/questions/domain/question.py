@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from .exceptions import AnsweredQuestionNotDeletable, InvalidQuestion, QuestionAlreadyAnswered, QuestionNotFound
+from .exceptions import (
+    AnsweredQuestionNotDeletable,
+    InvalidQuestion,
+    QuestionAlreadyAnswered,
+    QuestionNotAnswered,
+    QuestionNotFound,
+)
 
 # 글자 수 제한 — 프론트(lib/questions.ts)·DB 칸 길이와 같다
 TITLE_MAX = 100
@@ -30,6 +36,7 @@ class Question:
     answer: str | None = None
     answered_at: datetime | None = None
     created_at: datetime | None = None
+    is_hidden: bool = False  # 관리자 · 신고 처리로 숨김 (손님 목록에서 빠짐)
 
     def __post_init__(self) -> None:
         self.title = _clean(self.title, "제목", TITLE_MAX)
@@ -51,6 +58,13 @@ class Question:
             raise QuestionAlreadyAnswered()
         self.answer = _clean(text, "답변", ANSWER_MAX)
         self.answered_at = now
+
+    def remove_answer(self) -> None:
+        """관리자가 답변을 지운다 — 다시 답변 대기로 돌아가 새로 답변할 수 있다 (답변 고치기)."""
+        if not self.is_answered:
+            raise QuestionNotAnswered()
+        self.answer = None
+        self.answered_at = None
 
     def ensure_deletable_by(self, user_id: int) -> None:
         """본인만, 답변 전에만 삭제할 수 있다. 남의 문의는 있다는 것도 숨긴다."""

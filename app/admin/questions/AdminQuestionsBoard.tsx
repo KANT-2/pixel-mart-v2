@@ -67,8 +67,8 @@ export default function AdminQuestionsBoard({ status, q, page }: AdminQuestionQu
   const empty = emptyMessage({ status, q });
 
   return <div>
-    <h1 className="text-xl font-bold text-ink">문의 답변</h1>
-    <p className="mt-1 text-sm text-sub">손님이 남긴 상품 문의에 답변해요. 답변은 등록하면 수정할 수 없어요.</p>
+    <h1 className="text-xl font-bold text-ink">문의 관리</h1>
+    <p className="mt-1 text-sm text-sub">손님이 남긴 상품 문의에 답변하고, 운영 정책에 맞지 않는 문의는 숨기거나 삭제해요. 답변을 고치려면 삭제 후 다시 등록해요.</p>
 
     <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div role="group" aria-label="답변 상태 필터" className="segmented h-11 self-start">
@@ -95,7 +95,8 @@ export default function AdminQuestionsBoard({ status, q, page }: AdminQuestionQu
       </div> : data && (data.items.length ? <ul aria-label="문의 목록" aria-busy={loading} className="space-y-3">
         {data.items.map((question) => <AdminQuestionCard key={question.id} question={question}
           open={openId === question.id} onOpen={() => { setNotice(null); setOpenId(question.id); }} onClose={() => setOpenId(null)}
-          onAnswered={answered} onStale={() => { setOpenId(null); void reload(); }} />)}
+          onAnswered={answered} onStale={() => { setOpenId(null); void reload(); }}
+          onModerated={(message) => { setOpenId(null); setNotice(message); void reload(); }} />)}
       </ul> : <div className="pixel-panel p-8 text-center">
         <p className="font-bold text-ink">{empty.title}</p>
         <p className="mt-2 text-sm text-sub">{empty.body}</p>

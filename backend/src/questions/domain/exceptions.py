@@ -26,9 +26,15 @@ class QuestionAlreadyAnswered(Exception):
         super().__init__("이미 답변한 문의예요.")
 
 
+class QuestionNotAnswered(Exception):
+    """답변이 없는 문의의 답변을 지우려 할 때 발생한다 (409)."""
+
+    def __init__(self) -> None:
+        super().__init__("아직 답변이 없는 문의예요.")
+
+
 class AnsweredQuestionNotDeletable(Exception):
     """답변이 달린 문의를 삭제하려 할 때 발생한다 (409)."""
 
     def __init__(self) -> None:
         super().__init__("답변이 달린 문의는 삭제할 수 없어요.")
-        

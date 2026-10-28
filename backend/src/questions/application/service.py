@@ -23,6 +23,7 @@ class Questions(Protocol):
         self, answered: bool | None, query: str | None, offset: int, limit: int
     ) -> tuple[list[AdminRow], int]: ...
     async def save_answer(self, question: Question) -> None: ...
+    async def save_hidden(self, question_id: int, hidden: bool) -> None: ...
     async def notify_answered(self, question: Question) -> None: ...
     async def delete(self, question_id: int) -> None: ...
 
@@ -77,6 +78,7 @@ class AdminQuestionView:
     question: QuestionView
     product_name: str
     author_nickname: str
+    is_hidden: bool
 
 
 class QuestionService:
@@ -126,7 +128,9 @@ class QuestionService:
         """관리자 문의 목록 — 모든 상품 · 최신순 · 답변 여부 필터 · 상품 이름/제목 검색"""
         rows, total = await self.questions.list_for_admin(answered, query, (page - 1) * size, size)
         views = [
-            AdminQuestionView(to_view((question, nickname), admin_id, is_admin=True), product_name, nickname)
+            AdminQuestionView(
+                to_view((question, nickname), admin_id, is_admin=True), product_name, nickname, question.is_hidden
+            )
             for question, nickname, product_name in rows
         ]
         return views, total
@@ -146,6 +150,38 @@ class QuestionService:
             await self.tx.rollback()
             raise
         return to_view((question, nickname), admin_id, is_admin=True)
+
+    async def _found(self, question_id: int) -> Question:
+        authored = await self.questions.get(question_id)
+        if authored is None:
+            raise QuestionNotFound()
+        return authored[0]
+
+    async def _commit(self, *steps) -> None:
+        try:
+            for step in steps:
+                await step
+            await self.tx.commit()
+        except Exception:
+            await self.tx.rollback()
+            raise
+
+    async def set_hidden(self, question_id: int, hidden: bool) -> None:
+        """관리자 숨김 · 다시 보이기 — 숨긴 문의는 손님 목록에서 빠진다"""
+        question = await self._found(question_id)
+        await self._commit(self.questions.save_hidden(question_id, hidden))
+        question.is_hidden = hidden
+
+    async def delete_answer(self, question_id: int) -> None:
+        """관리자 답변 삭제 — 답변 대기로 돌아가 다시 답변할 수 있다. 답변이 없으면 409"""
+        question = await self._found(question_id)
+        question.remove_answer()
+        await self._commit(self.questions.save_answer(question))
+
+    async def admin_delete(self, question_id: int) -> None:
+        """관리자 문의 삭제 — 답변이 달려 있어도 지울 수 있다 (운영 정책 위반 글)"""
+        await self._found(question_id)
+        await self._commit(self.questions.delete(question_id))
 
     async def delete(self, question_id: int, user_id: int) -> None:
         """내 문의 삭제 — 남의 문의 404, 답변 달린 문의 409"""
