@@ -228,3 +228,10 @@ html {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 상단 찜 개수 배지가 바뀔 때 살짝 튀는 움직임 — motion-safe:에서만 */
+@keyframes wish-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
