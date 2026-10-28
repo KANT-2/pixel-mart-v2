@@ -14,14 +14,18 @@ test("연락처는 하이픈을 넣어 맞춘다", () => {
   assert.equal(shop.formatPhone("010-123"), "010-123");
   assert.equal(shop.isValidPhone("010-1234-5678"), true);
   assert.equal(shop.isValidPhone("1234"), false);
+  for (const short of ["02-123-4567", "010-123-4567", "031-1234-5678"]) assert.equal(shop.isValidPhone(short), false); // 휴대폰 11자리만
+  assert.equal(shop.phoneHint("010-1234-567"), "휴대폰 번호 11자리 중 10자리 입력했어요.");
+  assert.equal(shop.phoneHint("010-1234-5678"), null);
+  assert.equal(shop.phoneHint(""), null);
 });
 
 test("배송지 검사 — 틀린 칸마다 안내", () => {
-  const ok = shop.validateShipping({ recipientName: " 홍길동 ", phone: "01012345678", postalCode: "04001", address: "서울 마포구", addressDetail: "" });
+  const ok = shop.validateShipping({ recipientName: " 홍길동 ", phone: "01012345678", postalCode: "04001", address: "서울 마포구", addressDetail: "101동 1001호" });
   assert.equal(ok.valid, true);
   assert.equal(ok.values.phone, "010-1234-5678");
   const bad = shop.validateShipping({ recipientName: "", phone: "12", postalCode: "", address: "", addressDetail: "" });
-  assert.deepEqual(Object.keys(bad.errors).sort(), ["address", "phone", "postalCode", "recipientName"]);
+  assert.deepEqual(Object.keys(bad.errors).sort(), ["address", "addressDetail", "phone", "postalCode", "recipientName"]);
 });
 
 test("쿠폰 할인 미리보기는 서버 규칙과 같다", () => {

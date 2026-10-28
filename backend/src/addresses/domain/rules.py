@@ -2,7 +2,8 @@ import re
 
 MAX_ADDRESSES = 10  # 한 사람이 저장해 둘 수 있는 배송지 수
 
-_PHONE = re.compile(r"^(0\d{1,2})(\d{3,4})(\d{4})$")
+# 배송 연락처는 휴대폰 11자리만 (택배 문자를 받을 수 있게) — 프론트 isValidPhone과 같은 규칙
+_PHONE = re.compile(r"^(01[016789])(\d{4})(\d{4})$")
 _POSTAL_CODE = re.compile(r"^\d{5}$")
 
 
@@ -11,7 +12,7 @@ def normalize_phone(raw: str) -> str:
     digits = re.sub(r"[\s-]", "", raw)
     match = _PHONE.match(digits)
     if not match:
-        raise ValueError("연락처는 010-1234-5678처럼 숫자로 입력해 주세요.")
+        raise ValueError("연락처는 휴대폰 번호 11자리를 010-1234-5678처럼 입력해 주세요.")
     return "-".join(match.groups())
 
 

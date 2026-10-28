@@ -53,7 +53,9 @@ async def deliver(client: AsyncClient, order_id: int) -> None:
 # ---- 순수 규칙 ----
 def test_phone_and_postal_code_rules():
     assert normalize_phone("010 1234 5678") == "010-1234-5678"
-    assert normalize_phone("02-123-4567") == "02-123-4567"
+    for short in ("02-123-4567", "010-123-4567", "031-1234-5678"):  # 휴대폰 11자리만
+        with pytest.raises(ValueError):
+            normalize_phone(short)
     with pytest.raises(ValueError):
         normalize_phone("12345")
     assert check_postal_code(" 04001 ") == "04001"
