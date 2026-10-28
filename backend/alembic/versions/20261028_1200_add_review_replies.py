@@ -1,7 +1,7 @@
 """add review replies
 
 Revision ID: b7d4e6a19c20
-Revises: a07145b560a3
+Revises: b3f1c2d4e5a6
 """
 
 from collections.abc import Sequence
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b7d4e6a19c20"
-down_revision: str | None = "a07145b560a3"
+down_revision: str | None = "b3f1c2d4e5a6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
