@@ -68,6 +68,7 @@ export default function KeycapFittingRoom({ current, productName, productId }: K
   const [message, setMessage] = useState(current ? `${withObject(current.name)} 끼워 봤어요. 다른 키캡도 끌어다 놓아 보세요.` : "키캡을 끌어다 빈 키 위에 놓아 보세요.");
   const [cartState, setCartState] = useState<"idle" | "adding" | "done" | "error">("idle");
   const rootRef = useRef<HTMLDivElement>(null);
+  const spaceHandled = useRef(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [rotateNote, setRotateNote] = useState(false);
   // 터치 화면은 끌어다 놓기가 안 돼서 '누르고 → 키 누르기' 사용법을 알림으로
@@ -148,6 +149,32 @@ export default function KeycapFittingRoom({ current, productName, productId }: K
       setToggled(next);
     }
   }
+  function rightClickKey(keyId: string) {
+    const item = placed[keyId] ? byId(placed[keyId]) : undefined;
+    if (item) {
+      setPlaced(removeKeycap(placed, keyId, item.kind));
+      setMessage(`${withObject(item.name)} 뺐어요.`);
+      setCartState("idle");
+      return;
+    }
+    const filled = base === "none" ? toggled.has(keyId) : !toggled.has(keyId);
+    if (!filled) return;
+    const next = new Set(toggled);
+    if (next.has(keyId)) next.delete(keyId); else next.add(keyId);
+    setToggled(next);
+    const label = BOARD.keys.find((key) => key.id === keyId)?.label || "스페이스바";
+    setMessage(`${label} 자리의 기본 키캡을 뺐어요. 다시 누르면 끼워져요.`);
+  }
+  function physicalKey(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!picked || event.defaultPrevented || event.repeat || event.nativeEvent.isComposing || event.key === "Process" || event.ctrlKey || event.metaKey || event.altKey) return;
+    const target = event.target as Element;
+    if (target.closest("input, textarea, select, [contenteditable]") || event.code === "Tab" || (event.code === "Enter" && target.closest("button, a"))) return;
+    const key = BOARD.keys.find((item) => item.id === event.code);
+    if (!key) return;
+    event.preventDefault();
+    if (event.code === "Space") spaceHandled.current = true;
+    place(picked, key.id);
+  }
   function pick(item: KeycapItem) {
     const next = picked === item.id ? null : item.id;
     setPicked(next);
@@ -188,7 +215,9 @@ export default function KeycapFittingRoom({ current, productName, productId }: K
     </button>
   );
 
-  return <div ref={rootRef} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] [&:fullscreen]:overflow-y-auto [&:fullscreen]:bg-night [&:fullscreen]:p-3">
+  return <div ref={rootRef} onKeyDown={physicalKey} onKeyUp={(event) => {
+    if (event.code === "Space" && spaceHandled.current) { event.preventDefault(); spaceHandled.current = false; }
+  }} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] [&:fullscreen]:overflow-y-auto [&:fullscreen]:bg-night [&:fullscreen]:p-3">
     {/* 휴대폰 세로 — 가로로 보면 키가 커지고 키캡 목록이 옆에 나란히 */}
     <div className="hidden items-center gap-3 rounded-md border-2 border-mint/40 bg-panel p-3 phone-portrait:flex">
       <span aria-hidden="true" className="font-pixel text-xl text-mint">⟲</span>
@@ -255,6 +284,7 @@ export default function KeycapFittingRoom({ current, productName, productId }: K
               const [rx, ry, rw, rh] = key.rect;
               return <button key={key.id} type="button" aria-label={`${key.label || "스페이스바"}${item ? ` — ${item.name} 끼움, 눌러서 빼기` : " 자리"}`}
                 onClick={() => clickKey(key.id)}
+                onContextMenu={(event) => { event.preventDefault(); rightClickKey(key.id); }}
                 onDragOver={(event) => { event.preventDefault(); if (over !== key.id) setOver(key.id); }}
                 onDragLeave={() => { if (over === key.id) setOver(null); }}
                 onDrop={(event) => { event.preventDefault(); place(event.dataTransfer.getData("text/plain") || picked, key.id); }}
