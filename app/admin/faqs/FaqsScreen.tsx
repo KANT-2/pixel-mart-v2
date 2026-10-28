@@ -3,7 +3,7 @@
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ConfirmDialog from "@/components/admin/ConfirmDialog"; // 공용 확인창 (수정하지 않고 그대로 재사용)
 import FaqForm from "@/components/admin/FaqForm";
 import { ApiError } from "@/lib/api";
@@ -25,6 +25,10 @@ export default function FaqsScreen() {
   const [reordering, setReordering] = useState(false); // 드래그 순서 저장 중 — 끝날 때까지 추가 드래그 막는다
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // 목록 아래쪽 FAQ의 "수정"을 눌러도 폼(화면 위쪽)이 바로 보이게 스크롤한다 (AdminBadgesBoard와 같은 방식)
+  useEffect(() => { if (formState) formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [formState]);
 
   // 마우스는 바로 드래그, 터치는 꾸욱 눌러야 드래그 시작(스크롤과 헷갈리지 않게). 키보드(Tab+Space+화살표)도 지원
   const sensors = useSensors(
@@ -129,15 +133,17 @@ export default function FaqsScreen() {
         </div>
       )}
 
-      {formState && (
-        <FaqForm
-          mode={formState.mode}
-          faq={formState.mode === "edit" ? formState.faq : undefined}
-          faqs={faqs ?? []}
-          onSaved={onSaved}
-          onCancel={() => setFormState(null)}
-        />
-      )}
+      <div ref={formRef} className="scroll-mt-24">
+        {formState && (
+          <FaqForm
+            mode={formState.mode}
+            faq={formState.mode === "edit" ? formState.faq : undefined}
+            faqs={faqs ?? []}
+            onSaved={onSaved}
+            onCancel={() => setFormState(null)}
+          />
+        )}
+      </div>
 
       {faqs && (
         faqs.length === 0 ? (

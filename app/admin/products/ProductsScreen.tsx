@@ -44,6 +44,7 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
   const [savingRarity, setSavingRarity] = useState<number | null>(null); // 등급을 바꾸는 중인 상품 id
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   // 완료 문구를 3초 보여 준다 — 연달아 바꾸면 앞 타이머를 지워서 새 문구가 바로 사라지지 않게
   function flash(message: string) {
@@ -106,6 +107,9 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
     }, 400);
     return () => clearTimeout(timer);
   }, [searchText, q, changeQuery]);
+
+  // 목록 아래쪽 상품의 "수정"/"재입고"를 눌러도 폼(화면 위쪽)이 바로 보이게 스크롤한다 (AdminBadgesBoard와 같은 방식)
+  useEffect(() => { if (formState) formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [formState]);
 
   function onSaved(saved: AdminProduct) {
     const verb = formState?.mode === "create" ? "등록" : "수정";
@@ -190,16 +194,18 @@ export default function ProductsScreen({ categories }: ProductsScreenProps) {
         </div>
       )}
 
-      {formState && (
-        <ProductForm
-          mode={formState.mode}
-          product={formState.mode === "edit" ? formState.product : undefined}
-          focusRestock={formState.mode === "edit" ? formState.focusRestock : false}
-          categories={categories}
-          onSaved={onSaved}
-          onCancel={() => setFormState(null)}
-        />
-      )}
+      <div ref={formRef} className="scroll-mt-24">
+        {formState && (
+          <ProductForm
+            mode={formState.mode}
+            product={formState.mode === "edit" ? formState.product : undefined}
+            focusRestock={formState.mode === "edit" ? formState.focusRestock : false}
+            categories={categories}
+            onSaved={onSaved}
+            onCancel={() => setFormState(null)}
+          />
+        )}
+      </div>
 
       <StatusFilter
         options={[{ value: "visible", label: "노출" }, { value: "hidden", label: "숨김" }]}
