@@ -66,6 +66,9 @@
 | 주문 | `app/` 서비스가 재고·배송비 없이 주문 저장 | `src/orders/` 4계층으로 재고 차감(품절·부족 **409**) · 3만 원 이상 무료 배송 · 생성 전체 트랜잭션 · 상태/검색/페이지 목록 | 🛡️ | ✅ |
 | 관리자 주문 | 개발자 API(`/api/dev/...`) | `/api/admin/orders` · 배송 단계 한 칸씩 · 취소 승인(재고 복구)/거절 + `/admin` 화면 | 🏹 | ✅ |
 | 상품 문의 | 화면은 **새로고침하면 사라지는 메모리 데이터** | DB 저장 · 비밀글은 서버에서 가림 · 관리자 답변 1회 · 답변 알림 | 🔮 | ✅ |
+| 도전 A · 동시성 | 재고를 읽고 나서 줄임 | 재고는 `stock >= 수량` 조건부 UPDATE, 같은 사람 동시 주문 · 같은 취소 요청 동시 승인은 행 잠금(`FOR UPDATE`) + 동시 요청 테스트 | 🛡️ 🏹 | ✅ |
+| 도전 B · 스트리밍 · 후처리 | 없음 | 관리자 주문 CSV 내려받기(`StreamingResponse`, 목록과 같은 필터, 엑셀 한글 BOM, 수식 주입 방지) · 배송 단계 알림은 응답 뒤 `BackgroundTasks` | 🏹 | ✅ |
+| 도전 C · 배포 | 로컬에서만 실행 | Vercel(프론트) + Render(API · PostgreSQL), 환경 변수 분리 · 배포에서 개발용 기능 404 | 🧭 | ✅ |
 
 ## 5. 기존 app/ vs 이번 src/
 | | `backend/app/` (인수한 코드) | `backend/src/` (2차에서 새로) |
@@ -360,18 +363,20 @@ flowchart LR
   service --> domain["Domain<br/>OrderProgress.advance() 한 칸씩<br/>CancelRequest.approve() · reject() 한 번만"]
   service --> repo["Infrastructure<br/>AdminOrderRepository"]
   repo --> db["PostgreSQL<br/>orders · order_status_history<br/>cancel_requests · products · notifications"]
-  repo -->|"알림 저장 실패"| rollback["rollback<br/>상태·기록 그대로"]
+  repo -->|"취소 처리 중 실패"| rollback["rollback<br/>상태·기록 그대로"]
+  api -.->|"응답 뒤 BackgroundTasks"| notice["단계 진행 알림<br/>(새 세션 · 실패는 로그만)"]
 ```
 
 - **관련 파일**: 화면 `app/admin/orders/` · `app/admin/cancels/` · `components/admin/` (`AdminNav` · `AdminGuard` · `StatusFilter` · `ConfirmDialog`) · 클라이언트 `lib/admin.ts` · API `backend/src/admin_orders/presentation/` · 서비스 `backend/src/admin_orders/application/` · 도메인 `backend/src/admin_orders/domain/` · 저장소 `backend/src/admin_orders/infrastructure/`
-- **업무 규칙**: 배송 단계는 정해진 순서로 한 칸씩만 (배송 완료·취소된 주문은 더 못 넘김 409) · 취소 요청은 한 번만 처리 (두 번째 409) · 승인하면 주문 취소 + 재고 복구 + 쓴 적립금 환불 · 거절하면 타임라인에서 취소 요청 직전 단계로 복귀 · 상태 변경·타임라인·구매자 알림은 한 트랜잭션 · 관리자가 아니면 404로 숨김
+- **업무 규칙**: 배송 단계는 정해진 순서로 한 칸씩만 (배송 완료·취소된 주문은 더 못 넘김 409) · 취소 요청은 한 번만 처리 (두 번째 409) · 승인하면 주문 취소 + 재고 복구 + 쓴 적립금 환불 · 거절하면 타임라인에서 취소 요청 직전 단계로 복귀 · 취소 승인 · 거절은 상태 · 타임라인 · 구매자 알림을 한 트랜잭션으로 · 단계 넘기기 알림은 응답을 먼저 보낸 뒤 `BackgroundTasks`로 (알림이 실패해도 상태 변경은 유지, 로그만 남김) · 관리자가 아니면 404로 숨김
 - **API**
 
   | 메서드 · 경로 | 정상 | 주요 실패 |
   | --- | --- | --- |
   | `GET /api/admin/orders?status=&q=&page=&size=` | 상태 필터 · 주문번호/닉네임/이메일 검색 · 페이지 200 | 일반 사용자 404 · 로그아웃 토큰 401 |
   | `GET /api/admin/orders/{id}` | 주문 상세 · 타임라인 200 | 없는 주문 404 |
-  | `POST /api/admin/orders/{id}/advance` | 다음 단계로 200 + 구매자 알림 | 더 못 넘기는 상태 409 · 없는 주문 404 |
+  | `POST /api/admin/orders/{id}/advance` | 다음 단계로 200 → 응답 뒤 구매자 알림 | 더 못 넘기는 상태 409 · 없는 주문 404 |
+  | `GET /api/admin/orders/export.csv?status=&q=` | 목록과 같은 필터의 주문 CSV (스트리밍, 엑셀 한글 BOM) | 일반 사용자 404 · 로그아웃 토큰 401 |
   | `GET /api/admin/cancel-requests?status=&page=&size=` | 취소 요청 목록 200 | 일반 사용자 404 |
   | `POST /api/admin/cancel-requests/{id}/approve` · `reject` | 승인(취소·재고 복구) / 거절(직전 단계로) 200 | 이미 처리 409 · 없는 요청 404 |
 
