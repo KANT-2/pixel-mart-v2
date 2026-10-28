@@ -1,8 +1,9 @@
 """발표 시연용 데이터 — 화면마다 실제로 쓰인 것처럼 보이게 (여러 번 실행해도 같은 결과)
 
-실행 (backend 폴더에서, seed → seed_demo 다음):  python -m scripts.seed_showcase 발표계정@이메일
+실행 (backend 폴더에서, seed → seed_demo 다음):  python -m scripts.seed_showcase 발표계정@이메일 [다른계정@이메일 …]
 - 데모 이웃: 지난 3주 배송 완료 주문, 상품 리뷰, 상품 문의와 답변, 찜 (리뷰·순위·뱃지·인기순이 채워진다)
-- 발표 계정(한 번 로그인한 계정): 지역·취향·지도 공개, 활동 기록(하트·뱃지) — 아바타는 그대로(메인 배너용),
+- 발표 계정(한 번 로그인한 계정 · 여러 개면 계정마다 다른 이웃이 보냄): 지역·취향·지도 공개, 활동 기록(하트·뱃지)
+  — 아바타는 그대로(메인 배너용),
   WANT·HAVE 글 3개, 같은 동네 이웃이 보낸 선물·교환 신청(대기)·교환 진행 중(이웃은 받았어요) — 알림 포함.
   시연에서 선물 받기, 교환 수락, '받았어요'로 교환 완료까지 눌러 볼 수 있다
 """
@@ -17,6 +18,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import SessionLocal, engine
+from app.core.security import create_access_token
 from app.models import (
     ActivityPoint,
     Gift,
@@ -106,6 +108,8 @@ MY_HAVES = [
 ]
 # 이웃(레트로토끼)이 교환 진행 중인 건에 걸어 둘 물건
 NEIGHBOR_HAVE = (2, "코인 키캡 세트 하나 남아서 교환해요")
+# 발표 계정마다 선물·교환을 보내는 데모 이웃 (한 이웃의 교환글이 두 계정의 교환에 같이 쓰이지 않게 나눈다)
+PARTNERS = ["retrobunny", "keycapmaster", "slimeking", "dotcat"]
 
 # 발표 계정과 같은 동네(홍대·합정)에 사는 이웃과 그 거래글 — 게시판·지도가 비어 보이지 않게
 # (키, 닉네임, [(종류, 상품, 내용, 상태, 가격)])
@@ -140,29 +144,31 @@ LOCAL_NEIGHBORS: list[tuple[str, str, list[tuple[str, int, str, str | None, int 
 ]
 
 
-async def _clean(db: AsyncSession, demo_ids: list[int], me: User) -> None:
+async def _clean(db: AsyncSession, demo_ids: list[int], presenters: list[User]) -> None:
     """이전에 넣은 시연 데이터를 지운다 (데모 이웃이 만든 것만 + 발표 계정의 시연용 기록)"""
+    mine = [me.id for me in presenters]
     old = list(await db.scalars(select(TradeRequest).where(TradeRequest.requester_id.in_(demo_ids))))
     old_requests = [r.id for r in old]
     # 수락으로 마감된 글은 다시 진행 중으로 (데모 이웃 글과 발표 계정 글만)
     for r in old:
         for post in (r.post, r.offer_post):
-            if post is not None and post.user_id in (*demo_ids, me.id) and post.status == "done":
+            if post is not None and post.user_id in (*demo_ids, *mine) and post.status == "done":
                 post.status = "open"
-    old_gifts = list(await db.scalars(select(Gift.id).where(Gift.sender_id.in_(demo_ids), Gift.recipient_id == me.id)))
+    old_gifts = list(await db.scalars(select(Gift.id).where(Gift.sender_id.in_(demo_ids), Gift.recipient_id.in_(mine))))
     keys = [Notification.ref_key.like(f"tr:{i}%") for i in old_requests] + [
         Notification.ref_key.like(f"gift:{i}%") for i in old_gifts
     ]
     if keys:
-        await db.execute(delete(Notification).where(Notification.user_id.in_((*demo_ids, me.id)), or_(*keys)))
+        await db.execute(delete(Notification).where(Notification.user_id.in_((*demo_ids, *mine)), or_(*keys)))
     await db.execute(delete(TradeRequest).where(TradeRequest.requester_id.in_(demo_ids)))
-    await db.execute(delete(Gift).where(Gift.sender_id.in_(demo_ids), Gift.recipient_id == me.id))
+    await db.execute(delete(Gift).where(Gift.sender_id.in_(demo_ids), Gift.recipient_id.in_(mine)))
     await db.execute(delete(Order).where(Order.user_id.in_(demo_ids)))  # 품목·이력·리뷰는 함께 지워진다
     await db.execute(delete(ProductQuestion).where(ProductQuestion.user_id.in_(demo_ids)))
     await db.execute(delete(Wishlist).where(Wishlist.user_id.in_(demo_ids)))
-    await db.execute(delete(ActivityPoint).where(ActivityPoint.user_id == me.id, ActivityPoint.ref_id >= SHOWCASE_REF))
+    await db.execute(delete(ActivityPoint).where(ActivityPoint.user_id.in_(mine), ActivityPoint.ref_id >= SHOWCASE_REF))
     await db.flush()
-    await _drop_orphan_notices(db, me)
+    for me in presenters:
+        await _drop_orphan_notices(db, me)
 
 
 async def _drop_orphan_notices(db: AsyncSession, me: User) -> None:
@@ -384,18 +390,21 @@ async def _post(
     return found
 
 
-async def _neighbor_actions(me: User, want_id: int, have_ids: list[int], neighbor_have_id: int) -> list[str]:
-    """같은 동네 데모 이웃이 실제 API로 선물·교환 신청 — 알림까지 함께 생긴다"""
+def _bearer(user_id: int) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user_id)}"}
+
+
+async def _neighbor_actions(
+    me_id: int, partner_id: int, want_id: int, have_ids: list[int], neighbor_have_id: int
+) -> list[str]:
+    """데모 이웃이 실제 API로 선물·교환 신청 — 알림까지 함께 생긴다.
+    개발용 로그인은 배포(production)에서 꺼져 있어서, 두 계정의 토큰을 직접 만들어 붙인다"""
     done = []
     transport = ASGITransport(app=__import__("app.main", fromlist=["app"]).app)
     async with (
-        AsyncClient(transport=transport, base_url="http://showcase") as neighbor,
-        AsyncClient(transport=transport, base_url="http://showcase") as owner,
+        AsyncClient(transport=transport, base_url="http://showcase", headers=_bearer(partner_id)) as neighbor,
+        AsyncClient(transport=transport, base_url="http://showcase", headers=_bearer(me_id)) as owner,
     ):
-        await neighbor.post(
-            "/api/auth/dev-login", json={"email": f"demo-retrobunny{DEMO_EMAIL_DOMAIN}", "nickname": "레트로토끼"}
-        )
-        await owner.post("/api/auth/dev-login", json={"email": me.email})
         res = await neighbor.post(
             "/api/gifts",
             json={
@@ -425,37 +434,53 @@ async def _neighbor_actions(me: User, want_id: int, have_ids: list[int], neighbo
     return done
 
 
-async def seed_showcase(email: str) -> str:
+async def seed_showcase(emails: list[str]) -> str:
     async with SessionLocal() as db:
         await seed_demo(db)
     async with SessionLocal() as db:
-        me = await db.scalar(select(User).where(User.email == email))
-        if me is None:
-            raise SystemExit(f"{email} 계정이 없어요. 사이트에서 한 번 로그인한 뒤 다시 실행하세요.")
+        presenters: list[User] = []
+        missing: list[str] = []
+        for email in emails:
+            me = await db.scalar(select(User).where(User.email == email))
+            if me is None:
+                missing.append(email)
+            else:
+                presenters.append(me)
+        if not presenters:
+            raise SystemExit(f"{', '.join(emails)} 계정이 없어요. 사이트에서 한 번 로그인한 뒤 다시 실행하세요.")
         demo = list(await db.scalars(select(User).where(User.email.like(f"%{DEMO_EMAIL_DOMAIN}")).order_by(User.id)))
         products = {p.id: p for p in await db.scalars(select(Product))}
-        await _clean(db, [u.id for u in demo], me)
+        await _clean(db, [u.id for u in demo], presenters)
         orders, reviews = await _orders_and_reviews(db, demo, products)
         await _questions_and_wishes(db, demo)
-        want, haves = await _presenter(db, me)
-        neighbor = next(u for u in demo if u.email == f"demo-retrobunny{DEMO_EMAIL_DOMAIN}")
-        neighbor_have = await _post(db, neighbor, "have", *NEIGHBOR_HAVE, "like_new")
-        local_posts = await _local_neighbors(db, me)
+        plans = []
+        for n, me in enumerate(presenters):
+            want, haves = await _presenter(db, me)
+            key = PARTNERS[n % len(PARTNERS)]
+            partner = next(u for u in demo if u.email == f"demo-{key}{DEMO_EMAIL_DOMAIN}")
+            neighbor_have = await _post(db, partner, "have", *NEIGHBOR_HAVE, "like_new")
+            plans.append((me.id, me.email, partner.id, want.id, [h.id for h in haves], neighbor_have.id))
+        local_posts = await _local_neighbors(db, presenters[0])
         await db.commit()
-        ids = (want.id, [h.id for h in haves], neighbor_have.id)
-    actions = await _neighbor_actions(me, *ids)
-    actions.append(f"동네 이웃 글 {local_posts}개")
+    results = []
+    for me_id, email, partner_id, want_id, have_ids, neighbor_have_id in plans:
+        actions = await _neighbor_actions(me_id, partner_id, want_id, have_ids, neighbor_have_id)
+        results.append(f"{email} ({', '.join(actions)})")
     async with SessionLocal() as db:
-        await _drop_orphan_notices(db, await db.get(User, me.id))
+        for me_id, *_ in plans:
+            await _drop_orphan_notices(db, await db.get(User, me_id))
         await db.commit()
-    done = ", ".join(actions)
-    return f"데모 이웃 {len(demo)}명 · 주문 {orders}건 · 리뷰 {reviews}개 · 문의 {len(QUESTIONS)}개 · {email} ({done})"
+    skipped = f" · 아직 가입 안 한 계정: {', '.join(missing)}" if missing else ""
+    return (
+        f"데모 이웃 {len(demo)}명 · 주문 {orders}건 · 리뷰 {reviews}개 · 문의 {len(QUESTIONS)}개 · "
+        f"동네 이웃 글 {local_posts}개 · " + " · ".join(results) + skipped
+    )
 
 
 async def main() -> None:
-    if len(sys.argv) != 2:
-        raise SystemExit("사용법: python -m scripts.seed_showcase 발표계정@이메일")
-    summary = await seed_showcase(sys.argv[1])
+    if len(sys.argv) < 2:
+        raise SystemExit("사용법: python -m scripts.seed_showcase 발표계정@이메일 [다른계정@이메일 …]")
+    summary = await seed_showcase(sys.argv[1:])
     await engine.dispose()
     print(f"시연 데이터 완료: {summary}")
 
