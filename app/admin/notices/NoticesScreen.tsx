@@ -1,6 +1,5 @@
 "use client"; // 상태·이벤트가 많아 전체를 클라이언트 컴포넌트로 만든다 (#101 ProductsScreen과 같은 구조)
 
-import Link from "next/link"; // 화면 이동은 next/link만 쓴다
 import { useSearchParams } from "next/navigation"; // 주소 쿼리 읽기(페이지 번호)
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import AdminTable, { type AdminTableColumn } from "@/components/admin/AdminTable"; // 공용 표
@@ -113,7 +112,6 @@ export default function NoticesScreen() {
           <p className="mt-1 text-sm text-sub">게시한 공지는 손님 화면의 공지 목록에 바로 보여요. 고정한 공지는 메인 맨 위 배너에도 나와요.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/notices" className="btn-pixel min-h-11 whitespace-nowrap px-4 text-sm font-bold">고객 화면에서 보기 →</Link>
           <button type="button" onClick={() => setFormState({ mode: "create" })} className="btn-lime min-h-11 px-4 text-sm font-bold">+ 새 공지 쓰기</button>
         </div>
       </header>
@@ -134,6 +132,9 @@ export default function NoticesScreen() {
 
       {formState && (
         <NoticeForm
+          // 폼이 열린 채로 다른 공지의 "수정"을 눌러도 내용이 안 바뀌던 문제 — NoticeForm의 입력값은
+          // useState로 한 번만 초기화되니, 대상(id)이 바뀌면 key로 아예 새로 만들어서 다시 채운다
+          key={formState.mode === "edit" ? formState.notice.id : "create"}
           mode={formState.mode}
           notice={formState.mode === "edit" ? formState.notice : undefined}
           onSaved={onSaved}
