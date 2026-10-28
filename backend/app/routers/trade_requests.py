@@ -10,8 +10,9 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.deps import ActiveUser, CurrentUser, DbSession
-from app.models import TradePost, TradeRequest
+from app.models import Notification, TradePost, TradeRequest
 from app.routers.local_trades import post_out
+from app.schemas.common import Message
 from app.schemas.local import TradeAuthorOut, TradeRequestIn, TradeRequestOut
 from app.services import activity, notifications
 from app.services.regions import RegionTree, load_tree
@@ -225,3 +226,39 @@ async def cancel_request(request_id: int, user: CurrentUser, db: DbSession):
     req = await pending_for(db, request_id, requester_id=user.id)
     req.status, req.decided_at = "cancelled", datetime.now(UTC)
     return await respond(db, req, user.id)
+
+
+@router.post(
+    "/{request_id}/not-received",
+    response_model=Message,
+    summary="교환 진행 중 아직 물건을 받지 못했어요 — 상대에게 알림 (하루 한 번)",
+)
+async def nudge_not_received(request_id: int, user: CurrentUser, db: DbSession):
+    req = await load_request(db, request_id)
+    if req is None or user.id not in (req.post.user_id, req.requester_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND)
+    if req.status != "accepted":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "교환 진행 중인 신청만 알릴 수 있어요.")
+    owner_view = req.post.user_id == user.id
+    if (req.owner_received_at if owner_view else req.requester_received_at) is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "이미 받았다고 알렸어요.")
+    other_id = req.requester_id if owner_view else req.post.user_id
+    ref_key = f"tr:{req.id}:not-received:{user.id}:{datetime.now(UTC).date().isoformat()}"
+    already = await db.scalar(
+        select(Notification.id).where(
+            Notification.user_id == other_id, Notification.kind == "trade_not_received", Notification.ref_key == ref_key
+        )
+    )
+    if already is not None:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "오늘은 이미 알렸어요. 내일 다시 알릴 수 있어요.")
+    await notifications.notify(
+        db,
+        other_id,
+        "trade_not_received",
+        "상대가 아직 물건을 받지 못했대요",
+        f"{req.post.item_name} 교환 — 보낸 물건이 잘 출발했는지 확인해 주세요.",
+        notifications.TRADES_HREF,
+        ref_key,
+    )
+    await db.commit()
+    return Message(message="상대에게 아직 받지 못했다고 알렸어요.")

@@ -126,6 +126,7 @@ export function TradeProgress({ request, onChanged }: TradeProgressProps) {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nudged, setNudged] = useState<string | null>(null);
   // 신청한 쪽이면 내 물건은 함께 보낸 글, 받은 쪽이면 내 글
   const myPost = request.isMine ? request.offerPost : request.post;
   const theirPost = request.isMine ? request.post : request.offerPost;
@@ -138,6 +139,17 @@ export function TradeProgress({ request, onChanged }: TradeProgressProps) {
       onChanged(await localApi.answerRequest(request.id, action));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "처리하지 못했어요. 다시 시도해 주세요.");
+    } finally { setBusy(false); }
+  }
+
+  // 아직 못 받았어요 — 상대에게 알림만 (상태는 그대로, 하루 한 번)
+  async function nudge() {
+    if (busy) return;
+    setBusy(true); setError(null); setNudged(null);
+    try {
+      setNudged((await localApi.notReceived(request.id)).message);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "알리지 못했어요. 다시 시도해 주세요.");
     } finally { setBusy(false); }
   }
 
@@ -164,7 +176,11 @@ export function TradeProgress({ request, onChanged }: TradeProgressProps) {
       </div>}
       {request.status === "accepted" && (request.receivedByMe
         ? <p className="rounded-lg border border-mint/40 bg-panel p-3 text-sm text-mint">받았다고 알렸어요. 상대가 &lsquo;받았어요&rsquo;를 누르면 교환이 끝나요.</p>
-        : <button type="button" disabled={busy} onClick={() => void act("received")} className={`btn-lime w-full text-lime-ink ${button}`}>{busy ? "처리 중…" : "📦 물건을 받았어요"}</button>)}
+        : <div className="flex gap-2">
+          <button type="button" disabled={busy} onClick={() => void act("received")} className={`btn-lime text-lime-ink ${button}`}>{busy ? "처리 중…" : "📦 물건을 받았어요"}</button>
+          <button type="button" disabled={busy} onClick={() => void nudge()} className={`btn-pixel text-sub ${button}`}>아직 못 받았어요</button>
+        </div>)}
+      {nudged && <p role="status" className="text-xs text-mint">{nudged}</p>}
       {error && <p role="alert" className="text-xs text-pink">{error}</p>}
       {theirPost && <TradeCard post={theirPost} />}
     </div>

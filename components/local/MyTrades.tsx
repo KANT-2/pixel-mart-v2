@@ -11,7 +11,7 @@ import TradeCard from "@/components/local/TradeCard";
 import TradeWindow from "@/components/local/TradeWindow";
 import TradeRequestInbox from "@/components/local/TradeRequestInbox";
 import { SentRequestsProvider } from "@/components/local/TradeRequestButton";
-import TradeStatusButtons from "@/components/local/TradeStatusButtons";
+import TradeStatusButtons, { type TradeAction } from "@/components/local/TradeStatusButtons";
 import { localApi } from "@/lib/local";
 import { ApiError } from "@/lib/api";
 
@@ -37,14 +37,15 @@ function AccountTrades({ created }: AccountTradesProps) {
   const [pending, setPending] = useState<number | null>(null), [error, setError] = useState<string | null>(null), [notice, setNotice] = useState<string | null>(null), [expired, setExpired] = useState(false);
   const lifetime = useRef<AbortController | null>(null), lock = useRef(false);
   useEffect(() => { const controller = new AbortController(); lifetime.current = controller; return () => controller.abort(); }, []);
-  async function update(id: number, status: "done" | "hidden") {
+  async function update(id: number, status: TradeAction) {
     if (lock.current || auth.pending || result.loading || !lifetime.current) return;
     const signal = lifetime.current.signal;
     lock.current = true; setPending(id); setError(null); setNotice(null);
     try {
-      await localApi.tradeStatus(id, status, signal);
+      if (status === "delete") await localApi.deleteTrade(id, signal);
+      else await localApi.tradeStatus(id, status, signal);
       if (signal.aborted) return;
-      setNotice(status === "done" ? "거래를 완료했어요." : "글을 숨겼어요.");
+      setNotice(status === "done" ? "거래를 완료했어요." : status === "hidden" ? "글을 숨겼어요." : "글을 삭제했어요.");
       await result.refresh();
     } catch (cause) {
       if (signal.aborted) return;

@@ -42,6 +42,10 @@ export const localApi = {
   myTrades: (signal?: AbortSignal) => api.get<ApiTradePost[]>("/local/trades/mine", options(signal)),
   createTrade: (input: TradeInput, signal?: AbortSignal) => api.post<ApiTradePost>("/local/trades", input, options(signal)),
   tradeStatus: (id: number, status: "done" | "hidden", signal?: AbortSignal) => api.patch<ApiTradePost>(`/local/trades/${id}`, { status }, options(signal)),
+  // 내 글 삭제 — 교환이 진행 중이거나 끝난 글은 400 (숨기기 안내)
+  deleteTrade: (id: number, signal?: AbortSignal) => api.delete<{ message: string }>(`/local/trades/${id}`, options(signal)),
+  // 교환 진행 중 아직 못 받았어요 — 상대에게 알림 (하루 한 번, 두 번째는 429)
+  notReceived: (id: number, signal?: AbortSignal) => api.post<{ message: string }>(`/local/trade-requests/${id}/not-received`, undefined, options(signal)),
   /** 교환 신청 — 받은 신청(내 글에 온 것) / 보낸 신청 */
   tradeRequests: (box: "received" | "sent", signal?: AbortSignal) => api.get<ApiTradeRequest[]>(`/local/trade-requests?${query({ box })}`, options(signal)),
   requestTrade: (postId: number, offerPostId: number | null, signal?: AbortSignal) => api.post<ApiTradeRequest>("/local/trade-requests", { postId, offerPostId }, options(signal)),
