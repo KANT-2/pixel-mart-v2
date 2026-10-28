@@ -37,6 +37,17 @@ class UserRepository:
         user = await self.session.get(User, user_id)
         return _to_account(user) if user else None
 
+    async def get_active_by_email(self, email: str) -> Account | None:
+        """탈퇴하지 않은 계정만 — 비밀번호 재설정용"""
+        query = select(User).where(func.lower(User.email) == email.lower(), User.deleted_at.is_(None))
+        user = await self.session.scalar(query)
+        return _to_account(user) if user else None
+
+    async def set_password_hash(self, user_id: int, password_hash: str) -> None:
+        user = await self.session.get(User, user_id)
+        if user is not None:
+            user.password_hash = password_hash
+
     async def email_exists(self, email: str) -> bool:
         query = select(User.id).where(func.lower(User.email) == email.lower()).limit(1)
         return await self.session.scalar(query) is not None

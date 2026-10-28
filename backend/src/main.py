@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
 from sqlalchemy import text
@@ -55,7 +56,7 @@ from src.auth.domain.exceptions import (
 from src.auth.presentation import router as auth_api
 from src.badges.domain.badge import BadgeNotFound, BadgeRuleError, NotEarned, NotHolder
 from src.badges.presentation import router as badges_api
-from src.common.errors import DomainError, domain_error_handler
+from src.common.errors import DomainError, domain_error_handler, validation_error_handler
 from src.common.logging import log_requests
 from src.coupons.domain.rules import InvalidCoupon
 from src.coupons.presentation import router as coupons_api
@@ -136,6 +137,8 @@ async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
 
+# 입력 형식 오류(422)는 한글 안내로 — 보낸 값은 응답에 다시 담지 않는다
+app.add_exception_handler(RequestValidationError, validation_error_handler)
 # 공통 도메인 예외를 HTTP 오류 응답으로 변환
 app.add_exception_handler(DomainError, domain_error_handler)
 for order_error in (EmptyCart, OutOfStock, InvalidPointUse, InvalidCoupon, AfterDeliveryError, ReturnRequestNotFound):

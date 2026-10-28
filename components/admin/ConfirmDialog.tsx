@@ -1,6 +1,6 @@
 "use client"; // 열고 닫는 상태와 키보드 이벤트를 다루니 클라이언트 컴포넌트로 만든다
 
-import { useEffect, useId } from "react"; // id는 접근성용 aria-labelledby 연결에 쓴다
+import { useEffect, useId, useRef } from "react"; // id는 접근성용 aria-labelledby 연결에 쓴다
 
 interface ConfirmDialogProps {
   open: boolean; // 열려 있는지 여부 — false면 아무것도 그리지 않는다
@@ -25,16 +25,42 @@ export default function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   const titleId = useId(); // 제목 요소의 id — dialog와 연결한다
+  const panel = useRef<HTMLDivElement>(null);
+  // 부모가 매번 새 onClose를 넘겨도 효과가 다시 돌며 초점을 빼앗지 않게 ref로 최신 값만 본다
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
 
-  // Esc 키를 누르면 닫는다 — 열려 있을 때만 리스너를 붙인다
+  // Esc로 닫고, Tab은 다이얼로그 안에서만 돈다 — 닫히면 열기 전에 누른 버튼으로 초점을 돌려준다
   useEffect(() => {
     if (!open) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !panel.current) return;
+      const items = [...panel.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input, select, textarea")];
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const inside = panel.current.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close); // 언마운트·닫힘 시 리스너 정리
-  }, [open, onClose]);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey); // 언마운트·닫힘 시 리스너 정리
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [open]);
 
   if (!open) return null; // 닫혀 있으면 그리지 않는다
 
@@ -46,7 +72,7 @@ export default function ConfirmDialog({
         if (event.target === event.currentTarget) onClose(); // 패널이 아니라 배경을 눌렀을 때만 닫는다
       }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="pixel-panel w-full max-w-sm p-5">
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="pixel-panel w-full max-w-sm p-5">
         <h2 id={titleId} className="text-base font-bold text-ink">
           {title}
         </h2>

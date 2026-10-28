@@ -38,14 +38,45 @@ class Coupons(Protocol):
     async def mark_used(self, user_coupon_id: int, order_id: int) -> None: ...
 
 
+class Addresses(Protocol):
+    async def save_from_order(
+        self, user_id: int, recipient_name: str, phone: str, postal_code: str, address: str, address_detail: str
+    ) -> None: ...
+
+
 class OrderService[OrderRecord]:
     def __init__(
-        self, orders: Orders[OrderRecord], tx: Transaction, points: Points, coupons: Coupons | None = None
+        self,
+        orders: Orders[OrderRecord],
+        tx: Transaction,
+        points: Points,
+        coupons: Coupons | None = None,
+        addresses: Addresses | None = None,
     ) -> None:
         self.orders = orders
         self.tx = tx
         self.points = points
         self.coupons = coupons
+        self.addresses = addresses
+
+    async def save_address_from_order(self, user_id: int, shipping: ShippingInfo) -> bool:
+        """주문서의 '기본 배송지로 저장' — 주문은 이미 확정됐으니 따로 commit하고, 실패해도 주문은 그대로 둔다"""
+        if self.addresses is None or not shipping.phone or not shipping.postal_code:
+            return False
+        try:
+            await self.addresses.save_from_order(
+                user_id,
+                shipping.recipient_name,
+                shipping.phone,
+                shipping.postal_code,
+                shipping.address,
+                shipping.address_detail or "",
+            )
+            await self.tx.commit()
+        except Exception:
+            await self.tx.rollback()
+            return False
+        return True
 
     async def place_order(
         self, user_id: int, shipping: ShippingInfo, points_used: int = 0, user_coupon_id: int | None = None

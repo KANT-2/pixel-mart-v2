@@ -4,7 +4,7 @@ LIKE_ESCAPE = "\\"
 
 
 def escape_like(text: str) -> str:
-    return text.replace("\\", "\\\\").replace("%", "\%").replace("_", "\_")
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def like_pattern(text: str) -> str:

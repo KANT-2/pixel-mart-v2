@@ -3,14 +3,13 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models import User
-from src.auth.domain.account import check_password
+from src.auth.domain.account import Account, check_password
 from src.auth.domain.exceptions import WeakPassword
 from src.auth.infrastructure.hasher import hash_password, verify_password
+from src.auth.infrastructure.repositories import UserRepository
 
 RESET_PURPOSE = "password_reset"
 RESET_MINUTES = 30
@@ -25,35 +24,38 @@ def _fingerprint(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
 
 
-def issue_reset_token(user: User, now: datetime | None = None) -> str:
+def issue_reset_token(account: Account, now: datetime | None = None) -> str:
     issued_at = now or datetime.now(UTC)
     payload = {
-        "sub": str(user.id),
+        "sub": str(account.id),
         "purpose": RESET_PURPOSE,
-        "fp": _fingerprint(user.password_hash or ""),
+        "fp": _fingerprint(account.password_hash or ""),
         "exp": issued_at + timedelta(minutes=RESET_MINUTES),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-async def change_password(db: AsyncSession, user: User, current: str, new: str) -> None:
-    if user.password_hash is None:
+# 조회·저장은 UserRepository에 맡기고, 여기서는 규칙 확인 → 해시 저장 → commit 순서만 지휘한다
+async def change_password(db: AsyncSession, user_id: int, current: str, new: str) -> None:
+    users = UserRepository(db)
+    account = await users.get_by_id(user_id)
+    if account is None or account.password_hash is None:
         raise PasswordError("구글로 가입한 계정은 비밀번호가 없어요.")
-    if not verify_password(current, user.password_hash):
+    if not verify_password(current, account.password_hash):
         raise PasswordError("지금 비밀번호가 맞지 않아요.")
     if current == new:
         raise WeakPassword("지금과 다른 비밀번호를 입력해 주세요.")
     check_password(new)
-    user.password_hash = hash_password(new)
+    await users.set_password_hash(user_id, hash_password(new))
     await db.commit()
 
 
 async def request_reset(db: AsyncSession, email: str) -> str | None:
     """재설정 토큰 — 없는 이메일·구글 가입자는 None (화면에는 같은 안내를 보여 준다)"""
-    user = await db.scalar(select(User).where(func.lower(User.email) == email.strip().lower()))
-    if user is None or user.password_hash is None or user.deleted_at is not None:
+    account = await UserRepository(db).get_active_by_email(email.strip())
+    if account is None or account.password_hash is None:
         return None
-    return issue_reset_token(user)
+    return issue_reset_token(account)
 
 
 async def reset_password(db: AsyncSession, token: str, new: str) -> None:
@@ -64,9 +66,10 @@ async def reset_password(db: AsyncSession, token: str, new: str) -> None:
         raise expired from None
     if payload.get("purpose") != RESET_PURPOSE:
         raise expired
-    user = await db.get(User, int(payload["sub"]))
-    if user is None or user.password_hash is None or payload.get("fp") != _fingerprint(user.password_hash):
+    users = UserRepository(db)
+    account = await users.get_by_id(int(payload["sub"]))
+    if account is None or account.password_hash is None or payload.get("fp") != _fingerprint(account.password_hash):
         raise expired
     check_password(new)
-    user.password_hash = hash_password(new)
+    await users.set_password_hash(account.id, hash_password(new))
     await db.commit()

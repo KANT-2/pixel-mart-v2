@@ -151,21 +151,28 @@ async def withdraw(_body: WithdrawRequest, response: Response, user: CurrentUser
 @router.post("/password", response_model=Message, summary="비밀번호 변경 (이메일 가입 계정 · 지금 비밀번호 확인)")
 async def update_password(body: PasswordChangeRequest, user: CurrentUser, db: DbSession) -> Message:
     try:
-        await change_password(db, user, body.current_password, body.new_password)
+        await change_password(db, user.id, body.current_password, body.new_password)
     except PasswordError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from None
     return Message(message="비밀번호를 바꿨어요.")
 
 
-RESET_SENT = "가입한 이메일이면 비밀번호 재설정 링크를 보냈어요. 30분 안에 열어 주세요."
+# 메일 서버가 없어 실제로 메일을 보내지 않는다 — 보낸 것처럼 안내하지 않는다
+RESET_LOCAL = "가입한 이메일이면 아래 링크로 30분 안에 비밀번호를 바꿀 수 있어요. (메일 대신 화면에 바로 보여 줘요)"
+RESET_NO_MAIL = (
+    "지금은 재설정 메일을 보내지 않아요. 구글로 가입했다면 Google로 로그인하고, "
+    "비밀번호를 잊었다면 관리자에게 문의해 주세요."
+)
 
 
-@router.post("/password-reset", response_model=PasswordResetOut, summary="비밀번호 재설정 링크 요청")
+@router.post("/password-reset", response_model=PasswordResetOut, summary="비밀번호 재설정 링크 요청 (메일 발송 없음)")
 async def ask_password_reset(body: PasswordResetRequest, db: DbSession) -> PasswordResetOut:
+    if not settings.is_local:
+        return PasswordResetOut(message=RESET_NO_MAIL, reset_url=None)
     token = await request_reset(db, body.email)
-    # 가입 여부를 드러내지 않도록 항상 같은 안내 — 메일 서버가 없는 로컬에서만 링크를 응답에 담는다
-    reset_url = f"{settings.frontend_url}/reset-password?token={token}" if token and settings.is_local else None
-    return PasswordResetOut(message=RESET_SENT, reset_url=reset_url)
+    # 가입 여부를 드러내지 않도록 문구는 같게 — 링크는 가입한 이메일일 때만 담는다
+    reset_url = f"{settings.frontend_url}/reset-password?token={token}" if token else None
+    return PasswordResetOut(message=RESET_LOCAL, reset_url=reset_url)
 
 
 @router.post("/password-reset/confirm", response_model=Message, summary="재설정 링크로 새 비밀번호 저장")

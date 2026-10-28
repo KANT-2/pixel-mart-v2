@@ -20,7 +20,19 @@
 8. [DB 준비](#8-db-준비)
 9. [개인별 Use Case](#9-개인별-use-case)
 10. [미완료 · Mock 목록](#10-미완료--mock-목록)
-11. [부록: 1차 결과물](#부록-1차-결과물)
+11. [에러 처리 · 보안 · 테스트](#11-에러-처리--보안--테스트)
+12. [부록: 1차 결과물](#부록-1차-결과물)
+
+**자료 위치**
+
+| 자료 | 주소 |
+| --- | --- |
+| GitHub 저장소 | https://github.com/KANT-2/pixel-mart-v2 |
+| 배포 (Vercel + Render) | https://pixel-mart-v2.vercel.app |
+| Swagger | 배포 https://pixel-mart-v2.vercel.app/api/docs · 로컬 http://localhost:3000/api/docs |
+| CI (GitHub Actions) | https://github.com/KANT-2/pixel-mart-v2/actions/workflows/ci.yml |
+| 팀 Notion | (제출 링크 추가 예정) |
+| 발표자료 | (제출 링크 추가 예정) |
 
 ## 1. 서비스 소개
 | 항목 | 내용 |
@@ -43,6 +55,18 @@
 | 🧭 탐험가 | 채희주 ([@kixxuya](https://github.com/kixxuya)) | 가입 · 로그인 · 로그아웃 (JWT 블랙리스트) | `backend/src/auth/` | 모두가 쓰는 `CurrentUser` · `AdminUser`, README · Notion 틀 |
 | 🏹 궁수 | 우동현 ([@donghyunwoo1222](https://github.com/donghyunwoo1222)) | 관리자 주문 관리 (배송 단계 · 취소 승인/거절) | `backend/src/admin_orders/` | `/admin` 화면 틀 (메뉴 · 문지기) |
 | 🔮 마법사 | 김예주 ([@kyeju](https://github.com/kyeju)) | 상품 문의 → 관리자 답변 (비밀글) | `backend/src/questions/` | 손님 화면 진짜 데이터 연결 |
+
+**팀원별 기여** (2026.10.28 `origin/main` 기준 · 커밋은 인수 커밋 `38720a6` 이후, GitHub 화면에서 누른 머지 커밋 포함)
+
+| 팀원 | 담당 UC | 커밋 수 | 머지한 PR 수 | 대표 PR |
+| --- | --- | --- | --- | --- |
+| 양성용 | 주문하기 (재고 · 배송비) | 56 | 21 | [#43](https://github.com/KANT-2/pixel-mart-v2/pull/43) 4계층 기반 · [#65](https://github.com/KANT-2/pixel-mart-v2/pull/65) 주문 트랜잭션 · [#81](https://github.com/KANT-2/pixel-mart-v2/pull/81) 동시 주문 재고 |
+| 채희주 | 가입 · 로그인 · 로그아웃 | 109 | 47 | [#49](https://github.com/KANT-2/pixel-mart-v2/pull/49) 가입·로그인·로그아웃 서비스 · [#50](https://github.com/KANT-2/pixel-mart-v2/pull/50) 블랙리스트 로그아웃 · [#158](https://github.com/KANT-2/pixel-mart-v2/pull/158) 배포 |
+| 우동현 | 관리자 주문 관리 | 63 | 27 | [#72](https://github.com/KANT-2/pixel-mart-v2/pull/72) 단계 넘기기·취소 서비스 · [#84](https://github.com/KANT-2/pixel-mart-v2/pull/84) 취소 요청 화면 · [#171](https://github.com/KANT-2/pixel-mart-v2/pull/171) CSV · 알림 후처리 |
+| 김예주 | 상품 문의 → 관리자 답변 | 49 | 23 | [#73](https://github.com/KANT-2/pixel-mart-v2/pull/73) 문의 서비스 · [#77](https://github.com/KANT-2/pixel-mart-v2/pull/77) 관리자 답변 API · [#78](https://github.com/KANT-2/pixel-mart-v2/pull/78) Q&A 실제 API 연결 |
+| 1차 팀 (인수 이전) | — | 361 | — | 황정민 50 · 안중섭 30 · 여름 8 · 채희주 273 (1차 저장소에서 옮겨 온 기록) |
+
+- 같은 사람의 다른 이름을 합쳤어요: `b3matego`(이메일이 `dydtlsrl` noreply) → 양성용 · `donghyunwoo1222` · `본인 이름`(같은 이메일) → 우동현. 다시 세기: `git log 38720a6..origin/main --format='%an' | sort | uniq -c`
 
 협업 규칙: `main` 직접 push 금지 → `feat/*` · `docs/*` 브랜치 → PR(`Closes #이슈`) → 머지. **마이그레이션은 기사만** 만들어요 (`uv run alembic heads`가 항상 한 줄).
 
@@ -112,8 +136,17 @@ flowchart LR
 | 권한 · 남의 것 | 404 | 일반 사용자의 관리자 API, 남의 주문 |
 | 규칙 충돌 | 409 | 이미 가입한 이메일, 재고 부족, 두 번 답변 |
 
+입력 형식 오류(422)는 공통 처리기가 "비밀번호: 8자 이상 입력해 주세요."처럼 필드 이름 + 한글 안내로 (필드를 모르면 "입력값을 확인해 주세요. …") 바꾸고, 보낸 입력값(비밀번호 등)을 응답에 다시 담지 않아요 ([`backend/src/common/errors.py`](backend/src/common/errors.py)).
+
 ## 7. 실행 (uv) · 환경 변수
 **준비물**: Node.js 22+ · Python 3.13+ · [uv](https://docs.astral.sh/uv/) · PostgreSQL(Docker Desktop 또는 설치형)
+
+| 실제 사용 버전 | 로컬 (개발 PC) | CI (GitHub Actions) | 기타 |
+| --- | --- | --- | --- |
+| Python | 3.14.7 | 3.13 (`uv python install 3.13`) | `pyproject.toml` `requires-python >=3.13` · Render 3.13.1 |
+| Node.js | 24.19 | 22 | |
+| uv | 0.13.5 | `astral-sh/setup-uv@v6` | 의존성은 `uv.lock` 고정 (`uv sync --locked`) |
+| PostgreSQL | 18 (`docker-compose.yml`) | 16 (서비스 컨테이너) | |
 
 ```powershell
 git clone https://github.com/KANT-2/pixel-mart-v2.git
@@ -144,6 +177,8 @@ npm run dev
 | `FRONTEND_URL` | CORS 허용 주소 (`http://localhost:3000`) |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 로그인 (비우면 구글 버튼만 꺼짐, 팀 채널로만 공유) |
 | `CLOUDFLARE_ACCOUNT_ID` · `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_IMAGE_MODEL` · `AI_AVATAR_PER_HOUR` | AI 픽셀 아바타 (비우면 AI 만들기만 꺼짐) |
+| `ADMIN_EMAIL` | 배포 전용. 시작 스크립트(`scripts/render_start.sh`)가 이 이메일 계정을 `make_admin`으로 관리자로 지정 (먼저 가입한 계정, 비우면 건너뜀) |
+| `SHOWCASE_EMAIL` | 배포 전용. 이 계정(쉼표로 여러 개)에 발표 시연 데이터(주문 · 리뷰 · 문의 · 선물 · 교환 신청)를 `seed_showcase`로 채움 (한 번 로그인한 뒤부터, 비우면 건너뜀) |
 
 | 검사 명령 | 위치 |
 | --- | --- |
@@ -151,6 +186,8 @@ npm run dev
 | `npm run lint` · `npx tsc --noEmit` · `npm test` · `npm run build` | 저장소 루트 |
 
 **CI**: `main`으로 가는 PR과 `main` push마다 GitHub Actions가 위 검사를 자동으로 돌려요 (`.github/workflows/ci.yml`, PostgreSQL 16 서비스 + `alembic upgrade head` + `seed`). `tsc`가 경로 타입(`PageProps`) 오류를 내면 `npx next typegen`을 먼저 실행해요.
+
+**빌드 재현성**: `main`의 모든 머지 커밋은 CI에서 lint · tsc · test · build · ruff · alembic · pytest를 통과해야 머지돼요 (저장소 규칙 "main 보호": PR 필수 + `frontend` · `backend` 두 검사 필수) → [Actions 실행 기록](https://github.com/KANT-2/pixel-mart-v2/actions/workflows/ci.yml)
 
 ### 배포 — #58
 | 구성 | 서비스 (무료 요금제) | 설정 |
@@ -206,7 +243,17 @@ flowchart LR
   repo -->|"조건부 UPDATE 실패"| rollback["rollback<br/>주문·재고 그대로"]
 ```
 
-- **관련 파일**: 화면 `components/cart/` · `components/orders/CheckoutContents.tsx` · 클라이언트 `lib/cart.ts` · `lib/orders.ts` · API `backend/src/orders/presentation/` · 서비스 `backend/src/orders/application/` · 도메인 `backend/src/orders/domain/` · 저장소 `backend/src/orders/infrastructure/`
+- **관련 파일**: 화면 [components/cart/](components/cart/) · [components/orders/CheckoutContents.tsx](components/orders/CheckoutContents.tsx) · 클라이언트 [lib/cart.ts](lib/cart.ts) · [lib/orders.ts](lib/orders.ts) · API [backend/src/orders/presentation/](backend/src/orders/presentation/) · 서비스 [backend/src/orders/application/](backend/src/orders/application/) · 도메인 [backend/src/orders/domain/](backend/src/orders/domain/) · 저장소 [backend/src/orders/infrastructure/](backend/src/orders/infrastructure/)
+- **핵심 코드**: 라우터 [`create_order`](backend/src/orders/presentation/router.py#L24) → 서비스 [`OrderService.place_order`](backend/src/orders/application/service.py#L81) → 도메인 [`summarize_prices`](backend/src/orders/domain/order.py#L47) · [배송비 기준](backend/src/orders/domain/order.py#L3) · [`StockItem.take`](backend/src/orders/domain/stock.py#L15) → 저장소 [`take_stock` 조건부 UPDATE](backend/src/orders/infrastructure/repositories.py#L56)
+- **DB로 확인** (`psql`로 접속, 화면에서 주문하기 전·후 실행 · 먼저 `\set uid 내사용자id` · `\set pid 상품id`)
+  ```sql
+  SELECT id, stock FROM products WHERE id = :pid;                       -- 주문 전 재고
+  SELECT id, status, total_price, shipping_fee FROM orders WHERE user_id = :uid ORDER BY id DESC LIMIT 1;
+  SELECT product_id, quantity, unit_price FROM order_items WHERE order_id = (SELECT max(id) FROM orders WHERE user_id = :uid);
+  SELECT id, stock FROM products WHERE id = :pid;                       -- 주문 후 재고 = 전 − 수량
+  SELECT count(*) FROM cart_items WHERE user_id = :uid;                 -- 0 (장바구니 비움)
+  ```
+  재고보다 많이 담고 주문하면 **409 재고 부족** → `orders` 새 줄 없음 · `stock` 그대로 · 장바구니 그대로 (rollback). 같은 규칙의 테스트: `tests/test_orders_service.py::test_out_of_stock_rolls_back_order_other_stock_and_cart` · `tests/test_orders_api.py::test_out_of_stock_is_409_and_keeps_cart`
 - **업무 규칙**: 상품 합계 30,000원 미만은 배송비 3,000원, 이상은 무료 배송 · 재고 차감은 `stock >= quantity` 조건부 UPDATE · 주문 생성 중 하나라도 실패하면 전체 rollback · 내 주문만 조회하며 남의 주문도 같은 404로 숨김
 - **API**
 
@@ -279,7 +326,14 @@ flowchart LR
   other["다른 팀원 API<br/>주문 · 관리자 · 문의"] --> guard
 ```
 
-- **관련 파일**: 화면 `components/EmailSignupForm.tsx` · `components/LoginForm.tsx` · `components/AuthProvider.tsx` · `components/LoginRequiredNotice.tsx` · 클라이언트 `lib/api.ts` · API `backend/src/auth/presentation/` · 서비스 `backend/src/auth/application/` · 도메인 `backend/src/auth/domain/` · 저장소·도구 `backend/src/auth/infrastructure/` (`hasher.py` · `jwt.py` · `repositories.py`) · 공용 의존성 `backend/src/common/auth.py`
+- **관련 파일**: 화면 [components/EmailSignupForm.tsx](components/EmailSignupForm.tsx) · [components/LoginForm.tsx](components/LoginForm.tsx) · [components/AuthProvider.tsx](components/AuthProvider.tsx) · [components/LoginRequiredNotice.tsx](components/LoginRequiredNotice.tsx) · 클라이언트 [lib/api.ts](lib/api.ts) · API [backend/src/auth/presentation/](backend/src/auth/presentation/) · 서비스 [backend/src/auth/application/](backend/src/auth/application/) · 도메인 [backend/src/auth/domain/](backend/src/auth/domain/) · 저장소·도구 [backend/src/auth/infrastructure/](backend/src/auth/infrastructure/) ([hasher.py](backend/src/auth/infrastructure/hasher.py) · [jwt.py](backend/src/auth/infrastructure/jwt.py) · [repositories.py](backend/src/auth/infrastructure/repositories.py)) · 공용 의존성 [backend/src/common/auth.py](backend/src/common/auth.py)
+- **핵심 코드**: 라우터 [`signup`](backend/src/auth/presentation/router.py#L54) · [`login`(token)](backend/src/auth/presentation/router.py#L64) · [`logout`](backend/src/auth/presentation/router.py#L71) → 서비스 [`AuthService.signup`](backend/src/auth/application/service.py#L36) · [`login`](backend/src/auth/application/service.py#L53) · [`logout`](backend/src/auth/application/service.py#L64) → 도메인 [`check_password`](backend/src/auth/domain/account.py#L23) · [`normalize_email`](backend/src/auth/domain/account.py#L15) → 저장소 [`TokenBlacklistRepository.add`](backend/src/auth/infrastructure/repositories.py#L157) → 매 요청 [블랙리스트 확인](backend/src/common/auth.py#L43)
+- **DB로 확인** (가입 → 로그인 → 로그아웃 뒤 실행)
+  ```sql
+  SELECT id, email, role, left(password_hash, 7) AS hash_head FROM users WHERE email = '내이메일@pixelmart.test';  -- $2b$12$ (bcrypt, 평문 없음)
+  SELECT jti, expires_at, created_at FROM token_blacklist ORDER BY id DESC LIMIT 1;  -- 방금 로그아웃한 토큰
+  ```
+  같은 토큰으로 `GET /api/auth/me` → **401**. 두 번 로그아웃해도 `token_blacklist`는 한 줄 (`jti` UNIQUE). 중복 가입은 **409** → `users` 새 줄 없음. 같은 규칙의 테스트: `tests/test_auth_api.py::test_bearer_login_me_logout_then_same_token_is_401` · `test_logout_twice_and_without_token_is_fine`
 - **업무 규칙**: 비밀번호는 8자 이상 · 72바이트 이하(bcrypt 한계)이고 해시로만 저장 · 이메일은 앞뒤 공백 제거 + 소문자로 비교 · 로그인 실패는 "없는 이메일"과 "틀린 비밀번호"를 구분하지 않음 · 토큰은 Bearer 헤더를 먼저, 없으면 `pm_session` 쿠키 확인 · 로그아웃한 `jti`는 만료 시각까지 블랙리스트에 보관(같은 토큰 401, 두 번 로그아웃해도 한 줄) · 관리자가 아니면 관리자 API는 404로 숨김
 - **API**
 
@@ -367,7 +421,17 @@ flowchart LR
   api -.->|"응답 뒤 BackgroundTasks"| notice["단계 진행 알림<br/>(새 세션 · 실패는 로그만)"]
 ```
 
-- **관련 파일**: 화면 `app/admin/orders/` · `app/admin/cancels/` · `components/admin/` (`AdminNav` · `AdminGuard` · `StatusFilter` · `ConfirmDialog`) · 클라이언트 `lib/admin.ts` · API `backend/src/admin_orders/presentation/` · 서비스 `backend/src/admin_orders/application/` · 도메인 `backend/src/admin_orders/domain/` · 저장소 `backend/src/admin_orders/infrastructure/`
+- **관련 파일**: 화면 [app/admin/orders/](app/admin/orders/) · [app/admin/cancels/](app/admin/cancels/) · [components/admin/](components/admin/) (`AdminNav` · `AdminGuard` · `StatusFilter` · `ConfirmDialog`) · 클라이언트 [lib/admin.ts](lib/admin.ts) · API [backend/src/admin_orders/presentation/](backend/src/admin_orders/presentation/) · 서비스 [backend/src/admin_orders/application/](backend/src/admin_orders/application/) · 도메인 [backend/src/admin_orders/domain/](backend/src/admin_orders/domain/) · 저장소 [backend/src/admin_orders/infrastructure/](backend/src/admin_orders/infrastructure/)
+- **핵심 코드**: 라우터 [`advance_order`](backend/src/admin_orders/presentation/router.py#L113) · [`approve_cancel_request`](backend/src/admin_orders/presentation/cancel_router.py#L43) · [`reject_cancel_request`](backend/src/admin_orders/presentation/cancel_router.py#L50) → 서비스 [`AdminOrderService.advance_order`](backend/src/admin_orders/application/service.py#L33) · [`approve_cancel`](backend/src/admin_orders/application/service.py#L53) · [`reject_cancel`](backend/src/admin_orders/application/service.py#L95) → 도메인 [`OrderProgress.advance`](backend/src/admin_orders/domain/progress.py#L15) · [`CancelRequest.approve`](backend/src/admin_orders/domain/cancel.py#L26) → 저장소 [`restore_item_stock`](backend/src/admin_orders/infrastructure/repositories.py#L62)
+- **DB로 확인** (`\set oid 주문id` · `\set rid 취소요청id`, 화면에서 단계 넘기기 · 승인/거절 뒤 실행)
+  ```sql
+  SELECT id, status FROM orders WHERE id = :oid;                                  -- paid → preparing → …
+  SELECT status, changed_at FROM order_status_history WHERE order_id = :oid ORDER BY id;  -- 타임라인
+  SELECT id, status FROM cancel_requests WHERE id = :rid;                         -- approved / rejected
+  SELECT p.id, p.stock FROM products p JOIN order_items i ON i.product_id = p.id WHERE i.order_id = :oid;  -- 승인 시 수량만큼 복구
+  SELECT kind, title, created_at FROM notifications WHERE user_id = (SELECT user_id FROM orders WHERE id = :oid) ORDER BY id DESC LIMIT 3;
+  ```
+  배송 완료 주문을 또 넘기거나 같은 요청을 다시 승인하면 **409** → `status` · 타임라인 · `stock` 그대로 (재고 두 번 복구 없음). 같은 규칙의 테스트: `tests/test_admin_cancels_api.py::test_approve_twice_is_409_and_does_not_restore_stock_again` · `tests/test_admin_orders_service.py::test_approve_cancel_rolls_back_everything_when_notify_fails`
 - **업무 규칙**: 배송 단계는 정해진 순서로 한 칸씩만 (배송 완료·취소된 주문은 더 못 넘김 409) · 취소 요청은 한 번만 처리 (두 번째 409) · 승인하면 주문 취소 + 재고 복구 + 쓴 적립금 환불 · 거절하면 타임라인에서 취소 요청 직전 단계로 복귀 · 취소 승인 · 거절은 상태 · 타임라인 · 구매자 알림을 한 트랜잭션으로 · 단계 넘기기 알림은 응답을 먼저 보낸 뒤 `BackgroundTasks`로 (알림이 실패해도 상태 변경은 유지, 로그만 남김) · 관리자가 아니면 404로 숨김
 - **API**
 
@@ -469,7 +533,14 @@ flowchart LR
   repo -->|"알림 저장 실패"| rollback["rollback<br/>답변도 저장 안 됨"]
 ```
 
-- **관련 파일**: 화면 `components/products/QuestionsPanel.tsx` · `QuestionEntries.tsx` · `QuestionDeleteButton.tsx` · `app/admin/questions/` · 클라이언트 `lib/questions.ts` · API `backend/src/questions/presentation/` · 서비스 `backend/src/questions/application/` · 도메인 `backend/src/questions/domain/` · 저장소 `backend/src/questions/infrastructure/`
+- **관련 파일**: 화면 [components/products/QuestionsPanel.tsx](components/products/QuestionsPanel.tsx) · [QuestionEntries.tsx](components/products/QuestionEntries.tsx) · [QuestionDeleteButton.tsx](components/products/QuestionDeleteButton.tsx) · [app/admin/questions/](app/admin/questions/) · 클라이언트 [lib/questions.ts](lib/questions.ts) · API [backend/src/questions/presentation/](backend/src/questions/presentation/) · 서비스 [backend/src/questions/application/](backend/src/questions/application/) · 도메인 [backend/src/questions/domain/](backend/src/questions/domain/) · 저장소 [backend/src/questions/infrastructure/](backend/src/questions/infrastructure/)
+- **핵심 코드**: 라우터 [`create_question`](backend/src/questions/presentation/router.py#L53) · [`answer_question`](backend/src/questions/presentation/router.py#L93) → 서비스 [`QuestionService.ask`](backend/src/questions/application/service.py#L97) · [`answer`](backend/src/questions/application/service.py#L138) → 도메인 [`Question.can_be_read_by`](backend/src/questions/domain/question.py#L49) · [`answer_with`](backend/src/questions/domain/question.py#L55) → 저장소 [`save_answer`](backend/src/questions/infrastructure/repositories.py#L126) · [`notify_answered`](backend/src/questions/infrastructure/repositories.py#L138)
+- **DB로 확인** (`\set uid 작성자id`, 문의 쓰기 → 관리자 답변 뒤 실행)
+  ```sql
+  SELECT id, product_id, title, is_secret, answer, answered_at FROM product_questions WHERE user_id = :uid ORDER BY id DESC LIMIT 1;
+  SELECT kind, title, href, created_at FROM notifications WHERE user_id = :uid ORDER BY id DESC LIMIT 1;  -- 답변 알림
+  ```
+  같은 문의에 다시 답변하면 **409** → `answer` · `answered_at`은 첫 답변 그대로, 알림 저장이 실패하면 답변도 rollback. 같은 규칙의 테스트: `tests/test_questions_service.py::test_second_answer_is_409_and_keeps_first` · `test_failed_notification_rolls_back_answer`
 - **업무 규칙**: 제목 1~100자 · 내용 1~500자 · 답변 1~500자 (앞뒤 공백 제외) · 비밀글은 작성자와 관리자만 내용을 보고, 다른 사람에게는 서버가 제목·내용·닉네임을 `null`로 가림 · 답변은 한 번만 (두 번째 409) · 답변이 달린 문의는 삭제할 수 없음 (409, 대화 기록 보존) · 남의 문의 삭제와 일반 사용자의 관리자 API는 404로 숨김 · 답변 저장과 작성자 알림은 한 트랜잭션
 - **API (기존 → 이번)**
 
@@ -544,11 +615,55 @@ flowchart LR
 - **트러블슈팅**: 동시에 `main.py`를 고친 팀원 PR과 충돌 → 두 `include_router` 줄을 모두 남겨 해결 · Windows 앱 제어가 `alembic.exe`를 막음 → `uv run python -m alembic`으로 실행 · 캡처 이미지가 `git add -A`에 섞여 커밋됨 → `git rm --cached` 후 `.git/info/exclude`에 등록 (PowerShell `echo`는 인코딩이 달라 `Set-Content -Encoding ascii` 사용) · 캡처에서는 Bearer 토큰이 보이는 Curl 영역을 제외
 
 ## 10. 미완료 · Mock 목록
-| 항목 | 지금 상태 | 담당 |
+| 항목 | 지금 상태 | 구분 | 다음 단계 · 이유 |
+| --- | --- | --- | --- |
+| 결제 | 가상 결제 — 결제수단만 고르고 PG 미연동, 주문·재고·적립금은 실제 DB에 저장 | 실제 API · 결제만 가상 | 발제 제외 범위 |
+| 상품 목록 · 상세 · 카테고리 | API 실패 시 [`lib/products.ts`](lib/products.ts)가 [`data/products.ts`](data/products.ts) · [`data/categories.ts`](data/categories.ts)로 폴백 (백엔드가 꺼져도 쇼핑 기본 화면 동작) | 실제 API + 장애 폴백 | 유지 |
+| FAQ | API 실패 시 [`lib/faqs.ts`](lib/faqs.ts)가 [`lib/faqFallback.ts`](lib/faqFallback.ts)(시드와 같은 내용)로 폴백 | 실제 API + 장애 폴백 | 유지 |
+| `mocks/` 폴더 | [`mocks/admin.ts`](mocks/admin.ts)만 남음. [`lib/admin.ts`](lib/admin.ts)는 `USE_MOCK = false`라 **실제 API만 사용**, mock은 백엔드 머지 전 화면 개발용 잔여 | 미사용 Mock | 정리 예정 |
+| 정적 데이터 | 키캡 · 키보드 · 데스크 룩북 테마(`data/keycaps.ts` · `data/keyboards.ts` · `data/deskLookbook.ts`) | 정적 데이터 (Mock 아님) | 유지 |
+| 비밀번호 찾기 | 메일 발송 없음 — 로컬에서는 화면에 재설정 링크를 바로 보여 주고, 배포에서는 "메일 발송 미지원" 안내만 | 메일만 미구현 | 메일 서버 연동 |
+| 레거시 `backend/app` 라우터 | `src/main.py`가 아직 `app.routers`의 `health` · `auth`(구글 · 개발용 로그인) · `products` · `faqs` · `cart` · `orders.dev_router` · `cancel_requests`(+`dev_router`) · `users` · `ai_avatar` · `gifts` · `wishlist` · `local` · `local_trades` · `trade_requests` · `reviews` · `compat` · `notifications`를 서비스 (인증은 새 `CurrentUser`로 검사, `dev_router`는 로컬 전용 · 배포 404) | 실제 API (1계층) | 다음 단계: 기능별로 `src/` 4계층 이전 |
+| 시드 | lifespan은 DB 연결 확인 · 종료만, 시드는 `uv run python -m scripts.seed`로 따로 실행 (재실행 안전, `on_conflict`) | 실제 DB | 배포 시작 스크립트와 CI에서 같은 순서(`alembic upgrade head` → `seed`)로 명시 실행 |
+| 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | 실제 연동 · 키 필요 | 유지 |
+| 알려진 문제 | 처음 clone한 뒤 `npx tsc --noEmit`이 `PageProps` 오류를 내면 `npx next typegen`을 먼저 (경로 타입 생성) | — | — |
+
+---
+
+## 11. 에러 처리 · 보안 · 테스트
+
+### 에러 처리 — 사용자에게는 한글 안내만, 자세한 원인은 서버 로그로
+| 상황 | 서버 응답 | 화면 |
 | --- | --- | --- |
-| 결제 | 가상 주문 (실제 결제 없음) | |
-| 구글 로그인 · AI 아바타 | 키가 없으면 버튼만 꺼짐 (`.env` 값 필요) | |
-| 알려진 문제 | 처음 clone한 뒤 `npx tsc --noEmit`이 `PageProps` 오류를 내면 `npx next typegen`을 먼저 (경로 타입 생성) | |
+| 입력 형식 오류 | **422** `"비밀번호: 8자 이상 입력해 주세요."` — 공통 처리기가 한글로 바꾸고 보낸 값(비밀번호 등)은 다시 담지 않음 ([errors.py](backend/src/common/errors.py)) | 폼 아래 안내 문구 |
+| 업무 규칙 위반 | 도메인 예외 → `ERROR_STATUS_MAP` 한 곳에서 **409 · 404 · 400** + 한글 `detail` | 같은 문구 그대로 |
+| 로그인 필요 · 로그아웃한 토큰 | **401** | "로그인이 필요합니다" + 로그인 안내 ([lib/api.ts](lib/api.ts)) |
+| 남의 데이터 · 일반 사용자의 관리자 API | **404** (있다는 사실도 숨김) | 찾을 수 없음 안내 |
+| 예상 못한 서버 오류 | **500** — 스택·SQL은 응답에 없음 | "요청을 처리하지 못했습니다" |
+| 화면이 깨짐 · 없는 주소 | — | 공통 GAME OVER 화면: [error.tsx](app/error.tsx) · [global-error.tsx](app/global-error.tsx) (레이아웃까지 깨질 때) · [not-found.tsx](app/not-found.tsx) + 상품 · 주문 · 공지 상세 404 |
+
+서버 로그에는 메서드 · 경로 · 상태 · 처리 시간만 남기고, 422는 필드 이름과 오류 종류만 남겨요 (입력값 · 토큰 · 쿼리스트링 X).
+
+### 보안
+- **비밀번호**: bcrypt 해시만 저장 (8자 이상 · 72바이트 이하). 로그인 실패는 "없는 이메일"과 "틀린 비밀번호"를 구분하지 않음
+- **토큰**: JWT(HS256)에 `sub` · `jti` · `exp`(7일)만 — 개인정보는 넣지 않음. 매 요청 `CurrentUser`가 서명 · 만료 · 블랙리스트 확인
+- **로그아웃**: `jti`를 `token_blacklist`에 저장 → 같은 토큰 **401**. 만료된 줄은 `scripts.purge_blacklist`로 정리
+- **인가**: `AdminUser`가 관리자 역할 확인, 서비스가 "내 주문 · 내 문의인지" 확인 — 아니면 404
+- **쿠키**: `pm_session`은 `HttpOnly` · `SameSite=Lax` · 배포에서 `Secure`
+- **배포 안전장치**: 기본 JWT 비밀값이거나 32자 미만이면 서버가 시작을 거부 · 개발용 로그인 · `/api/dev/*`는 배포에서 404 · CORS는 `FRONTEND_URL`만 허용 · `.env`는 git 제외
+- **비밀번호 재설정**: 30분짜리 토큰, 한 번 쓰면 무효(비밀번호 지문). 메일 서버가 없어 배포에서는 "메일을 보내지 않아요"라고 그대로 안내
+- **주문 CSV**: `= + - @`로 시작하는 칸은 엑셀 수식으로 실행되지 않게 처리
+
+### 테스트
+| 종류 | 무엇을 | 예 |
+| --- | --- | --- |
+| 도메인 단위 | DB 없이 규칙만 (배송비 · 상태 전이 · 비밀번호 규칙) | `test_orders_domain.py` · `test_admin_orders_domain.py` |
+| 서비스 · 롤백 | 중간에 실패하면 주문 · 재고 · 알림이 모두 되돌아가는지 | `test_orders_service.py` · `test_admin_orders_service.py` · `test_questions_service.py` |
+| API | 정상 · 422 · 404 · 409 · 401(로그아웃 토큰) 응답과 문구 | `test_auth_api.py` · `test_orders_api.py` · `test_error_messages.py` |
+| 동시성 | 같은 사람의 동시 주문이 한 건만 되는지 | `test_orders_duplicate_race.py` |
+| 프론트 | `utils/` 순수 함수 (가격 표시 등) | `tests/*.test.mjs` (268개) |
+
+백엔드 pytest 720여 개 · 프론트 268개를 PR마다 CI가 새 PostgreSQL에서 돌리고, 통과해야만 `main`에 머지돼요. 직접 돌리기: `backend/`에서 `uv run pytest --ignore=tests/test_seed_demo.py`, 루트에서 `npm test`.
 
 ---
 

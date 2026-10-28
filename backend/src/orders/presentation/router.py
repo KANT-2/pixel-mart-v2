@@ -17,7 +17,7 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 def _service(db: DbSession) -> OrderService:
-    return OrderService(OrderRepository(db), db, PointRepository(db), CouponRepository(db))
+    return OrderService(OrderRepository(db), db, PointRepository(db), CouponRepository(db), AddressRepository(db))
 
 
 @router.post("", response_model=OrderOut, status_code=status.HTTP_201_CREATED, summary="장바구니로 주문 (가상 결제)")
@@ -33,15 +33,8 @@ async def create_order(body: OrderCreate, user: CurrentUser, db: DbSession) -> O
         payment_method=body.payment_method,
     )
     order_id = await service.place_order(user.id, shipping, body.points_used, body.user_coupon_id)
-    if body.save_address and body.phone and body.postal_code:
-        # 주문은 이미 확정 — 배송지 저장이 실패해도 주문에는 영향 없게 따로 commit
-        try:
-            await AddressRepository(db).save_from_order(
-                user.id, body.recipient_name, body.phone, body.postal_code, body.address, body.address_detail
-            )
-            await db.commit()
-        except Exception:
-            await db.rollback()
+    if body.save_address:
+        await service.save_address_from_order(user.id, shipping)
     order = await service.get_order(user.id, order_id)
     if order is None:  # commit 직후 조회이므로 DB 이상 외에는 도달하지 않는다.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "주문을 찾을 수 없어요.")
