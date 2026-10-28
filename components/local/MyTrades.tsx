@@ -53,9 +53,9 @@ function AccountTrades({ created }: AccountTradesProps) {
     {created && <p role="status" className="rounded-xl border border-mint/30 bg-panel p-4 text-sm text-mint">글을 등록했어요. 내 글과 매칭을 확인해 보세요.</p>}
     {notice && <p role="status" className="text-sm text-mint">{notice}</p>}
     {error && <p role="alert" className="text-sm text-pink">{error}</p>}
+    {/* 처리할 일(받은 신청)이 먼저 보이게 맨 위에 — 내 글 · 매칭을 못 불러와도 신청함은 따로 보인다 */}
+    <TradeRequestInbox onChanged={() => void result.refresh()} />
     {result.error ? <LocalError message={result.error} onRetry={() => void result.refresh()} busy={pending !== null} /> : result.loading && !result.data ? <LocalSkeleton label="내 글과 매칭 불러오는 중" /> : result.data && <>
-      {/* 처리할 일(받은 신청)이 먼저 보이게 맨 위에 */}
-      <TradeRequestInbox onChanged={() => void result.refresh()} />
       <section aria-labelledby="my-trades-title"><h2 id="my-trades-title" className="mb-5 text-xl font-bold">내 글 · {result.data.posts.length}개</h2>
         {result.data.posts.length ? <ul aria-label="내 거래글" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{result.data.posts.map((post) => <li key={post.id}><TradeCard post={post} actions={!post.isMine ? null : post.hiddenByAdmin
             // 관리자가 숨긴 글은 내가 숨긴 글과 구분해 이유를 알려 준다 (상태는 못 바꿈)
