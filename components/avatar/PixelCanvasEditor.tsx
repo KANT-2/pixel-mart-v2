@@ -44,7 +44,7 @@ export default function PixelCanvasEditor({ initial = null, disabled = false, on
   const [color, setColor] = useState<string>("#14102a");
   const [mirror, setMirror] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef<{ last: [number, number] | null; grid: PixelGridData } | null>(null);
+  const drawing = useRef<{ last: [number, number] | null; grid: PixelGridData; erase: boolean; pointerId: number } | null>(null);
   // 큰 격자(최대 256칸)도 화면에 들어오게 한 칸 최소 2px (256칸이면 512px, 좁으면 화면 폭에 맞춰 줄어듦)
   const cell = Math.max(2, Math.floor(384 / Math.max(grid.cols, grid.rows)));
 
@@ -108,31 +108,33 @@ export default function PixelCanvasEditor({ initial = null, disabled = false, on
   const ink = () => (tool === "eraser" ? TRANSPARENT : hexToRgba(color));
 
   const down = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (disabled) return;
+    if (disabled || (event.button !== 0 && event.button !== 2)) return;
+    const erase = event.button === 2 || tool === "eraser";
     const [x, y] = cellAt(event);
-    if (tool === "picker") {
+    if (!erase && tool === "picker") {
       const picked = getPixel(grid, x, y);
       if (picked[3]) { setColor(rgbaToHex(picked)); setTool("pen"); }
       return;
     }
-    if (tool === "fill") { commit(floodFill(grid, x, y, ink()), grid); return; }
+    if (!erase && tool === "fill") { commit(floodFill(grid, x, y, ink()), grid); return; }
     event.currentTarget.setPointerCapture(event.pointerId);
-    drawing.current = { last: [x, y], grid };
-    const color = ink();
+    drawing.current = { last: [x, y], grid, erase, pointerId: event.pointerId };
+    const color = erase ? TRANSPARENT : ink();
     setHistory((h) => ({ ...h, grid: paint(h.grid, x, y, color, mirror) }));
   };
   const move = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const stroke = drawing.current;
-    if (!stroke?.last) return;
+    if (!stroke?.last || stroke.pointerId !== event.pointerId) return;
     const [x, y] = cellAt(event);
     if (x === stroke.last[0] && y === stroke.last[1]) return;
-    const color = ink();
+    const color = stroke.erase ? TRANSPARENT : ink();
     const [lx, ly] = stroke.last;
     setHistory((h) => ({ ...h, grid: lineCells(lx, ly, x, y).reduce((g, [cx, cy]) => paint(g, cx, cy, color, mirror), h.grid) }));
     stroke.last = [x, y];
   };
-  const up = () => {
+  const up = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const stroke = drawing.current;
+    if (stroke?.pointerId !== event.pointerId) return;
     drawing.current = null;
     // 한 획(누른 순간~뗀 순간)을 되돌리기 한 번으로
     if (stroke) setHistory((h) => h.grid === stroke.grid ? h : { ...h, past: [...h.past.slice(-49), stroke.grid], future: [] });
@@ -162,6 +164,7 @@ export default function PixelCanvasEditor({ initial = null, disabled = false, on
       <div className="pixel-panel w-fit max-w-full min-w-0 shrink overflow-auto p-3">
         <canvas ref={canvas} role="img" aria-label={`픽셀 캔버스 ${grid.cols}×${grid.rows}${isEmpty(grid) ? " (비어 있음)" : ""}`}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+          onContextMenu={(event) => event.preventDefault()}
           className={`block max-w-full touch-none [image-rendering:pixelated] ${disabled ? "opacity-60" : "cursor-crosshair"}`} />
       </div>
       <fieldset disabled={disabled} className="shrink-0">
