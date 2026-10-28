@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocalResource } from "@/components/local/useLocalResource";
 import { LocalError, LocalSkeleton } from "@/components/local/LocalStates";
 import { ExchangeDialog, TradeProgress } from "@/components/local/TradeExchange";
@@ -16,6 +16,8 @@ const STATUS: Record<TradeRequestStatus, { label: string; tone: string }> = {
   cancelled: { label: "취소됨", tone: "border-line text-dim" },
 };
 
+const REFRESH_MS = 15_000;
+
 interface TradeRequestInboxProps {
   /** 수락하면 내 글 상태가 바뀌므로 위쪽 목록도 다시 불러온다 */
   onChanged: () => void;
@@ -28,6 +30,16 @@ export default function TradeRequestInbox({ onChanged }: TradeRequestInboxProps)
   const result = useLocalResource(load);
   const [opened, setOpened] = useState<ApiTradeRequest | null>(null);
   const close = useCallback(() => setOpened(null), []);
+  const { refresh } = result;
+
+  // 이웃이 새로 보낸 신청이 새로고침 없이 보이도록 — 화면을 보고 있는 동안 15초마다, 창으로 돌아오면 바로
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === "visible") void refresh(); };
+    const timer = setInterval(again, REFRESH_MS);
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => { clearInterval(timer); window.removeEventListener("focus", again); document.removeEventListener("visibilitychange", again); };
+  }, [refresh]);
 
   async function changed(next: ApiTradeRequest) {
     setOpened(next);

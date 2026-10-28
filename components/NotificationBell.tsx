@@ -7,7 +7,7 @@ import PixelIcon, { type PixelIconName } from "@/components/PixelIcon";
 import { notificationApi } from "@/lib/notifications";
 import type { ApiNotification } from "@/types/api";
 
-const POLL_MS = 30_000;
+const POLL_MS = 15_000; // 교환 신청 · 선물이 너무 늦게 보이지 않게
 const iconButton = "relative grid size-10 shrink-0 place-items-center btn-pixel transition-colors hover:border-violet/40";
 
 /** 알림 종류 → 픽셀 아이콘 */
