@@ -4,14 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import PixelStar from "@/components/PixelStar";
-import { ApiError } from "@/lib/api";
 import { getNotice, getNotices } from "@/lib/notices";
 import type { NoticeSummary } from "@/types/notice";
 import { adjacentNotices, formatNoticeDate } from "@/utils/notices";
 
+// 게시 중인 공지는 빌드 때 미리 만들어 첫 클릭부터 바로 보이게 한다.
 // 공지 API가 꺼져 있어도(빌드 환경 등) 상세 경로를 최소 1개 미리 만들어 둔다
-export function generateStaticParams() {
-  return [{ id: "1" }];
+export async function generateStaticParams() {
+  const list = await getNotices({ size: 60 }).catch(() => null);
+  const ids = list?.items.map((notice) => ({ id: String(notice.id) })) ?? [];
+  return ids.length > 0 ? ids : [{ id: "1" }];
 }
 
 export default function NoticeDetailPage({ params }: PageProps<"/notices/[id]">) {
@@ -29,16 +31,10 @@ async function NoticeDetailContent({ params }: { params: PageProps<"/notices/[id
   const noticeId = Number(id);
   if (!Number.isInteger(noticeId) || noticeId <= 0) notFound(); // 숫자가 아니면 바로 "없는 공지" 화면
 
-  let notice;
-  try {
-    notice = await getNotice(noticeId);
-  } catch (cause) {
-    if (cause instanceof ApiError && cause.status === 404) notFound(); // 삭제됐거나 숨김 상태
-    throw cause;
-  }
-
-  // 이전/다음 글 계산용 — 공지 수가 많지 않은 전제로 한 번에 넉넉히 받아온다(60개 넘으면 범위 밖 글은 못 찾음)
-  const list = await getNotices({ size: 60 });
+  // 본문과 이전/다음 글 계산용 목록을 동시에 받는다(차례로 받으면 백엔드 왕복이 두 번 쌓임).
+  // 목록은 공지 수가 많지 않은 전제로 한 번에 넉넉히 받아온다(60개 넘으면 범위 밖 글은 못 찾음)
+  const [notice, list] = await Promise.all([getNotice(noticeId), getNotices({ size: 60 })]);
+  if (!notice) notFound(); // 삭제됐거나 숨김 상태
   const { older, newer } = adjacentNotices(list.items, noticeId);
 
   return (
