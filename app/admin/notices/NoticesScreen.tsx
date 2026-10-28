@@ -1,7 +1,7 @@
 "use client"; // 상태·이벤트가 많아 전체를 클라이언트 컴포넌트로 만든다 (#101 ProductsScreen과 같은 구조)
 
 import { useSearchParams } from "next/navigation"; // 주소 쿼리 읽기(페이지 번호)
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import AdminTable, { type AdminTableColumn } from "@/components/admin/AdminTable"; // 공용 표
 import AdminPagination from "@/components/admin/Pagination"; // 공용 페이지 이동 (수정하지 않고 그대로 재사용)
 import ConfirmDialog from "@/components/admin/ConfirmDialog"; // 공용 확인창 (수정하지 않고 그대로 재사용)
@@ -32,6 +32,10 @@ export default function NoticesScreen() {
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // 목록 아래쪽 글의 "수정"을 눌러도 폼(화면 위쪽)이 바로 보이게 스크롤한다 (AdminBadgesBoard와 같은 방식)
+  useEffect(() => { if (formState) formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [formState]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,17 +134,19 @@ export default function NoticesScreen() {
         </div>
       )}
 
-      {formState && (
-        <NoticeForm
-          // 폼이 열린 채로 다른 공지의 "수정"을 눌러도 내용이 안 바뀌던 문제 — NoticeForm의 입력값은
-          // useState로 한 번만 초기화되니, 대상(id)이 바뀌면 key로 아예 새로 만들어서 다시 채운다
-          key={formState.mode === "edit" ? formState.notice.id : "create"}
-          mode={formState.mode}
-          notice={formState.mode === "edit" ? formState.notice : undefined}
-          onSaved={onSaved}
-          onCancel={() => setFormState(null)}
-        />
-      )}
+      <div ref={formRef} className="scroll-mt-24">
+        {formState && (
+          <NoticeForm
+            // 폼이 열린 채로 다른 공지의 "수정"을 눌러도 내용이 안 바뀌던 문제 — NoticeForm의 입력값은
+            // useState로 한 번만 초기화되니, 대상(id)이 바뀌면 key로 아예 새로 만들어서 다시 채운다
+            key={formState.mode === "edit" ? formState.notice.id : "create"}
+            mode={formState.mode}
+            notice={formState.mode === "edit" ? formState.notice : undefined}
+            onSaved={onSaved}
+            onCancel={() => setFormState(null)}
+          />
+        )}
+      </div>
 
       {data && (
         data.items.length === 0 ? (
