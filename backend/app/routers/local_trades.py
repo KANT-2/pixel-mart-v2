@@ -1,5 +1,6 @@
 """PIXEL LOCAL ③ 거래·HAVE/WANT 교환 · 매칭 · Wish Map (이번 범위는 Prototype/Mock)"""
 
+from datetime import UTC, datetime
 from math import ceil
 from typing import Annotated, Literal
 
@@ -7,8 +8,8 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
 from app.deps import ActiveUser, CurrentUser, DbSession, OptionalUser
-from app.models import Interest, Product, TradePost, User, Wishlist, WishSample
-from app.schemas.common import Page
+from app.models import Interest, Product, TradePost, TradeRequest, User, Wishlist, WishSample
+from app.schemas.common import Message, Page
 from app.schemas.local import (
     InterestOut,
     TradeAuthorOut,
@@ -325,3 +326,41 @@ async def get_trade(post_id: int, db: DbSession, viewer: OptionalUser):
     if post is None or (post.status != "open" and post.user_id != viewer_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "거래글을 찾을 수 없습니다.")
     return post_out(post, await load_tree(db), viewer_id)
+
+
+@router.delete("/trades/{post_id}", response_model=Message, summary="내 글 삭제 (교환 진행 중·완료 기록이 있으면 불가)")
+async def delete_trade(post_id: int, user: CurrentUser, db: DbSession):
+    post = await db.get(TradePost, post_id)
+    if post is None or post.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "거래글을 찾을 수 없습니다.")
+    if post.hidden_by_admin:  # 운영 정책으로 숨긴 글은 기록으로 남긴다
+        raise HTTPException(status.HTTP_403_FORBIDDEN, HIDDEN_BY_ADMIN_MESSAGE)
+    linked = list(
+        await db.scalars(
+            select(TradeRequest).where(or_(TradeRequest.post_id == post.id, TradeRequest.offer_post_id == post.id))
+        )
+    )
+    if any(r.status in ("accepted", "completed") for r in linked):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "교환이 진행 중이거나 끝난 글은 삭제할 수 없어요. 대신 숨기기를 써 주세요."
+        )
+    # 대기 중인 신청은 상대에게 알리고 정리한다 (내 글에 온 신청 · 내 물건을 걸어 보낸 신청)
+    now = datetime.now(UTC)
+    for req in linked:
+        if req.status != "pending":
+            continue
+        other_id = req.requester_id if req.post_id == post.id else req.post.user_id
+        req.status, req.decided_at = "cancelled", now
+        await notifications.notify(
+            db,
+            other_id,
+            "trade_cancelled",
+            "교환 신청이 취소됐어요",
+            f"{post.item_name} 글이 삭제되어 교환 신청이 취소됐어요.",
+            notifications.TRADES_HREF,
+            f"tr:{req.id}:deleted",
+        )
+    await db.flush()
+    await db.delete(post)
+    await db.commit()
+    return Message(message="글을 삭제했어요.")

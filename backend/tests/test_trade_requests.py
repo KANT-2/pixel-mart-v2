@@ -244,3 +244,55 @@ async def test_cancel_by_requester_only(users):
     assert res["status"] == "cancelled"
     assert (await me.post(f"/api/local/trade-requests/{req['id']}/cancel")).status_code == 400
     assert (await owner.post(f"/api/local/trade-requests/{req['id']}/accept")).status_code == 400
+
+
+# 내 글 삭제 · 아직 못 받았어요
+async def notices(c: AsyncClient, kind: str) -> list[dict]:
+    return [n for n in (await c.get("/api/notifications")).json()["items"] if n["kind"] == kind]
+
+
+async def test_delete_my_post_cancels_pending_requests(users):
+    owner = await users("treq-del-owner@pixelmart.test")
+    me = await users("treq-del-me@pixelmart.test")
+    target = await have(owner, "삭제할 키링")
+    mine = await have(me, "보낼 키링")
+    await me.post("/api/local/trade-requests", json={"postId": target["id"], "offerPostId": mine["id"]})
+
+    assert (await me.delete(f"/api/local/trades/{target['id']}")).status_code == 404  # 남의 글
+    res = await owner.delete(f"/api/local/trades/{target['id']}")
+    assert (res.status_code, res.json()["message"]) == (200, "글을 삭제했어요.")
+    assert (await owner.get(f"/api/local/trades/{target['id']}")).status_code == 404
+    assert (await me.get("/api/local/trade-requests?box=sent")).json() == []  # 신청도 함께 정리
+    assert len(await notices(me, "trade_cancelled")) == 1
+
+
+async def test_cannot_delete_post_in_progress(users):
+    owner = await users("treq-del2-owner@pixelmart.test")
+    me = await users("treq-del2-me@pixelmart.test")
+    target = await have(owner, "진행 중 키링")
+    mine = await have(me, "진행 중 보낼 키링")
+    req = (await me.post("/api/local/trade-requests", json={"postId": target["id"], "offerPostId": mine["id"]})).json()
+    await owner.post(f"/api/local/trade-requests/{req['id']}/accept")
+
+    for c, post in ((owner, target), (me, mine)):
+        res = await c.delete(f"/api/local/trades/{post['id']}")
+        assert res.status_code == 400 and "숨기기" in res.json()["detail"]
+
+
+async def test_not_received_notifies_other_once_a_day(users):
+    owner = await users("treq-nudge-owner@pixelmart.test")
+    me = await users("treq-nudge-me@pixelmart.test")
+    target = await have(owner, "알림 키링")
+    mine = await have(me, "알림 보낼 키링")
+    req = (await me.post("/api/local/trade-requests", json={"postId": target["id"], "offerPostId": mine["id"]})).json()
+    url = f"/api/local/trade-requests/{req['id']}/not-received"
+    assert (await me.post(url)).status_code == 400  # 수락 전에는 못 보냄
+
+    await owner.post(f"/api/local/trade-requests/{req['id']}/accept")
+    res = await me.post(url)
+    assert (res.status_code, res.json()["message"]) == (200, "상대에게 아직 받지 못했다고 알렸어요.")
+    assert len(await notices(owner, "trade_not_received")) == 1
+    assert (await me.post(url)).status_code == 429  # 하루 한 번
+
+    await me.post(f"/api/local/trade-requests/{req['id']}/received")
+    assert (await me.post(url)).status_code == 400  # 이미 받았다고 알린 뒤에는 못 보냄
